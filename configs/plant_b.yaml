@@ -1,0 +1,70 @@
+# A second, different plant: 30 stations, 4 zones, bigger inter-zone
+# buffers, a 3-variant mix, and a mixed sensor maturity (older body shop
+# with several dark and checklist-only stations). Runs on the same code
+# with no changes -- the "extend to other sites" argument.
+plant:
+  name: Plant B
+  site: Chakan
+  area: Assembly Line 2
+
+libraries:
+  station_types:
+    hemming:   {sensors: cycle_only, params: [press_force]}
+    sealer:    {sensors: checklist, params: [bead_width]}
+    chassis:   {sensors: plc_full, params: [torque]}
+    eol_test:  {sensors: plc_full, params: [], inspection: true}
+
+line:
+  id: L2
+  takt_s: 75
+  cv: 0.06
+  seed: 7
+  default_buffer: 3
+  zones:
+    - name: body
+      stations:
+        - {id: B01, type: robot_weld, cycle_s: 70}
+        - {id: B02, type: robot_weld, cycle_s: 72}
+        - {id: B03, type: hemming,    cycle_s: 71}
+        - {id: B04, type: robot_weld, cycle_s: 69, sensors: dark}
+        - {id: B05, type: robot_weld, cycle_s: 73}
+        - {id: B06, type: hemming,    cycle_s: 70, sensors: dark}
+        - {id: B07, type: robot_weld, cycle_s: 72}
+        - {id: B08, type: inspection, cycle_s: 68}
+    - name: paint
+      stations:
+        - {id: P01, type: sealer,      cycle_s: 70, buffer_before: 12}
+        - {id: P02, type: paint_booth, cycle_s: 72}
+        - {id: P03, type: paint_booth, cycle_s: 73}
+        - {id: P04, type: paint_booth, cycle_s: 71}
+        - {id: P05, type: inspection,  cycle_s: 69}
+    - name: trim
+      stations:
+        - {id: T01, type: manual_fit, cycle_s: 71, buffer_before: 8}
+        - {id: T02, type: manual_fit, cycle_s: 72}
+        - {id: T03, type: manual_fit, cycle_s: 70}
+        - {id: T04, type: manual_fit, cycle_s: 73, sensors: plc_full}
+        - {id: T05, type: manual_fit, cycle_s: 69}
+        - {id: T06, type: manual_fit, cycle_s: 72}
+        - {id: T07, type: manual_fit, cycle_s: 71}
+        - {id: T08, type: inspection, cycle_s: 70}
+    - name: chassis
+      stations:
+        - {id: C01, type: chassis,    cycle_s: 72, buffer_before: 4}
+        - {id: C02, type: chassis,    cycle_s: 71}
+        - {id: C03, type: chassis,    cycle_s: 73}
+        - {id: C04, type: manual_fit, cycle_s: 70}
+        - {id: C05, type: chassis,    cycle_s: 72}
+        - {id: C06, type: manual_fit, cycle_s: 69}
+        - {id: C07, type: chassis,    cycle_s: 71}
+        - {id: C08, type: eol_test,   cycle_s: 73}
+        - {id: C09, type: eol_test,   cycle_s: 70}
+
+variants:
+  hatch: {share: 0.5}
+  sedan: {share: 0.3, cycle_mult: {T02: 1.03, C04: 1.02}}
+  suv:   {share: 0.2, cycle_mult: {T02: 1.06, T06: 1.05, C04: 1.05}}
+
+scenario:
+  perturbations:
+    - {station: T04, at_s: 3600, ramp_s: 1800, cycle_s: 95}

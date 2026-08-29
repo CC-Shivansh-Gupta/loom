@@ -58,7 +58,11 @@ Built-in libraries can be extended or overridden per plant file.
 
 1. Deterministic serial line, pass-through sensors, mirror twin, evaluator.
 2. Stochastic cycles, ramp perturbations, trend forecaster with false-alarm guards, scorecard.
-3. Config libraries + `extends`, sensor profiles that filter, model variants, role views.  ← here
-4. Dark-station inference (soft sensor for flow state).
-5. Process parameters, drift, latent defects, build-record trace, targeted hold.
-6. Mitigations, evaluator over many runs, UI.
+3. Config libraries + `extends`, sensor profiles that filter, model variants, role views, second plant.  ← here
+4. Dark-station interval inference (soft sensor for flow state), value-of-information ranking.
+5. Process parameters, EWMA/CUSUM drift, latent defects, inspection outcomes, build-record trace, targeted hold, quality view.
+6. Mitigations as recommendations with expected effect, alert grouping, maintenance view.
+7. Multi-run evaluation harness, calibration curve, active-period cross-check, shifting bottlenecks.
+8. Web UI, leadership view with ROI model.
+
+Full mapping to the brief: `docs/solution_design.md`.
