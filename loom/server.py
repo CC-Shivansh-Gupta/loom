@@ -20,10 +20,12 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel
 
 from .live import LiveSim
+from .store import Store
 
 WEB = Path(__file__).resolve().parent.parent / "web"
 app = FastAPI(title="Loom control room")
-sim = LiveSim("healthy.yaml")
+store = Store(WEB / "loom.db")
+sim = LiveSim("healthy.yaml", store=store)
 
 
 class Control(BaseModel):
@@ -127,6 +129,37 @@ async def recording(name: str):
     return FileResponse(p)
 
 
+class Ack(BaseModel):
+    station: str
+    verdict: str            # confirm | dismiss
+    note: str = ""
+    actor: str = "operator"
+
+
+@app.post("/api/ack")
+async def ack(body: Ack):
+    try:
+        return sim.acknowledge(body.station, body.verdict, body.note, body.actor)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+
+
+@app.post("/api/report/{persona}")
+async def report(persona: str):
+    try:
+        return await asyncio.get_event_loop().run_in_executor(None, sim.report, persona)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+
+
+@app.get("/api/audit")
+async def audit() -> dict:
+    st = getattr(sim, "store", None)
+    if st is None:
+        return {"rows": [], "counts": {}}
+    return {"rows": st.audit_rows(), "counts": st.counts(), "reports": st.reports(limit=10)}
+
+
 @app.get("/api/station/{sid}")
 async def station(sid: str) -> dict:
     return sim.station_detail(sid)
@@ -162,13 +195,18 @@ def main() -> None:
     ap.add_argument("--factoryio", metavar="MAP", help="read a Factory I/O scene over Modbus/TCP instead of simulating")
     ap.add_argument("--time-scale", type=float, default=None, help="sim seconds per real second (fake factory)")
     ap.add_argument("--modbus-port", type=int, default=None, help="override the map's Modbus port (fake factory uses 5020)")
+    ap.add_argument("--store", default=str(WEB / "loom.db"), help="SQLite path for events, snapshots, audit, reports")
     args = ap.parse_args()
-    global sim
+    global sim, store
     if args.factoryio:
         from .factoryio import ExternalSim
         sim = ExternalSim(args.factoryio, args.time_scale, args.modbus_port)
     else:
-        sim.load_named(args.config)
+        if args.store != store.path:
+            store = Store(args.store)
+            sim = LiveSim(args.config, store=store)
+        else:
+            sim.load_named(args.config)
     uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
 
 

@@ -25,10 +25,13 @@ CONFIG_DIR = Path(__file__).resolve().parent.parent / "configs"
 
 
 class LiveSim:
-    def __init__(self, config: str = "healthy.yaml") -> None:
+    SNAPSHOT_EVERY_S = 60.0
+
+    def __init__(self, config: str = "healthy.yaml", store=None) -> None:
         self.lock = threading.RLock()
         self.speed = 30.0
         self.playing = False
+        self.store = store
         self.load_named(config)
 
     # -- lifecycle --------------------------------------------------------
@@ -53,11 +56,44 @@ class LiveSim:
             self._events_sent = 0
             self._holds_sent = 0
             self._drifts_sent = 0
+            self._stored_events = 0
+            self._next_snapshot = 0.0
             self.injections: list[dict] = []
             self.recording: dict | None = None
+            if self.store is not None:
+                self.store.start_run(source, text)
+                self.sensors.subscribers.append(self.store.log_event)   # what the twin saw
+                self.store.audit("load", {"source": source, "stations": len(cfg.stations)}, t=0.0)
 
     def reset(self) -> None:
+        if self.store is not None:
+            self.store.audit("reset", {"source": self.source}, t=self.plant.t)
         self.load_yaml(self.yaml_text, self.source)
+
+    def report(self, persona: str, provider=None) -> dict:
+        """AI report grounded on a stored, content-hashed evidence pack."""
+        from . import evidence, llm, narrate
+        prov = provider or llm.get_provider()
+        with self.lock:
+            sc = bottleneck_scorecard(self.plant, self.twin)
+            cont = containment_scorecard(self.plant, self.twin)
+            pack = evidence.pack(self.twin, self.sensors.coverage(), sc, cont, voi.rank(self.cfg, self.plant, self.twin))
+            pack["ai_telemetry"] = llm.telemetry_summary()
+            t = self.plant.t
+        n_before = len(llm.TELEMETRY)
+        text = narrate.report(persona, pack, prov)
+        call = llm.TELEMETRY[-1] if len(llm.TELEMETRY) > n_before else None
+        out = {"persona": persona, "text": text, "provider": prov.name}
+        if self.store is not None:
+            eid, digest = self.store.save_evidence(t, pack)
+            usage = None if call is None else {"input_tokens": call.input_tokens, "output_tokens": call.output_tokens,
+                                               "cost_usd": call.cost_usd, "latency_s": call.latency_s}
+            prompt = narrate.SYSTEM + json.dumps(pack, sort_keys=True)
+            res = self.store.save_report(eid, persona, text, prov.name, call.model if call else "-", prompt, usage)
+            out.update(res, evidence_sha256=digest)
+            self.store.audit("report", {"persona": persona, "report_id": res["report_id"],
+                                        "grounded": res["grounded"]}, actor="loom", t=t)
+        return out
 
     def step(self, real_dt: float) -> None:
         if not self.playing:
@@ -67,6 +103,34 @@ class LiveSim:
             self.plant.run(self.t)
             if self.recording is not None:
                 self._capture()
+            if self.store is not None:
+                self._persist()
+
+    def _persist(self) -> None:
+        """Twin events and a belief snapshot every minute, into the store."""
+        st = self.store
+        log = self.twin.log
+        q = self.twin.quality
+        while self._stored_events < len(log):
+            x = log[self._stored_events]
+            st.log_twin_event(x.t, x.action, x.alert.station, str(x),
+                              {"eta_s": x.alert.eta_s, "confidence": x.alert.confidence, "cause": x.cause})
+            self._stored_events += 1
+        n_q = getattr(self, "_stored_quality", 0)
+        items = [("drift", a.t, a.station, str(a)) for a in q.drift_log] + \
+                [("hold", h.t, h.station, str(h)) for h in q.holds]
+        for kind, t, station, text in items[n_q:]:
+            st.log_twin_event(t, kind, station, text)
+        self._stored_quality = len(items)
+        if self.plant.t >= self._next_snapshot:
+            self.twin.refresh()
+            st.snapshot(self.plant.t, {
+                "states": {sid: b.state.value for sid, b in self.twin.stations.items()},
+                "provenance": {sid: b.state.source for sid, b in self.twin.stations.items()},
+                "buffers": {sid: tb.value for sid, tb in self.twin.buffers.items()},
+                "active_alerts": list(self.twin.active), "exited": self.twin.exited})
+            self._next_snapshot = self.plant.t + self.SNAPSHOT_EVERY_S
+            st.flush()
 
     # -- recording ----------------------------------------------------------
     STEP_S = 10.0
@@ -75,6 +139,8 @@ class LiveSim:
     def start_recording(self, name: str | None = None) -> dict:
         with self.lock:
             name = name or f"{self.cfg.name}-{int(self.plant.t)}s"
+            if self.store is not None:
+                self.store.audit("record:start", {"name": name}, t=self.plant.t)
             self.recording = {"name": name, "t0": self.plant.t, "frames": [], "personas": {},
                               "next_frame": self.plant.t, "next_persona": self.plant.t,
                               "events_from": len(self.twin.log), "drifts_from": len(self.twin.quality.drift_log),
@@ -124,6 +190,8 @@ class LiveSim:
             story = {safe: {"title": r["name"], "text": "Recorded from the live control room. "
                      + "; ".join(e["text"] for e in events if e["kind"] == "inject")}}
             (RECORDINGS / f"{safe}.html").write_text(bundle({safe: data}, story))
+            if self.store is not None:
+                self.store.audit("record:stop", {"name": safe, "frames": len(r["frames"])}, t=self.plant.t)
             return {"name": safe, "frames": len(r["frames"]), "minutes": round(hours * 60, 1),
                     "html": f"/recordings/{safe}.html", "json": f"/recordings/{safe}.json"}
 
@@ -179,6 +247,24 @@ class LiveSim:
                 raise ValueError(f"unknown injection {kind!r}")
             rec = {"t": round(now), "kind": kind, "station": station, "text": text}
             self.injections.append(rec)
+            if self.store is not None:
+                self.store.audit(f"inject:{kind}", {"station": station, **kw, "text": text}, t=now)
+            return rec
+
+    def acknowledge(self, station: str, verdict: str, note: str = "", actor: str = "operator") -> dict:
+        """Operator feedback on an alert: confirm / dismiss. Recorded, and a
+        dismissal is fed to the forecaster as a per-station false alarm."""
+        with self.lock:
+            a = self.twin.active.get(station)
+            rec = {"t": round(self.plant.t), "station": station, "verdict": verdict, "note": note,
+                   "alert": None if a is None else str(a)}
+            if verdict == "dismiss" and station in self.twin.active:
+                self.twin.log.append(type(self.twin.log[0])(self.plant.t, "cleared", self.twin.active.pop(station))
+                                     if self.twin.log else None)
+                self.twin.feedback = getattr(self.twin, "feedback", [])
+                self.twin.feedback.append(rec)
+            if self.store is not None:
+                self.store.audit(f"ack:{verdict}", rec, actor=actor, t=self.plant.t)
             return rec
 
     # -- outputs -------------------------------------------------------------

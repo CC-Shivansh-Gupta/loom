@@ -244,12 +244,13 @@ async function renderPane(){
     <span>loom</span><span>${d.belief.state}${d.belief.vehicle?` · v${d.belief.vehicle}`:""} ${pill(d.belief.state_src)} · buffer ${d.belief.buffer}/${d.buffer_cap} ${pill(d.belief.buffer_src)}</span>
     <span>cycle</span><span>true ${d.true_cycle_now}s (nominal ${d.nominal_cycle_s}s) · loom ${d.belief.cycle==null?"no estimate":d.belief.cycle+"s "+pill("inferred")}${d.belief.slope_s_per_min!=null?` · trend ${d.belief.slope_s_per_min>=0?"+":""}${d.belief.slope_s_per_min}s/min (t=${d.belief.tstat})`:""}</span>
     <span>samples</span><span>${d.belief.measured_samples} measured, ${d.belief.inferred_samples} inferred</span>
-    <span>alert</span><span>${d.alert?`upstream blocks in ~${d.alert.eta_min} min · conf ${Math.round(d.alert.confidence*100)}% ${pill("simulated")}${d.alert.inferred_share?` · ${Math.round(d.alert.inferred_share*100)}% inferred evidence`:""}`:"none"}</span>
+    <span>alert</span><span>${d.alert?`upstream blocks in ~${d.alert.eta_min} min · conf ${Math.round(d.alert.confidence*100)}% ${pill("simulated")}${d.alert.inferred_share?` · ${Math.round(d.alert.inferred_share*100)}% inferred evidence`:""} <button id="ack_c">confirm</button> <button id="ack_d">dismiss</button>`:"none"}</span>
     <span>sensor</span><span>${d.belief.health}${d.holds.length?` · holds #${d.holds.join(", #")}`:""}</span></div>
     <div class="cap"><span>cycle time (s) — plant solid, loom dashed</span><span>takt ${m.takt_s}s</span></div><canvas class="spark" id="sp_cyc"></canvas>`;
     d.params.forEach((q,k)=>{h+=`<div class="cap"><span>${q.name} (${q.unit}) — ${q.reported?"reported":"NOT reported to loom"} · true mean now ${q.true_mean_now}</span><span>ewma ${q.ewma} · cusum ${q.cusum_lo}/${q.cusum_hi}${q.drift?" · DRIFT":""}</span></div><canvas class="spark" id="sp_p${k}"></canvas>`;});
     el.innerHTML=h;
     spark($("sp_cyc"),[{pts:d.truth_cycles,color:"#E8ECEF",width:1.2},{pts:d.belief_cycles,color:"#B388FF",dash:[4,3],dots:true}],{lines:[m.takt_s]});
+    if($("ack_c")){const ack=v=>api("/api/ack",{station:d.id,verdict:v}).then(r=>{toast({t:r.t,kind:"inject",text:`${d.id}: alert ${v}ed by operator`});renderPane();});$("ack_c").onclick=()=>ack("confirm");$("ack_d").onclick=()=>ack("dismiss");}
     d.params.forEach((q,k)=>spark($("sp_p"+k),[{pts:q.truth,color:"#E8ECEF",width:1.2},{pts:q.readings,color:"#2FB8A6",dots:true}],{lines:[q.lsl,q.usl,q.nominal]}));
     return;}
   if(p==="inject"){const opts=m.stations.map(s=>`<option value="${s.id}">${s.id} · ${s.type} · ${s.sensors}</option>`).join("");const sid=S.injSel||m.stations[Math.min(2,m.stations.length-1)].id;
@@ -271,7 +272,14 @@ async function renderPane(){
   if(p==="config"){el.innerHTML=`<h3>Line configuration</h3><p>Edit the YAML and apply: stations, zones, cycle times, buffers, sensor profiles, model variants, scheduled faults. Applying rebuilds the plant and the twin from zero.</p><textarea class="cfg" id="cfg" spellcheck="false">${m.yaml.replace(/</g,"&lt;")}</textarea><div class="row"><button id="cfg_apply" class="play">Apply</button><button id="cfg_reload">Discard</button></div><div class="err" id="cfg_err"></div>`;
     $("cfg_apply").onclick=async()=>{const r=await api("/api/load",{yaml:$("cfg").value});if(r.error){$("cfg_err").textContent=r.error;return;}$("cfg_err").textContent="";afterLoad(r.meta);};
     $("cfg_reload").onclick=()=>renderPane();return;}
-  if(p==="events"){el.innerHTML=`<h3>Log</h3><div class="events">${S.events.slice().reverse().map(e=>`<div class="${e.kind}">${fmt(e.t)}  ${e.text.replace(/^\[\s*[\d.]+\]\s*/,"").replace(/</g,"&lt;")}</div>`).join("")||"<div>nothing yet</div>"}</div>`;return;}
+  if(p==="events"){const au=await api("/api/audit");const c=au.counts||{};
+    el.innerHTML=`<h3>Audit trail</h3><p>Persisted in SQLite (${c.path||"—"}): run ${c.run_id||"—"} · ${c.events||0} events the twin received · ${c.twin_events||0} alerts/holds/drifts · ${c.snapshots||0} belief snapshots · ${c.audit||0} actions · ${c.reports||0} AI reports.</p>
+    <div class="row"><button id="rep_sup">Report: floor</button><button id="rep_q">Report: quality</button><button id="rep_m">Report: manager</button></div><div id="rep_out"></div>
+    <h3>Actions</h3><div class="events">${(au.rows||[]).map(r=>`<div class="inject">${r.t==null?"":fmt(r.t)+"  "}<b>${r.actor}</b> ${r.action} ${JSON.stringify(r.detail).replace(/</g,"&lt;").slice(0,160)}</div>`).join("")||"<div>none</div>"}</div>
+    <h3>Twin events</h3><div class="events">${S.events.slice().reverse().map(e=>`<div class="${e.kind}">${fmt(e.t)}  ${e.text.replace(/^\[\s*[\d.]+\]\s*/,"").replace(/</g,"&lt;")}</div>`).join("")||"<div>nothing yet</div>"}</div>
+    <h3>AI reports</h3><div class="events">${(au.reports||[]).map(r=>`<div class="${r.grounded?'cleared':'raised'}">#${r.id} ${r.persona} · ${r.provider}/${r.model} · evidence ${r.evidence_sha256.slice(0,10)}… · ${r.grounded?"grounded":"UNGROUNDED: "+r.unsupported.join(", ")} · $${(r.cost_usd||0).toFixed(4)}</div>`).join("")||"<div>none yet</div>"}</div>`;
+    const mk=(id,persona)=>{$(id).onclick=async()=>{$("rep_out").innerHTML="<pre>working…</pre>";const r=await api(`/api/report/${persona}`,{});$("rep_out").innerHTML=r.error?`<div class="err">${r.error}</div>`:`<p>#${r.report_id} · ${r.provider} · evidence sha ${(r.evidence_sha256||"").slice(0,12)}… · ${r.grounded?"every number traced to the evidence pack":"unsupported numbers: "+r.unsupported.join(", ")}</p><pre>${r.text.replace(/</g,"&lt;")}</pre>`;};};
+    mk("rep_sup","supervisor");mk("rep_q","quality");mk("rep_m","manager");return;}
   const txt=await fetch(`/api/view/${p}`).then(r=>r.text());el.innerHTML=`<pre>${txt.replace(/</g,"&lt;")}</pre>`;
 }
 function afterLoad(meta){S.meta=meta;S.events=[];S.history=[];S.sel=null;S.frame=null;buildScene();buildStrip();$("scenario").value=meta.source;renderPane();refreshScore();}
