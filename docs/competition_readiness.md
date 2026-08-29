@@ -97,6 +97,7 @@ improvement loop through a gate it cannot bypass** (`ai_layer.md`).
 | gated improvement loop | two proposals that raised lead time were *refused* because they broke the false-alarm budget; one accepted. The gate decides |
 | onboarding | "18 stations, takt 72 s, 4 manual, 2 dark, paint buffer 10" → a valid plant file with stated assumptions |
 | cost telemetry | tokens, latency, dollars per call on the manager view |
+| grounding and audit | every report row stores the SHA-256 of the evidence pack it was written from, the prompt hash, provider/model, cost, and a mechanical check that every number in the text occurs in the pack; every human action (injection, confirm/dismiss with a note, config load) is in an audit table with actor and line time (`data_and_audit.md`) |
 
 This matches where the market is going (2026: copilots → agents "entering the decision loop",
 Deloitte: agentic adoption 6 % → 24 %) while answering the trust question the same sources raise:

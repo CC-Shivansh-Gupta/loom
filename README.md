@@ -71,6 +71,11 @@ a WebSocket and renders the line in 3D (Three.js). Nothing is precomputed.
 - **Floor / Quality / Maint. / Mgr / Log** — the persona views and the event log, live.
 - The scorecard strip fills in as outcomes happen: warning lead once the line actually blocks, false
   alarms, holds with how many held vehicles are truly defective.
+- **Store** — everything persists to SQLite (`web/loom.db`): every event the twin received, its
+  alerts/holds/drifts, a belief snapshot per minute, an audit trail of every action (loads, resets,
+  injections, alert confirm/dismiss with actor and note), and every AI report with the content hash
+  of the evidence pack it was written from plus a mechanical grounding check. `Store.replay()`
+  rebuilds the twin from stored events and compares it to the snapshots. See `docs/data_and_audit.md`.
 - **Record** — captures the live run (frames every 10 s, persona views every minute, every alert,
   hold and injection) and, on stop, writes `web/recordings/<name>.html`: a self-contained replay page
   you can send to anyone, plus the raw JSON.
