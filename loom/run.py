@@ -8,7 +8,8 @@ import argparse
 
 from . import views, voi
 from .config import load_line
-from .evaluator import bottleneck_scorecard, inference_accuracy, state_agreement
+from .evaluator import (bottleneck_scorecard, containment_scorecard, hold_precision,
+                        inference_accuracy, state_agreement)
 from .plant import BLOCKED_STATE, BUSY, IDLE, Plant
 from .sensors import SensorLayer
 from .twin import INFERRED, MEASURED, Twin
@@ -90,6 +91,34 @@ def report(cfg, plant: Plant, sensors: SensorLayer, twin: Twin, with_voi: bool =
                          f"{_mins(s.lead_s):>7}{_mins(s.eta_error_s):>9}  {conf} {inf}")
         lines.append(f"    false alarms: {len(sc['false_alarms'])} of {sc['alerts_raised']} raised")
 
+    q = twin.quality
+    if q.drift_log or q.holds or cfg.defects:
+        lines.append("")
+        lines.append("  quality:")
+        for a in q.drift_log:
+            lines.append(f"    {a}")
+        for h in q.hypotheses[:3]:
+            lines.append(f"    hypothesis: {h}")
+        for h, tp_sure, tp_unc in hold_precision(plant, twin):
+            lines.append(f"    {h}")
+            lines.append(f"      truth: {tp_sure}/{len(h.sure)} of sure and "
+                         f"{tp_unc}/{len(h.uncertain)} of uncertain are actually defective")
+        for c in containment_scorecard(plant, twin):
+            lines.append(f"    containment scorecard '{c.defect}' (cause {c.cause_station}): "
+                         f"{c.n_defective} truly defective; {c.detected_at_inspection} caught at inspection")
+            if c.t_first_fail is not None:
+                lines.append(f"      first inspection catch at {c.t_first_fail / 60:.0f} min (the no-twin baseline)")
+            if c.t_first_hold is not None:
+                lag = "" if c.lag_s is None else f", {c.lag_s / 60:.0f} min after drift start"
+                lines.append(f"      hold at {c.t_first_hold / 60:.0f} min{lag}: {c.hold_size} vehicles "
+                             f"({c.hold_sure} sure + {c.hold_uncertain} uncertain), precision "
+                             f"{'-' if c.precision is None else f'{c.precision:.0%}'}, recall "
+                             f"{'-' if c.recall is None else f'{c.recall:.0%}'}; "
+                             f"blanket hold would be {c.blanket_size}")
+            else:
+                lines.append("      no hold issued")
+            lines.append(f"      escaped (defective, exited, never caught or held): {c.escaped}")
+
     if with_voi:
         ranking = voi.rank(cfg, plant, twin)
         if ranking:
@@ -109,6 +138,8 @@ def render_view(spec: str, cfg, plant, sensors, twin) -> str:
         return views.operator(twin, arg or cfg.ids[0])
     if role == "supervisor":
         return views.supervisor(twin)
+    if role == "quality":
+        return views.quality(twin)
     if role == "manager":
         return views.manager(twin, bottleneck_scorecard(plant, twin), sensors.coverage(),
                              voi.rank(cfg, plant, twin))

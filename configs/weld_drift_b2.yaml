@@ -1,0 +1,18 @@
+# Silent drift: B2's weld current sags from 8.5 kA towards 7.4 kA over
+# 30 minutes starting at 30 min. Cycle times are unaffected, so the flow
+# twin sees nothing. Welds below 8.0 kA are weak 80% of the time; the
+# defect is only visible at the F5 end-of-line inspection, ~11 minutes
+# and ~11 vehicles later. Loom should catch the drift at B2 by CUSUM,
+# estimate the onset, and hold exactly the vehicles built since.
+extends: healthy.yaml
+line:
+  id: L1-weld-drift-b2
+scenario:
+  param_drifts:
+    - {station: B2, param: weld_current, at_s: 1800, ramp_s: 1800, to: 7.4}
+  defects:
+    - name: weak_weld
+      causes: [{station: B2, param: weld_current, below: 8.0}]
+      p: 0.8
+      detected_at: F5
+      detect_p: 0.9

@@ -52,9 +52,11 @@ humidity) are found because pairs of conditions are scored too. Expert structure
 parameters can physically affect which defect) restrict the search space; this is the practical form of
 the causal-Bayesian-network approach in the literature, kept interpretable.
 
-**Prototype evidence.** Step 5 injects a defect that needs two conditions to co-occur. The quality
-engineer view shows the ranked hypothesis table with lift, support and a confidence, and the pair
-ranked above either single condition.
+**Prototype evidence.** `multi_cause.yaml`: paint adhesion fails only when B4 torque is low *and* P1
+humidity is high; neither alone. No drift signal. After the third inspection fail the hypothesis table
+reads `B4.torque low AND P1.humidity high: lift 88.9x, 5/6 defective under it vs 1/159 otherwise,
+p=3.7e-08`, ranked above `B4.torque low` alone (p=7.7e-07) and far above humidity alone (p=0.01). The
+hold names the un-inspected vehicles that match the pair; zero defective vehicles escape.
 
 ### C3 · Modifying live production systems is risky; retrofits only in maintenance windows
 
@@ -78,11 +80,14 @@ that good vehicles do not (C2) → trace forward to every other vehicle built un
 Either way the result is a **targeted hold set** with a stated precision, instead of a blanket hold or a
 line stop. Onset uncertainty is handled by widening the window and tagging the marginal vehicles ◐.
 
-**Prototype evidence.** Step 5: drift starts at `t`, is detected at `t+Δ`; Loom names the at-risk set;
-the evaluator reports containment precision/recall against ground truth and the size of the equivalent
-blanket hold. Research figures for the pitch: a defect caught downstream costs ~10×, at final assembly
-~100×, in the field ~1000×; one plant cut a containment exercise from two days of log review to four
-minutes with genealogy.
+**Prototype evidence.** `weld_drift_b2.yaml`: B2's weld current sags out of spec from minute 30 with
+no cycle-time symptom; weak welds surface only at the F5 end-of-line inspection. Measured on a 2-hour
+shift: CUSUM warning at 39 min (onset estimated at 31 min, true 30), hold opened at 43 min on the first
+out-of-spec reading — **11 minutes before the first inspection catch at 54 min** — 77 vehicles held,
+precision 84 %, recall 100 %, zero escaped; the no-genealogy blanket hold would be 90 vehicles and would
+not have started until inspection caught the first one. Research figures for the pitch: a defect caught
+downstream costs ~10×, at final assembly ~100×, in the field ~1000×; one plant cut a containment
+exercise from two days of log review to four minutes with genealogy.
 
 ### C5 · Different stakeholders need different views of the same twin
 
@@ -264,7 +269,7 @@ Telemetry is kept for every LLM call (tokens, latency, cost) so the economics ar
 |---|---|---|
 | 1–3 (done) | DES plant, sensor profiles, forecaster with FA guards, config libraries, variants, three views | C5, C6, C7, S1, S2 (bottleneck), S4 |
 | 4 (done) | sensor noise model (jitter, clock offset, dropouts, latency, silent-sensor faults); flow reconstruction for dark and finish-only stations with exact/bound provenance; sensor-health detection; alert grouping by causal chain; VOI ranking; `plant_b.yaml` | C1, C3, S3, alarm flooding, sensor faults |
-| 5 | process parameters with tolerance bands, EWMA/CUSUM drift, latent defects, inspection outcomes, build-record trace, targeted hold, quality view | C2, C4, S2 (drift, risk) |
+| 5 (done) | process parameters with spec limits; EWMA/CUSUM drift with onset estimate; latent multi-cause defects visible only at inspection; contribution analysis (lift + Fisher exact, singles and pairs); targeted holds with sure/uncertain/exited split; containment scorecard vs blanket hold and vs end-of-line detection; quality view | C2, C4, S2 (drift, risk) |
 | 6 | AI layer (§3b): persona reports, what-if mitigation engine + recommender, statistical recalibration + gated agentic improvement loop, onboarding assistant; maintenance view | S4, "appropriate use of AI" |
 | 7 | multi-run evaluation harness, calibration curve, ledger over weeks; active-period cross-check; two staggered ramps | C7, shifting bottlenecks |
 | 8 | web UI on top of `views.py`; leadership view with ROI model | pitch |

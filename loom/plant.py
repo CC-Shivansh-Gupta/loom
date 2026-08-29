@@ -20,9 +20,9 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Callable
 
-from .config import LineCfg, Perturbation, StationCfg
-from .events import (BLOCKED, EXIT, FINISH, LOST_SLOT, MOVE, RELEASE, START,
-                     Event)
+from .config import LineCfg, ParamDrift, Perturbation, StationCfg
+from .events import (BLOCKED, EXIT, FINISH, INSPECT, LOST_SLOT, MOVE, PARAM,
+                     RELEASE, START, Event)
 
 IDLE, BUSY, BLOCKED_STATE = "idle", "busy", "blocked"
 
@@ -33,6 +33,7 @@ class Visit:
     start_t: float
     finish_t: float | None = None
     exit_t: float | None = None     # when it actually left (>= finish_t)
+    params: dict[str, float] = field(default_factory=dict)   # true process values
 
 
 @dataclass
@@ -42,12 +43,22 @@ class Vehicle:
     variant: str = "-"
     exited_t: float | None = None
     record: list[Visit] = field(default_factory=list)
+    defects: set[str] = field(default_factory=set)       # latent, ground truth
+    detected: set[str] = field(default_factory=set)      # caught at inspection
+    inspections: list[tuple[str, float, str]] = field(default_factory=list)  # (station, t, result)
+
+    def param(self, station: str, name: str) -> float | None:
+        for x in self.record:
+            if x.station == station:
+                return x.params.get(name)
+        return None
 
 
 @dataclass
 class Station:
     cfg: StationCfg
     perturbations: tuple[Perturbation, ...] = ()
+    drifts: tuple[ParamDrift, ...] = ()
     state: str = IDLE
     vehicle: Vehicle | None = None
     state_since: float = 0.0
@@ -71,6 +82,23 @@ class Station:
                 c = c + (p.cycle_s - c) * (t - p.at_s) / p.ramp_s
         return c
 
+    def param_mean(self, name: str, t: float) -> float:
+        """True mean of a process parameter at time t, after drifts."""
+        spec = next(p for p in self.cfg.params if p.name == name)
+        m = spec.nominal
+        for d in self.drifts:
+            if d.param != name or t < d.at_s:
+                continue
+            if d.ramp_s <= 0 or t >= d.at_s + d.ramp_s:
+                m = d.to
+            else:
+                m = m + (d.to - m) * (t - d.at_s) / d.ramp_s
+        return m
+
+    def sample_params(self, t: float, rng: random.Random) -> dict[str, float]:
+        return {p.name: self.param_mean(p.name, t) + rng.gauss(0.0, p.sd)
+                for p in self.cfg.params}
+
     def cycle_time(self, t: float, rng: random.Random, cv: float,
                    mult: float = 1.0) -> float:
         nominal = self.nominal_cycle(t) * mult
@@ -92,7 +120,8 @@ class Plant:
 
         self.rng = random.Random(cfg.seed)
         self.stations = [
-            Station(s, tuple(p for p in cfg.perturbations if p.station == s.id))
+            Station(s, tuple(p for p in cfg.perturbations if p.station == s.id),
+                    tuple(d for d in cfg.param_drifts if d.station == s.id))
             for s in cfg.stations
         ]
         self.buffers: list[deque[Vehicle]] = [deque() for _ in cfg.stations]
@@ -162,8 +191,14 @@ class Plant:
         v = self.buffers[i].popleft()
         st.vehicle = v
         st.set_state(BUSY, self.t)
-        v.record.append(Visit(st.cfg.id, self.t))
+        visit = Visit(st.cfg.id, self.t, params=st.sample_params(self.t, self.rng))
+        v.record.append(visit)
         self._emit(START, st.cfg.id, v)
+        for name, val in visit.params.items():
+            spec = next(p for p in st.cfg.params if p.name == name)
+            reading = val + (self.rng.gauss(0.0, spec.meas_sd) if spec.meas_sd else 0.0)
+            self._emit(PARAM, st.cfg.id, v, param=name, value=round(reading, 4))
+        self._materialise_defects(v, st.cfg.id)
         mult = self._variant_mult(v.variant, st.cfg.id)
         self._schedule(st.cycle_time(self.t, self.rng, self.cfg.cv, mult),
                        lambda: self._finish(i))
@@ -175,7 +210,36 @@ class Plant:
         st = self.stations[i]
         st.vehicle.record[-1].finish_t = self.t
         self._emit(FINISH, st.cfg.id, st.vehicle)
+        if st.cfg.type.inspection:
+            self._inspect(st.vehicle, st.cfg.id)
         self._try_push(i)
+
+    # -- quality: latent defects and inspections --------------------------
+    def _materialise_defects(self, v: Vehicle, station: str) -> None:
+        """A defect exists from the moment its last cause is satisfied; it
+        stays invisible until an inspection station looks for it."""
+        for d in self.cfg.defects:
+            if d.last_cause_station != station or d.name in v.defects:
+                continue
+            ok = True
+            for c in d.causes:
+                x = v.param(c.station, c.param)
+                if x is None or not c.holds(x):
+                    ok = False
+                    break
+            if ok and self.rng.random() < d.p:
+                v.defects.add(d.name)
+
+    def _inspect(self, v: Vehicle, station: str) -> None:
+        found = []
+        for d in self.cfg.defects:
+            if d.detected_at == station and d.name in v.defects and d.name not in v.detected:
+                if self.rng.random() < d.detect_p:
+                    found.append(d.name)
+                    v.detected.add(d.name)
+        result = "fail" if found else "pass"
+        v.inspections.append((station, self.t, result))
+        self._emit(INSPECT, station, v, result=result, defects=found)
 
     def _try_push(self, i: int) -> None:
         st = self.stations[i]

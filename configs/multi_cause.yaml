@@ -1,0 +1,43 @@
+# Multi-causal, intermittent defect: paint adhesion fails only when the
+# P1 booth humidity is high AND B4 inspection torque was low -- neither
+# alone. No drift, no CUSUM signal: natural variation puts ~7% of
+# vehicles in the high-humidity band and ~7% in the low-torque band, so
+# about 1 in 200 vehicles gets both. The defect surfaces at P3 (paint
+# inspection). Loom must find the *pair* by contribution analysis and
+# hold the vehicles that match it. B4 does not report torque (cycle_only),
+# so part of the hold set is honestly marked uncertain.
+extends: healthy.yaml
+line:
+  id: L1-multi-cause
+  cv: 0.05
+  zones:
+    - name: body
+      stations:
+        - {id: B1, type: robot_weld, cycle_s: 55}
+        - {id: B2, type: robot_weld, cycle_s: 57}
+        - {id: B3, type: robot_weld, cycle_s: 56}
+        - {id: B4, type: inspection, cycle_s: 58, params: [torque]}
+    - name: paint
+      stations:
+        - {id: P1, type: paint_booth, cycle_s: 55, buffer_before: 6}
+        - {id: P2, type: paint_booth, cycle_s: 58}
+        - {id: P3, type: inspection,  cycle_s: 56}
+    - name: final
+      stations:
+        - {id: F1, type: door_fit,   cycle_s: 57, sensors: plc_full}
+        - {id: F2, type: manual_fit, cycle_s: 55, sensors: plc_full}
+        - {id: F3, type: manual_fit, cycle_s: 58, sensors: plc_full}
+        - {id: F4, type: manual_fit, cycle_s: 56, sensors: plc_full}
+        - {id: F5, type: inspection, cycle_s: 55}
+scenario:
+  param_drifts:
+    # a mild, in-spec humidity rise makes the pair much more common in hour 2
+    - {station: P1, param: humidity, at_s: 3600, ramp_s: 600, to: 61}
+  defects:
+    - name: paint_adhesion
+      causes:
+        - {station: B4, param: torque, below: 43.5}
+        - {station: P1, param: humidity, above: 59.5}
+      p: 0.9
+      detected_at: P3
+      detect_p: 0.95

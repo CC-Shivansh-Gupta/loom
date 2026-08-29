@@ -6,7 +6,7 @@ Four layers, one event schema, a hard wall between truth and belief.
 |---|---|---|
 | 1 Plant (ground truth) | `loom/plant.py` | everything |
 | 2 Sensors | `loom/sensors.py` | plant events → forwards what each station's sensor profile allows |
-| 3 Loom (twin) | `loom/twin.py`, `loom/forecast.py` | only what sensors forward; tags every value ● measured / ◐ inferred / ○ simulated |
+| 3 Loom (twin) | `loom/twin.py` (flow), `loom/forecast.py` (bottlenecks), `loom/quality.py` (drift, defects, containment) | only what sensors forward; tags every value ● measured / ◐ inferred / ○ simulated |
 | 4 Evaluator | `loom/evaluator.py` | plant **and** twin; scores predictions against outcomes |
 | Views | `loom/views.py` | the twin, rendered per role |
 
@@ -32,6 +32,10 @@ python -m loom.run configs/ramp_b3_dark.yaml --hours 2   # B3 dark: what step 3 
 | `ramp_b3_dark.yaml` | same, but B3 has no sensors and B2 only reports cycle timestamps — the twin reconstructs B3 from its neighbours |
 | `sensor_fault_b2.yaml` | same ramp; B2's PLC link goes silent for 25 min mid-ramp — the twin notices and bridges |
 | `plant_b.yaml` | a different plant: 30 stations, 4 zones, 3 variants, mixed sensor maturity; `--voi` ranks which station to instrument next |
+| `weld_drift_b2.yaml` | silent drift: B2 weld current sags out of spec, no cycle-time symptom; defect surfaces at F5 — CUSUM catches it at source, targeted hold |
+| `multi_cause.yaml` | intermittent defect needing low torque at B4 **and** high humidity at P1; contribution analysis finds the pair |
+
+Views: `--view operator:<station>`, `supervisor`, `quality`, `manager`.
 
 Sensor profiles carry noise: timestamp jitter, clock offset, dropouts and reporting latency
 (`loom/sensors.py`). Every twin value is tagged ● measured / ◐ inferred / ○ simulated, and inferred

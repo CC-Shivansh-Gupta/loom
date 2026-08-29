@@ -35,9 +35,43 @@ line:
 variants:                         # mixed-model
   suv: {share: 0.4, cycle_mult: {F1: 1.04}}
 scenario:
-  perturbations:
+  perturbations:                  # cycle-time faults
     - {station: B3, at_s: 1800, ramp_s: 1200, cycle_s: 80}
+  sensor_faults:                  # instrumentation goes silent
+    - {station: B2, at_s: 2400, duration_s: 1500}
+  param_drifts:                   # process parameter mean shifts
+    - {station: B2, param: weld_current, at_s: 1800, ramp_s: 1800, to: 7.4}
+  defects:                        # latent, multi-cause, visible only at an inspection
+    - name: weak_weld
+      causes: [{station: B2, param: weld_current, below: 8.0}]
+      p: 0.8
+      detected_at: F5
+      detect_p: 0.9
+libraries:
+  params:                         # spec per parameter: nominal, natural sd, limits, sensor noise
+    weld_current: {nominal: 8.5, sd: 0.12, lsl: 8.0, usl: 9.0, unit: kA, meas_sd: 0.03}
 ```
+
+Station types list the parameters they carry (`robot_weld: [weld_current, torque]`); a station can
+override with `params:`. Only `plc_full` profiles report parameter readings; other stations' parameters
+are unknown to the twin, and any hold that depends on them lists those vehicles as ◐ uncertain.
+
+## Quality mechanism
+
+```
+readings ──▶ ParamMonitor (EWMA + CUSUM, k=0.5σ, h=8σ) ──▶ DriftAlert (onset, time-to-limit)  [warning]
+                                                               │ first out-of-spec reading
+                                                               ▼
+                                                    Hold (back-filled from onset, grows per reading)
+inspection fails ──▶ contribution analysis (lift, Fisher exact, singles + pairs) ──▶ ranked hypotheses
+                                                               │ top hypothesis
+                                                               ▼
+                                                    Hold (vehicles matching the condition, not yet inspected)
+```
+
+Why `h=8` rather than the textbook 5: a plant runs dozens of charts at once, so the in-control run
+length per chart must be ~10⁴ samples. Measured: 2 drift *warnings* and 0 holds in 8 h on the healthy
+line. A drift warning never holds on its own — only an out-of-spec reading does.
 
 Resolution order for a station's sensors: station `sensors:` → its type's default → `plc_full`.
 Built-in libraries can be extended or overridden per plant file.
@@ -59,8 +93,8 @@ Built-in libraries can be extended or overridden per plant file.
 1. Deterministic serial line, pass-through sensors, mirror twin, evaluator.
 2. Stochastic cycles, ramp perturbations, trend forecaster with false-alarm guards, scorecard.
 3. Config libraries + `extends`, sensor profiles that filter, model variants, role views, second plant.
-4. Sensor noise model; flow reconstruction (R1–R5 in `twin.py`) for dark / finish-only / silent stations with exact-vs-bound provenance; sensor health; alert grouping; value-of-information ranking.  ← here
-5. Process parameters, EWMA/CUSUM drift, latent defects, inspection outcomes, build-record trace, targeted hold, quality view.
+4. Sensor noise model; flow reconstruction (R1–R5 in `twin.py`) for dark / finish-only / silent stations with exact-vs-bound provenance; sensor health; alert grouping; value-of-information ranking.
+5. Process parameters with spec limits; EWMA/CUSUM drift monitors with onset estimate and time-to-limit projection; latent multi-cause defects surfacing at inspection stations; contribution analysis (lift + Fisher exact, pairs); targeted holds (sure / uncertain / already-exited) that grow while a drift is on; containment scorecard; quality view.  ← here
 6. Mitigations as recommendations with expected effect, alert grouping, maintenance view.
 7. Multi-run evaluation harness, calibration curve, active-period cross-check, shifting bottlenecks.
 8. Web UI, leadership view with ROI model.

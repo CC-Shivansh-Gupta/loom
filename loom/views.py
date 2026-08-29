@@ -60,6 +60,48 @@ def supervisor(twin: Twin) -> str:
     return "\n".join(lines)
 
 
+def quality(twin: Twin) -> str:
+    twin.refresh()
+    q = twin.quality
+    cfg = twin.cfg
+    lines = [f"QUALITY ENGINEER  line {cfg.name}   t={_hm(twin.t)}   {LEGEND}"]
+    for s in cfg.stations:
+        if s.type.inspection:
+            ok, n = q.first_pass_yield(s.id)
+            if n:
+                lines.append(f"  first-pass yield @{s.id}: {ok}/{n} = {ok / n:.1%}")
+    lines.append("  parameter monitors (EWMA in sd units, CUSUM lo/hi; reported stations only):")
+    for (sid, pname), m in q.monitors.items():
+        if sid not in q.reports or m.n == 0:
+            continue
+        flag = "  <-- DRIFT" if m.active else ""
+        lines.append(f"    {sid}.{pname:<13} mean ● {m.mean_now():8.3f} {m.spec.unit:<3} "
+                     f"(spec {m.spec.lsl}-{m.spec.usl})  ewma {m.ewma:+5.2f}  cusum {m.c_lo:4.1f}/{m.c_hi:4.1f}{flag}")
+    unreported = [f"{s.id}.{p.name}" for s in cfg.stations for p in s.params if s.id not in q.reports]
+    if unreported:
+        lines.append(f"    not reported (◐ unknown): {', '.join(unreported)}")
+    if q.drift_log:
+        lines.append("  drift alerts:")
+        for a in q.drift_log:
+            lines.append(f"    {a}")
+    if q.hypotheses:
+        lines.append("  root-cause hypotheses (ranked; evidence, not verdicts):")
+        for h in q.hypotheses[:5]:
+            lines.append(f"    {h}")
+    if q.holds:
+        lines.append("  containment:")
+        for h in q.holds:
+            lines.append(f"    {h}")
+            lines.append(f"      sure: {h.sure[:12]}{' ...' if len(h.sure) > 12 else ''}")
+            if h.uncertain:
+                lines.append(f"      ◐ uncertain: {h.uncertain[:12]}{' ...' if len(h.uncertain) > 12 else ''}")
+            if h.exited:
+                lines.append(f"      already exited (yard check): {h.exited}")
+    else:
+        lines.append("  containment: none active")
+    return "\n".join(lines)
+
+
 def manager(twin: Twin, scorecard: dict | None = None, coverage: dict[str, str] | None = None,
             voi_rank: list[dict] | None = None) -> str:
     twin.refresh()

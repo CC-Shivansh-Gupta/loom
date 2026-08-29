@@ -22,8 +22,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .config import LineCfg
-from .events import BLOCKED, EXIT, FINISH, LOST_SLOT, MOVE, RELEASE, START, Event
+from .events import (BLOCKED, EXIT, FINISH, INSPECT, LOST_SLOT, MOVE, PARAM,
+                     RELEASE, START, Event)
 from .forecast import Alert, Forecaster
+from .quality import QualityTwin
 
 MEASURED, INFERRED, SIMULATED = "measured", "inferred", "simulated"
 MARK = {MEASURED: "●", INFERRED: "◐", SIMULATED: "○"}
@@ -106,6 +108,7 @@ class Twin:
         self._hits: dict[str, int] = {}
         self._misses: dict[str, int] = {}
         self._grouped: set[str] = set()
+        self.quality = QualityTwin(cfg, self)
         self.log: list[AlertLog] = []
         self.samples: dict[str, list[tuple[int, float, str]]] = {s.id: [] for s in cfg.stations}
 
@@ -127,6 +130,10 @@ class Twin:
         self.seen += 1
         self.t = max(self.t, ev.t)
         if ev.kind == LOST_SLOT:
+            return
+        if ev.kind in (PARAM, INSPECT):
+            self._tl(ev.vehicle, None)
+            self.quality.ingest(ev)
             return
         tl = self._tl(ev.vehicle, ev.payload.get("variant"))
         i = self.cfg.index(ev.station) if ev.station else None

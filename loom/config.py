@@ -24,6 +24,17 @@ from pathlib import Path
 
 import yaml
 
+# Process parameters: nominal, natural sd, spec limits, measurement noise.
+BUILTIN_PARAMS: dict[str, dict] = {
+    "weld_current": {"nominal": 8.5, "sd": 0.12, "lsl": 8.0, "usl": 9.0, "unit": "kA", "meas_sd": 0.03},
+    "torque":       {"nominal": 45.0, "sd": 1.0, "lsl": 42.0, "usl": 48.0, "unit": "Nm", "meas_sd": 0.2},
+    "booth_temp":   {"nominal": 22.0, "sd": 0.5, "lsl": 20.0, "usl": 24.0, "unit": "C", "meas_sd": 0.1},
+    "humidity":     {"nominal": 55.0, "sd": 3.0, "lsl": 40.0, "usl": 65.0, "unit": "%", "meas_sd": 0.5},
+    "gap_mm":       {"nominal": 4.0, "sd": 0.3, "lsl": 3.0, "usl": 5.0, "unit": "mm", "meas_sd": 0.05},
+    "press_force":  {"nominal": 120.0, "sd": 3.0, "lsl": 110.0, "usl": 130.0, "unit": "kN", "meas_sd": 0.5},
+    "bead_width":   {"nominal": 6.0, "sd": 0.4, "lsl": 5.0, "usl": 7.0, "unit": "mm", "meas_sd": 0.1},
+}
+
 BUILTIN_STATION_TYPES: dict[str, dict] = {
     "generic":     {"sensors": "plc_full", "params": []},
     "robot_weld":  {"sensors": "plc_full", "params": ["weld_current", "torque"]},
@@ -34,8 +45,10 @@ BUILTIN_STATION_TYPES: dict[str, dict] = {
 
 # jitter_s: sd of timestamp noise. clock_offset_s: fixed skew of that
 # station's clock. drop_p: per-event loss. latency_s: reporting delay.
+# params: whether process-parameter readings are reported. Inspection
+# results are reported by any non-dark profile (an inspector logs them).
 BUILTIN_SENSOR_PROFILES: dict[str, dict] = {
-    "plc_full":   {"events": "all", "jitter_s": 0.2},
+    "plc_full":   {"events": "all", "jitter_s": 0.2, "params": True},
     "cycle_only": {"events": ["start", "finish"], "jitter_s": 1.0, "drop_p": 0.01},
     "checklist":  {"events": ["finish"], "latency_s": 120.0, "jitter_s": 30.0, "drop_p": 0.05},
     "dark":       {"events": []},
@@ -50,9 +63,64 @@ class SensorProfile:
     drop_p: float = 0.0
     jitter_s: float = 0.0
     clock_offset_s: float = 0.0
+    params: bool = False
 
     def passes(self, kind: str) -> bool:
+        if kind == "param":
+            return self.params
+        if kind == "inspect":
+            return self.events is None or len(self.events) > 0
         return self.events is None or kind in self.events
+
+
+@dataclass(frozen=True)
+class ParamSpec:
+    name: str
+    nominal: float
+    sd: float
+    lsl: float
+    usl: float
+    unit: str = ""
+    meas_sd: float = 0.0
+
+    def z(self, x: float) -> float:
+        return (x - self.nominal) / self.sd
+
+
+@dataclass(frozen=True)
+class ParamDrift:
+    """Parameter's true mean ramps from nominal to `to` over `ramp_s` from `at_s`."""
+    station: str
+    param: str
+    at_s: float
+    to: float
+    ramp_s: float = 0.0
+
+
+@dataclass(frozen=True)
+class DefectCause:
+    station: str
+    param: str
+    below: float | None = None
+    above: float | None = None
+
+    def holds(self, x: float) -> bool:
+        return (self.below is None or x < self.below) and (self.above is None or x > self.above)
+
+
+@dataclass(frozen=True)
+class DefectModel:
+    """A latent defect occurs with probability `p` when every cause holds
+    for the vehicle; it is only visible at `detected_at`, with `detect_p`."""
+    name: str
+    causes: tuple[DefectCause, ...]
+    p: float
+    detected_at: str
+    detect_p: float = 1.0
+
+    @property
+    def last_cause_station(self) -> str:
+        return self.causes[-1].station
 
 
 @dataclass(frozen=True)
@@ -80,6 +148,7 @@ class StationCfg:
     cycle_s: float
     buffer_before: int
     sensors: SensorProfile
+    params: tuple[ParamSpec, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -110,6 +179,8 @@ class LineCfg:
     variants: tuple[Variant, ...] = ()
     perturbations: tuple[Perturbation, ...] = ()
     sensor_faults: tuple[SensorFault, ...] = ()
+    param_drifts: tuple[ParamDrift, ...] = ()
+    defects: tuple[DefectModel, ...] = ()
 
     @property
     def ids(self) -> list[str]:
@@ -152,8 +223,16 @@ def _sensor_profiles(raw: dict) -> dict[str, SensorProfile]:
         out[name] = SensorProfile(
             name, None if ev == "all" else frozenset(ev),
             float(p.get("latency_s", 0.0)), float(p.get("drop_p", 0.0)),
-            float(p.get("jitter_s", 0.0)), float(p.get("clock_offset_s", 0.0)))
+            float(p.get("jitter_s", 0.0)), float(p.get("clock_offset_s", 0.0)),
+            bool(p.get("params", False)))
     return out
+
+
+def _params(raw: dict) -> dict[str, ParamSpec]:
+    merged = _deep_merge(BUILTIN_PARAMS, raw.get("libraries", {}).get("params", {}) or {})
+    return {name: ParamSpec(name, float(p["nominal"]), float(p["sd"]), float(p["lsl"]),
+                            float(p["usl"]), str(p.get("unit", "")), float(p.get("meas_sd", 0.0)))
+            for name, p in merged.items()}
 
 
 def _station_types(raw: dict) -> dict[str, StationType]:
@@ -170,6 +249,7 @@ def load_line(path: str | Path) -> LineCfg:
     line = raw["line"]
     profiles = _sensor_profiles(raw)
     types = _station_types(raw)
+    params = _params(raw)
     default_buf = int(line.get("default_buffer", 2))
 
     stations: list[StationCfg] = []
@@ -177,11 +257,15 @@ def load_line(path: str | Path) -> LineCfg:
         for s in zone["stations"]:
             st_type = types[s.get("type", "generic")]
             prof = profiles[s.get("sensors", st_type.sensors)]
+            names = s.get("params", st_type.params)
+            for n in names:
+                if n not in params:
+                    raise ValueError(f"{path}: station {s['id']} uses unknown param {n!r}")
             stations.append(StationCfg(
                 id=str(s["id"]), zone=str(zone["name"]), type=st_type,
                 cycle_s=float(s["cycle_s"]),
                 buffer_before=int(s.get("buffer_before", default_buf)),
-                sensors=prof))
+                sensors=prof, params=tuple(params[n] for n in names)))
     if not stations:
         raise ValueError(f"{path}: line has no stations")
     ids = {s.id for s in stations}
@@ -211,6 +295,33 @@ def load_line(path: str | Path) -> LineCfg:
         if f["station"] not in ids:
             raise ValueError(f"{path}: sensor fault on unknown station {f['station']}")
         faults.append(SensorFault(str(f["station"]), float(f["at_s"]), float(f["duration_s"])))
+    by_id = {s.id: s for s in stations}
+
+    def _check_param(station: str, param: str, what: str) -> None:
+        if station not in by_id:
+            raise ValueError(f"{path}: {what} on unknown station {station}")
+        if param not in {p.name for p in by_id[station].params}:
+            raise ValueError(f"{path}: {what}: station {station} has no param {param!r}")
+
+    drifts = []
+    for d in scenario.get("param_drifts", []) or []:
+        _check_param(d["station"], d["param"], "param drift")
+        drifts.append(ParamDrift(str(d["station"]), str(d["param"]), float(d["at_s"]),
+                                 float(d["to"]), float(d.get("ramp_s", 0))))
+    defects = []
+    for d in scenario.get("defects", []) or []:
+        causes = []
+        for c in d["causes"]:
+            _check_param(c["station"], c["param"], f"defect {d['name']}")
+            causes.append(DefectCause(str(c["station"]), str(c["param"]),
+                                      None if c.get("below") is None else float(c["below"]),
+                                      None if c.get("above") is None else float(c["above"])))
+        if d["detected_at"] not in by_id:
+            raise ValueError(f"{path}: defect {d['name']} detected at unknown station")
+        # causes must be in line order so the defect materialises at the last one
+        causes.sort(key=lambda c: [s.id for s in stations].index(c.station))
+        defects.append(DefectModel(str(d["name"]), tuple(causes), float(d.get("p", 1.0)),
+                                   str(d["detected_at"]), float(d.get("detect_p", 1.0))))
 
     return LineCfg(
         name=str(line.get("id", Path(path).stem)),
@@ -222,4 +333,6 @@ def load_line(path: str | Path) -> LineCfg:
         variants=tuple(variants),
         perturbations=tuple(perts),
         sensor_faults=tuple(faults),
+        param_drifts=tuple(drifts),
+        defects=tuple(defects),
     )

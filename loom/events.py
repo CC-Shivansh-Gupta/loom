@@ -19,6 +19,8 @@ FINISH = "finish"          # station finished processing (may now block)
 BLOCKED = "blocked"        # station finished but downstream buffer full
 MOVE = "move"              # vehicle moved from a station into next buffer
 EXIT = "exit"              # vehicle left the last station
+PARAM = "param"            # process parameter reading at start: {param, value}
+INSPECT = "inspect"        # inspection outcome at finish: {result, defects}
 
 
 @dataclass(order=True)
