@@ -132,7 +132,7 @@ function buildScene(){
   meta.stations.forEach((s,i)=>{ if(lastZone&&s.zone!==lastZone)x+=1.6; x+=0.9*Math.min(s.buffer,6)+1.0; xs.push(x); x+=2.2; lastZone=s.zone; });
   const width=x; const cx=width/2; T.orbit.cx=cx; T.orbit.theta=0.0; T.orbit.phi=1.0; T.xs=xs;
   const cv=T.r.domElement, aspect=Math.max(1.2,(cv.clientWidth||1200)/(cv.clientHeight||600));
-  T.orbit.dist=Math.max(20,(width/2+5)/(Math.tan(T.cam.fov*Math.PI/360)*aspect)*1.12);
+  T.orbit.dist=Math.max(18,(width/2+3)/(Math.tan(T.cam.fov*Math.PI/360)*aspect)*0.88);
   T.scene.fog.near=T.orbit.dist*1.3; T.scene.fog.far=T.orbit.dist*3.2; T.cam.far=T.orbit.dist*4; T.cam.updateProjectionMatrix();
   const floor=new THREE.Mesh(new THREE.PlaneGeometry(width+14,16),new THREE.MeshLambertMaterial({color:COL.floor})); floor.rotation.x=-Math.PI/2; floor.position.set(cx,-0.41,-2.2); g.add(floor);
   const grid=new THREE.GridHelper(width+14,Math.round((width+14)/2),0x22303A,0x1B242C); grid.position.set(cx,-0.4,-2.2); g.add(grid);
