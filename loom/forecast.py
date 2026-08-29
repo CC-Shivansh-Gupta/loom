@@ -102,25 +102,31 @@ class Forecaster:
             return 0.0
         return sum(1 for _, _, src in s if src != "measured") / len(s)
 
-    def assess(self, station: str, t: float, queue: int, capacity: int) -> Alert | None:
+    def assess(self, station: str, t: float, queue: int, capacity: int,
+               workers: int = 1, interarrival: float | None = None) -> Alert | None:
+        """`workers` parallel operators share the queue (effective cycle =
+        cycle / workers). `interarrival` is the measured supply interval
+        into this station -- a rework loop feeds a station faster than
+        takt, a starved station slower; default is takt."""
         fit = self.fit(station, t)
         if fit is None:
             return None
-
-        fit._over_z = ((fit.c_now - self.takt) / fit.c_now_se
-                       if fit.c_now_se > 0 else 0.0)
+        supply = interarrival if interarrival else self.takt
+        c_eff = fit.c_now / workers
+        se_eff = fit.c_now_se / workers
+        fit._over_z = (c_eff - supply) / se_eff if se_eff > 0 else 0.0
         over = fit.over_z >= self.min_over_z
         trending = fit.slope > 0 and fit.tstat >= self.min_tstat
         if not (over or trending):
             return None
 
-        # Forward-project queue growth. Upstream can deliver at most one
-        # vehicle per takt; this station drains at 1/cycle(t').
+        # Forward-project queue growth: supply arrives every `supply` s,
+        # the station drains at workers / cycle(t').
         slope = fit.slope if trending else 0.0
         q, elapsed = float(queue), 0.0
         while elapsed < self.horizon:
-            c = fit.c_now + slope * elapsed
-            growth = 1 / self.takt - 1 / c          # veh/s, may be negative
+            c = (fit.c_now + slope * elapsed) / workers
+            growth = 1 / supply - 1 / c              # veh/s, may be negative
             q = max(0.0, q + growth * self.step)
             elapsed += self.step
             if q >= capacity:

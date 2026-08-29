@@ -48,6 +48,7 @@ class Agg:
     ap_agreement: list[float] = field(default_factory=list)
     inferred_mae: list[float] = field(default_factory=list)
     precision: list[float] = field(default_factory=list)
+    precision_insp: list[float] = field(default_factory=list)
     recall: list[float] = field(default_factory=list)
     escaped: int = 0
     hold_vs_blanket: list[float] = field(default_factory=list)
@@ -112,6 +113,8 @@ def run(seeds: int, scenarios=SCENARIOS) -> dict[str, Agg]:
             for c in containment_scorecard(plant, twin):
                 if c.precision is not None:
                     a.precision.append(c.precision)
+                if c.precision_inspection is not None:
+                    a.precision_insp.append(c.precision_inspection)
                 if c.recall is not None:
                     a.recall.append(c.recall)
                 a.escaped += c.escaped
@@ -152,12 +155,13 @@ def markdown(res: dict[str, Agg], seeds: int) -> str:
           "Hold timing is relative to the first end-of-line catch: positive = the twin held before "
           "inspection saw anything (drift-triggered); negative = the hold was learned from inspection "
           "fails (no upstream signal existed).", "",
-          "| scenario | true cause pair/single found | precision | recall | escaped (total) | hold / blanket | hold vs first inspection catch (min) |",
-          "|---|---|---|---|---|---|---|"]
+          "| scenario | true cause pair/single found | precision (all holds) | precision (traced holds) | recall | escaped (total) | hold / blanket | hold vs first inspection catch (min) |",
+          "|---|---|---|---|---|---|---|---|"]
     for cfg, a in res.items():
         if a.precision or a.recall or a.cause_runs:
             found = f"{a.cause_found}/{a.cause_runs}" if a.cause_runs else "-"
-            L.append(f"| `{cfg}` | {found} | {_q(a.precision, '{:.0%}')} | {_q(a.recall, '{:.0%}')} | {a.escaped} | "
+            L.append(f"| `{cfg}` | {found} | {_q(a.precision, '{:.0%}')} | {_q(a.precision_insp, '{:.0%}')} | "
+                     f"{_q(a.recall, '{:.0%}')} | {a.escaped} | "
                      f"{_q(a.hold_vs_blanket, '{:.2f}')} | {_q(a.hold_ahead_min)} |")
     records = [r for a in res.values() for r in a.records]
     L += ["", "## Confidence calibration (all alerts)", "",

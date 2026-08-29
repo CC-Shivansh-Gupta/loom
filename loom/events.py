@@ -21,6 +21,7 @@ MOVE = "move"              # vehicle moved from a station into next buffer
 EXIT = "exit"              # vehicle left the last station
 PARAM = "param"            # process parameter reading at start: {param, value}
 INSPECT = "inspect"        # inspection outcome at finish: {result, defects}
+REWORK = "rework"          # failed vehicle re-enters the inspection station's buffer: {new_id, pass}
 
 
 @dataclass(order=True)

@@ -71,7 +71,7 @@ class SensorProfile:
     def passes(self, kind: str) -> bool:
         if kind == "param":
             return self.params
-        if kind == "inspect":
+        if kind in ("inspect", "rework"):
             return self.events is None or len(self.events) > 0
         return self.events is None or kind in self.events
 
@@ -152,6 +152,58 @@ class StationCfg:
     buffer_before: int
     sensors: SensorProfile
     params: tuple[ParamSpec, ...] = ()
+    capacity: int = 1                   # parallel workers sharing the buffer
+    rework_p: float = 0.0               # inspection only: share of fails sent to rework
+    rework_s: float = 0.0               # time in the rework bay before re-entering this station
+
+
+@dataclass(frozen=True)
+class Break:
+    at_s: float
+    duration_s: float
+
+
+@dataclass(frozen=True)
+class Shift:
+    name: str
+    start_s: float
+    cycle_mult: dict[str, float] = field(default_factory=dict)   # operator variation by station
+
+
+@dataclass(frozen=True)
+class Calendar:
+    breaks: tuple[Break, ...] = ()
+    shifts: tuple[Shift, ...] = ()
+
+    def in_break(self, t: float) -> Break | None:
+        for b in self.breaks:
+            if b.at_s <= t < b.at_s + b.duration_s:
+                return b
+        return None
+
+    def break_overlap(self, t0: float, t1: float) -> float:
+        return sum(max(0.0, min(t1, b.at_s + b.duration_s) - max(t0, b.at_s)) for b in self.breaks)
+
+    def shift_at(self, t: float) -> Shift | None:
+        cur = None
+        for s in self.shifts:
+            if t >= s.start_s:
+                cur = s
+        return cur
+
+
+@dataclass(frozen=True)
+class Economics:
+    """Stated assumptions behind the ROI view. Override per plant."""
+    downtime_cost_per_min: float = 8000.0      # this line's share; Siemens 2024: $38k/min for a whole auto plant
+    bottleneck_events_per_week: float = 3.0
+    prevented_share: float = 0.5                # warnings acted on in time
+    hold_cost_per_vehicle: float = 250.0        # inspection, rework, delay
+    escape_cost_per_defect: float = 5000.0      # field repair + warranty; 10x-100x-1000x ladder
+    quality_events_per_month: float = 1.0
+    sensor_cost_per_station: float = 500.0      # retrofit kit incl. install
+    licence_per_line_per_year: float = 60000.0
+    weeks_per_year: float = 48.0
 
 
 @dataclass(frozen=True)
@@ -184,6 +236,8 @@ class LineCfg:
     sensor_faults: tuple[SensorFault, ...] = ()
     param_drifts: tuple[ParamDrift, ...] = ()
     defects: tuple[DefectModel, ...] = ()
+    calendar: Calendar = field(default_factory=Calendar)
+    economics: Economics = field(default_factory=Economics)
 
     @property
     def ids(self) -> list[str]:
@@ -268,7 +322,11 @@ def load_line(path: str | Path) -> LineCfg:
                 id=str(s["id"]), zone=str(zone["name"]), type=st_type,
                 cycle_s=float(s["cycle_s"]),
                 buffer_before=int(s.get("buffer_before", default_buf)),
-                sensors=prof, params=tuple(params[n] for n in names)))
+                sensors=prof, params=tuple(params[n] for n in names),
+                capacity=int(s.get("capacity", 1)),
+                rework_p=float(s.get("rework_p", 0.0)), rework_s=float(s.get("rework_s", 0.0))))
+            if stations[-1].rework_p and not st_type.inspection:
+                raise ValueError(f"{path}: station {s['id']}: rework needs an inspection type")
     if not stations:
         raise ValueError(f"{path}: line has no stations")
     ids = {s.id for s in stations}
@@ -326,6 +384,17 @@ def load_line(path: str | Path) -> LineCfg:
         defects.append(DefectModel(str(d["name"]), tuple(causes), float(d.get("p", 1.0)),
                                    str(d["detected_at"]), float(d.get("detect_p", 1.0))))
 
+    cal = line.get("calendar") or {}
+    breaks = tuple(Break(float(b["at_s"]), float(b["duration_s"])) for b in cal.get("breaks", []) or [])
+    shifts = []
+    for sh in cal.get("shifts", []) or []:
+        for sid in sh.get("cycle_mult", {}):
+            if sid not in ids:
+                raise ValueError(f"{path}: shift {sh['name']} references unknown station {sid}")
+        shifts.append(Shift(str(sh["name"]), float(sh["start_s"]),
+                            {k: float(v) for k, v in sh.get("cycle_mult", {}).items()}))
+    econ = Economics(**{k: float(v) for k, v in (raw.get("economics") or {}).items()})
+
     return LineCfg(
         name=str(line.get("id", Path(path).stem)),
         plant=dict(raw.get("plant") or {}),
@@ -338,4 +407,6 @@ def load_line(path: str | Path) -> LineCfg:
         sensor_faults=tuple(faults),
         param_drifts=tuple(drifts),
         defects=tuple(defects),
+        calendar=Calendar(breaks, tuple(shifts)),
+        economics=econ,
     )

@@ -23,7 +23,7 @@ from .twin import Twin
 
 MENU = {
     "none":      "do nothing (baseline)",
-    "floater":   "add a second operator/robot assist at `station`: cycle x `factor` (0.6-0.95)",
+    "floater":   "add a parallel worker at `station` (capacity +1) -- for a robot cell, use factor 0.6-0.95 instead",
     "rebalance": "move `seconds` of work content from `station` to `to` (an adjacent station)",
     "buffer":    "add `n` slots to the buffer feeding `station` (needs a maintenance window)",
 }
@@ -78,7 +78,7 @@ class Candidate:
         if self.action == "none":
             return "no action"
         if self.action == "floater":
-            return f"floater at {self.station} (cycle x{self.factor})"
+            return f"floater at {self.station}"
         if self.action == "rebalance":
             return f"move {self.seconds:.0f}s of work {self.station} -> {self.to}"
         return f"+{self.n} buffer slots before {self.station}"
@@ -106,8 +106,12 @@ def _believed_cfg(cfg: LineCfg, twin: Twin, cand: Candidate) -> LineCfg:
         c = twin.stations[s.id].cycle_s.value
         cycle = float(c) if c is not None else s.cycle_s
         buf = s.buffer_before
+        cap = s.capacity
         if cand.action == "floater" and s.id == cand.station:
-            cycle *= cand.factor
+            if s.type.name in ("manual_fit", "door_fit", "inspection", "generic"):
+                cap += 1                               # a second pair of hands
+            else:
+                cycle *= cand.factor                   # a robot cell: assist, not duplicate
         if cand.action == "rebalance":
             if s.id == cand.station:
                 cycle = max(1.0, cycle - cand.seconds)
@@ -115,7 +119,7 @@ def _believed_cfg(cfg: LineCfg, twin: Twin, cand: Candidate) -> LineCfg:
                 cycle += cand.seconds
         if cand.action == "buffer" and s.id == cand.station:
             buf += cand.n
-        stations.append(dataclasses.replace(s, cycle_s=cycle, buffer_before=buf))
+        stations.append(dataclasses.replace(s, cycle_s=cycle, buffer_before=buf, capacity=cap))
     # no scheduled faults or drifts: the believed cycles already contain them
     return dataclasses.replace(cfg, stations=tuple(stations), perturbations=(),
                                param_drifts=(), defects=(), sensor_faults=())

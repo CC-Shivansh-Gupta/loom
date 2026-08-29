@@ -66,6 +66,14 @@ All views read the same twin; they differ in aggregation, horizon, and which pro
 5. **Human-in-the-loop by construction.** Recommendations carry evidence; only reversible actions are automatic.
 6. **Sensor-investment guidance.** Because the twin knows where inference is weakest, it can rank which dark station to instrument next — turns "uneven sensor coverage" into a roadmap.
 
+## 5. Market numbers for the proposal (added 2026-08-29)
+
+- Siemens, *True Cost of Downtime 2024*: automotive idle line **$2.3 M/hour** (~$38,333/min, $639/s), up from $1.3 M in 2019; **$1.4 T/yr** across the Fortune Global 500 (11 % of revenue); average restart 81 min (was 49).
+- Digital-twin market: $36 B (2025) → $180 B (2030), CAGR ~38 %; manufacturing ≈ 38 % of it; automotive/aerospace/electronics >70 % piloting or deploying.
+- Failure to scale: **64 % of twin projects stall in pilot**; Gartner 2024: ~1 in 3 twin initiatives deployed beyond pilot; IoT Analytics 2025: **58 % of delays trace to OT/IT integration**; McKinsey 2025: 20–30 % efficiency gains where twins are *fully integrated with live asset data*.
+- High end of the market, 2026: Siemens **Digital Twin Composer** on NVIDIA Omniverse (Xcelerator Marketplace, mid-2026); PepsiCo +20 % throughput on first deployment, 90 % of issues found pre-change; **Industrial Copilot for Operations** on-prem on RTX PRO 6000 Blackwell, 30 % less reactive-maintenance time.
+- Agentic AI in operations, 2026: "copilots give answers, agents enter the decision loop"; Deloitte forecasts agentic adoption in manufacturing 6 % → 24 %; the same sources insist on guardrails, traceability and permission boundaries in the technology itself. CausalPulse (AAAI 2026): agentic root-cause copilot judged on interpretability and trust.
+
 ## Sources
 
 - [Siemens Plant Simulation](https://www.siemens.com/en-us/products/tecnomatix/plant-simulation-software/)
@@ -88,3 +96,15 @@ All views read the same twin; they differ in aggregation, horizon, and which pro
 - [Manufacturing dashboard templates by role 2026](https://ifactoryapp.com/analytics-reporting/top-manufacturing-dashboard-templates-role-2026)
 - [Manufacturing dashboard UX design guide](https://fuselabcreative.com/manufacturing-dashboard-ux-design/)
 - [Guidewheel: OEE dashboards that drive floor action](https://www.guidewheel.com/blog/oee-dashboard)
+- [Siemens True Cost of Downtime — automotive $2.3M/hour (coverage)](https://wcfcourier.com/exclusive/article_cf813bdd-21ae-5d2f-90df-e4acb004e870.html)
+- [Unplanned downtime cost 2026, 55+ data points](https://www.info2soft.com/blogs/unplanned-downtime-cost-2026-updated.html)
+- [Digital twin tech landscape for manufacturing 2026 — PatSnap](https://www.patsnap.com/resources/blog/articles/digital-twin-tech-landscape-for-manufacturing-2026/)
+- [Build a factory digital twin in 14 weeks — IIoT World (IoT Analytics 58 % figure)](https://www.iiot-world.com/smart-manufacturing/factory-digital-twins-2026/)
+- [Why 80 % of digital twin projects fail (64 % pilot figure)](https://maccelerator.la/en/blog/startup-strategy/digital-twin-implementation-for-industrial-companies/)
+- [Breaking pilot purgatory in manufacturing — IIoT World](https://www.iiot-world.com/smart-manufacturing/discrete-manufacturing/breaking-pilot-purgatory/)
+- [Siemens CES 2026: Digital Twin Composer, Industrial Copilot for Operations](https://press.siemens.com/global/en/pressrelease/siemens-unveils-technologies-accelerate-industrial-ai-revolution-ces-2026)
+- [Siemens–NVIDIA industrial AI operating system](https://nvidianews.nvidia.com/news/siemens-and-nvidia-expand-partnership-industrial-ai-operating-system)
+- [Agentic AI for plant operations — Microsoft Cloud blog, June 2026](https://www.microsoft.com/en-us/microsoft-cloud/blog/manufacturing/2026/06/18/agentic-ai-for-plant-operations-from-dashboards-to-decisions/)
+- [Manufacturing's 2026 mandate: from AI pilot to agentic profit — Dataiku](https://www.dataiku.com/stories/blog/manufacturing-ai-trends-2026)
+- [CausalPulse: agentic copilot for root cause analysis (AAAI 2026)](https://ojs.aaai.org/index.php/AAAI/article/view/42381)
+- [AI agents in manufacturing 2026 report — Customertimes (Deloitte 6 %→24 %)](https://www.customertimes.com/ai-agents-in-manufacturing)

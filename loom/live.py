@@ -257,7 +257,7 @@ class LiveSim:
                 "id": sid, "zone": s.zone, "type": s.type.name, "sensors": s.sensors.name,
                 "nominal_cycle_s": s.cycle_s, "true_cycle_now": round(st.nominal_cycle(self.plant.t), 1),
                 "buffer_cap": s.buffer_before,
-                "truth": {"state": st.state, "vehicle": st.vehicle.id if st.vehicle else None,
+                "truth": {"state": st.state, "vehicle": st.vehicle.event_id if st.vehicle else None,
                           "buffer": len(self.plant.buffers[i]),
                           "busy_pct": round(100 * st.time_in["busy"] / max(sum(st.time_in.values()), 1e-9)),
                           "blocked_pct": round(100 * st.time_in["blocked"] / max(sum(st.time_in.values()), 1e-9))},
@@ -284,6 +284,11 @@ class LiveSim:
             if role == "manager":
                 sc = bottleneck_scorecard(self.plant, self.twin)
                 return views.manager(self.twin, sc, self.sensors.coverage())
+            if role == "leadership":
+                sc = bottleneck_scorecard(self.plant, self.twin)
+                cont = containment_scorecard(self.plant, self.twin)
+                return views.leadership(self.twin, sc, cont, self.sensors.coverage(),
+                                        voi.rank(self.cfg, self.plant, self.twin))
             raise ValueError(role)
 
     def scorecard(self) -> dict:

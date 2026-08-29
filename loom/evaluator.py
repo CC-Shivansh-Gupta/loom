@@ -18,6 +18,8 @@ def state_agreement(plant: Plant, twin: Twin) -> dict:
     mismatches = []
     for sid, ts in truth["stations"].items():
         bs = belief["stations"][sid]
+        if plant.cfg.station(sid).capacity > 1:
+            ts, bs = {"state": ts["state"]}, {"state": bs["state"]}   # which worker holds which vehicle is not a belief
         if ts != bs:
             mismatches.append((sid, "station", belief["provenance"][sid], ts, bs))
         if len(truth["buffers"][sid]) != belief["buffer_counts"][sid]:
@@ -94,6 +96,8 @@ class ContainmentScore:
     blanket_size: int               # every vehicle built at the cause station this shift
     escaped: int                    # defective, left the line, never detected nor held
     detected_at_inspection: int
+    precision_inspection: float | None = None   # holds traced from inspection fails only
+    precision_drift: float | None = None        # holds from out-of-spec readings only
 
     @property
     def lag_s(self) -> float | None:
@@ -138,12 +142,19 @@ def containment_scorecard(plant: Plant, twin: Twin) -> list[ContainmentScore]:
         since = t_drift if t_drift is not None else 0.0
         blanket = sum(1 for v in plant.vehicles.values()
                       if any(x.station == cause and x.start_t >= since for x in v.record))
+        def _prec(reason: str) -> float | None:
+            hv = set()
+            for h in holds:
+                if h.reason == reason:
+                    hv.update(h.sure, h.uncertain)
+            return (len(hv & truth) / len(hv)) if hv else None
+
         out.append(ContainmentScore(
             d.name, cause, len(truth), t_drift,
             alert.t if alert else None, t_fail, first.t if first else None,
             len(held), sum(len(h.sure) for h in holds), sum(len(h.uncertain) for h in holds),
             tp, (tp / len(truth)) if truth else None, (tp / len(held)) if held else None,
-            blanket, escaped, detected))
+            blanket, escaped, detected, _prec("inspection"), _prec("drift")))
     return out
 
 

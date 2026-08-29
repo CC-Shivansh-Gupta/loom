@@ -1,0 +1,26 @@
+# Topology beyond serial: F2 is a two-operator station (capacity 2) sharing
+# one queue, and the F5 end-of-line inspection sends 70% of its fails to a
+# 6-minute rework bay, after which the vehicle re-enters F5's queue out of
+# order. Combined with the weld drift so there is something to fail.
+extends: weld_drift_b2.yaml
+line:
+  id: L1-parallel-rework
+  zones:
+    - name: body
+      stations:
+        - {id: B1, type: robot_weld, cycle_s: 55}
+        - {id: B2, type: robot_weld, cycle_s: 57}
+        - {id: B3, type: robot_weld, cycle_s: 56}
+        - {id: B4, type: inspection, cycle_s: 58}
+    - name: paint
+      stations:
+        - {id: P1, type: paint_booth, cycle_s: 55, buffer_before: 6}
+        - {id: P2, type: paint_booth, cycle_s: 58}
+        - {id: P3, type: inspection,  cycle_s: 56}
+    - name: final
+      stations:
+        - {id: F1, type: door_fit,   cycle_s: 57, sensors: plc_full}
+        - {id: F2, type: manual_fit, cycle_s: 100, sensors: plc_full, capacity: 2}   # two fitters, 100 s each
+        - {id: F3, type: manual_fit, cycle_s: 58, sensors: plc_full}
+        - {id: F4, type: manual_fit, cycle_s: 56, sensors: plc_full}
+        - {id: F5, type: inspection, cycle_s: 55, rework_p: 0.7, rework_s: 360}

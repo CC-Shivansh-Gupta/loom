@@ -30,7 +30,7 @@ def snapshot(cfg, plant, twin, t: float) -> dict:
         b = twin.stations[st.cfg.id]
         a = twin.active.get(st.cfg.id)
         st_rows.append([
-            STATE[st.state], st.vehicle.id if st.vehicle else None,
+            STATE[st.state], st.vehicle.event_id if st.vehicle else None,
             STATE[b.state.value], SRC[b.state.source], b.vehicle.value,
             len(buf), bufs[st.cfg.id].value, SRC[bufs[st.cfg.id].source],
             None if b.cycle_s.value is None else round(b.cycle_s.value, 1),
@@ -42,12 +42,11 @@ def snapshot(cfg, plant, twin, t: float) -> dict:
     # truth: every vehicle's location and progress
     veh = []
     for i, st in enumerate(plant.stations):
-        if st.vehicle is not None:
-            v = st.vehicle
+        for v in st.occupants():
             prog = min(1.0, (t - v.record[-1].start_t) / max(st.nominal_cycle(t), 1e-9))
-            veh.append([v.id, 1, i, round(prog, 2), v.variant])
+            veh.append([v.event_id, 1, i, round(prog, 2), v.variant])
         for k, v in enumerate(plant.buffers[i]):
-            veh.append([v.id, 0, i, k, v.variant])
+            veh.append([v.event_id, 0, i, k, v.variant])
     # belief: where the twin places vehicles (src), unplaced = -1
     bel = []
     placed = set()

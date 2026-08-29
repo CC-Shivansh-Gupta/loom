@@ -1,0 +1,26 @@
+# A two-operator station: F2 has two fitters (capacity 2) sharing one
+# queue, each taking 100 s -- slower than takt individually, faster
+# together. The twin must treat it as one station with two workers, not
+# as a bottleneck.
+extends: healthy.yaml
+line:
+  id: L1-parallel
+  zones:
+    - name: body
+      stations:
+        - {id: B1, type: robot_weld, cycle_s: 55}
+        - {id: B2, type: robot_weld, cycle_s: 57}
+        - {id: B3, type: robot_weld, cycle_s: 56}
+        - {id: B4, type: inspection, cycle_s: 58}
+    - name: paint
+      stations:
+        - {id: P1, type: paint_booth, cycle_s: 55, buffer_before: 6}
+        - {id: P2, type: paint_booth, cycle_s: 58}
+        - {id: P3, type: inspection,  cycle_s: 56}
+    - name: final
+      stations:
+        - {id: F1, type: door_fit,   cycle_s: 57, sensors: plc_full}
+        - {id: F2, type: manual_fit, cycle_s: 100, sensors: plc_full, capacity: 2}
+        - {id: F3, type: manual_fit, cycle_s: 58, sensors: plc_full}
+        - {id: F4, type: manual_fit, cycle_s: 56, sensors: plc_full}
+        - {id: F5, type: inspection, cycle_s: 55}

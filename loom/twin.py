@@ -24,7 +24,9 @@ from dataclasses import dataclass, field
 
 from .config import LineCfg
 from .events import (BLOCKED, EXIT, FINISH, INSPECT, LOST_SLOT, MOVE, PARAM,
-                     RELEASE, START, Event)
+                     RELEASE, REWORK, START, Event)
+
+REWORK_BASE = 1_000_000     # ids >= this are rework passes: FIFO order no longer holds for them
 from .forecast import Alert, Forecaster
 from .quality import QualityTwin
 
@@ -129,6 +131,8 @@ class Twin:
         self._noisy = [jit[i] > 0.05 * s.cycle_s for i, s in enumerate(cfg.stations)]
         self._finishes: list[deque[tuple[int, float]]] = [deque(maxlen=12) for _ in range(self.n)]
         self._arrivals: list[int] = [0] * self.n
+        self._arrival_t: list[deque[float]] = [deque(maxlen=20) for _ in range(self.n)]
+        self._workers = [s.capacity for s in cfg.stations]
         for s in cfg.stations:
             self.stations[s.id] = StationBelief(
                 state=Tagged("idle", MEASURED, 0.0),
@@ -167,12 +171,17 @@ class Twin:
             self._tl(ev.vehicle, None)
             self.quality.ingest(ev)
             return
+        self._shift_check(ev.t)
         tl = self._tl(ev.vehicle, ev.payload.get("variant"))
         i = self.cfg.index(ev.station) if ev.station else None
         if i is not None:
             self.stations[ev.station].last_measured_t = self.t
         if ev.kind == RELEASE:
             self._set(tl, "arrive", 0, ev.t, MEASURED)
+        elif ev.kind == REWORK:
+            # a repaired vehicle re-enters the inspection station's buffer as a new thread
+            tl.variant = self.tl[ev.payload["orig"]].variant if ev.payload.get("orig") in self.tl else "-"
+            self._set(tl, "arrive", i, ev.t, MEASURED)
         elif ev.kind == START:
             self._set(tl, "start", i, ev.t, MEASURED)
         elif ev.kind == FINISH:
@@ -215,6 +224,7 @@ class Twin:
         if kind == "arrive":
             if cur is None:
                 self._arrivals[i] += 1
+                self._arrival_t[i].append(t)
             if i not in tl.start:
                 self._pending[i].add(tl.vid)
             st = tl.start.get(i)
@@ -222,10 +232,14 @@ class Twin:
                 self.stations[self.cfg.ids[i]].health = "inconsistent"
         elif kind == "start":
             # FIFO: everything released before this vehicle has started too,
-            # even if we never learned exactly when.
-            self._pending[i] = {v for v in self._pending[i] if v > tl.vid}
+            # even if we never learned exactly when. Rework threads re-enter
+            # out of order, so they neither prune nor get pruned.
+            if tl.vid < REWORK_BASE:
+                self._pending[i] = {v for v in self._pending[i] if v > tl.vid or v >= REWORK_BASE}
+            else:
+                self._pending[i].discard(tl.vid)
             ls = self._last_started[i]
-            if ls is None or tl.vid > ls:
+            if ls is None or t >= self.tl[ls].start[i].t:
                 self._last_started[i] = tl.vid
             ar = tl.arrive.get(i)
             if ar and ar.source == MEASURED and source == MEASURED and t < ar.t - self._tol[i]:
@@ -267,16 +281,34 @@ class Twin:
             if sid in self.active:
                 return True
             c = self.stations[sid].cycle_s.value
-            if c is not None and c > 1.05 * self.cfg.takt_s:
+            if c is not None and c / self._workers[j] > 1.05 * self.cfg.takt_s:
                 return True
         return False
 
+    def _interarrival(self, i: int) -> float | None:
+        """Measured supply interval into station i (None until enough
+        arrivals). Bounded below so noise cannot make supply look faster
+        than half the takt."""
+        ts = self._arrival_t[i]
+        if len(ts) < 8:
+            return None
+        ia = (ts[-1] - ts[0]) / (len(ts) - 1)
+        return max(0.5 * self.cfg.takt_s, ia)
+
+    def _assess(self, i: int, t: float) -> None:
+        sid = self.cfg.ids[i]
+        cap = self.cfg.stations[i].buffer_before
+        alert = self.forecaster.assess(sid, t, len(self._pending[i]), cap,
+                                       self._workers[i], self._interarrival(i))
+        self._track(sid, t, alert)
+
     def _rules(self, tl: VehicleTL) -> bool:
         changed = False
-        prev = self.tl.get(tl.vid - 1)
-        nxt = self.tl.get(tl.vid + 1)
+        prev = self.tl.get(tl.vid - 1) if tl.vid < REWORK_BASE else None
+        nxt = self.tl.get(tl.vid + 1) if tl.vid < REWORK_BASE else None
         first = tl.vid == self._first_vid
         for i in range(self.n):
+            parallel = self.cfg.stations[i].capacity > 1   # workers share a queue: no single "previous"
             # R1
             if i > 0:
                 if self._lacks(tl.arrive, i) and i - 1 in tl.exit:
@@ -292,12 +324,12 @@ class Twin:
             # R4: measured start at an idle station pins the arrival
             st = tl.start.get(i)
             ar = tl.arrive.get(i)
-            if st and st.source == MEASURED and (ar is None or not ar.exact):
+            if st and st.source == MEASURED and (ar is None or not ar.exact) and not parallel:
                 pe = prev.exit.get(i) if prev else None
                 if first or (pe is not None and pe.t < st.t - self._tol[i]):
                     changed |= self._set(tl, "arrive", i, st.t, INFERRED)
             # R2
-            if self._lacks(tl.start, i) and not self._reliable(i, START):
+            if self._lacks(tl.start, i) and not self._reliable(i, START) and not parallel:
                 pe = prev.exit.get(i) if prev else None
                 if i in tl.arrive:
                     if first or prev is None or pe is not None:
@@ -353,6 +385,7 @@ class Twin:
         n = v1 - v0
         if n <= 0:
             return
+        t1 -= self.cfg.calendar.break_overlap(t0, t1)
         # Never starved in the window: for every vehicle v the next one had
         # measurably arrived (upstream timestamp) before v finished.
         tol = 2 * self._jit[i]
@@ -373,8 +406,7 @@ class Twin:
         fit = self.forecaster.fit(sid, f.t)
         if fit is not None:
             b.cycle_s = Tagged(round(fit.c_now, 1), INFERRED, f.t)
-        cap = self.cfg.stations[i].buffer_before
-        self._track(sid, f.t, self.forecaster.assess(sid, f.t, len(self._pending[i]), cap))
+        self._assess(i, f.t)
 
     def _next_full(self, i: int) -> bool:
         if i + 1 >= self.n:
@@ -384,7 +416,8 @@ class Twin:
     def _sample(self, tl: VehicleTL, i: int) -> None:
         sid = self.cfg.ids[i]
         s, f = tl.start[i], tl.finish[i]
-        c = f.t - s.t
+        # the calendar is known: a break inside the cycle is not work
+        c = f.t - s.t - self.cfg.calendar.break_overlap(s.t, f.t)
         nominal = self.cfg.stations[i].cycle_s
         if not (0.2 * nominal < c < 5 * nominal):
             return                                   # jitter garbage
@@ -399,9 +432,7 @@ class Twin:
         fit = self.forecaster.fit(sid, f.t)
         if fit is not None:
             b.cycle_s = Tagged(round(fit.c_now, 1), INFERRED, f.t)
-        cap = self.cfg.stations[i].buffer_before
-        alert = self.forecaster.assess(sid, f.t, len(self._pending[i]), cap)
-        self._track(sid, f.t, alert)
+        self._assess(i, f.t)
 
     def _downstream_root(self, station: str) -> str | None:
         """An active alert downstream explains slowness here (blocking)."""
@@ -434,15 +465,30 @@ class Twin:
                 if self._misses[station] >= self.CLEAR_AFTER:
                     self.log.append(AlertLog(t, "cleared", self.active.pop(station)))
 
+    def _shift_check(self, t: float) -> None:
+        """Operator variation: at a shift change the trend windows restart so
+        a slower crew does not read as a ramp."""
+        sh = self.cfg.calendar.shift_at(t)
+        name = sh.name if sh else None
+        if name != getattr(self, "_shift", None):
+            self._shift = name
+            if sh is not None and sh.start_s > 0:
+                self.forecaster.samples.clear()
+                self._hits.clear()
+
     def _health(self) -> None:
         if self.t < 20 * self.cfg.takt_s:
             return
+        cal = self.cfg.calendar
+        if cal.in_break(self.t):
+            return                                        # quiet by design
         for i, s in enumerate(self.cfg.stations):
             b = self.stations[s.id]
             if b.health == "inconsistent":
                 continue
             instrumented = s.sensors.passes(START) or s.sensors.passes(FINISH)
-            silent = instrumented and self.t - b.last_measured_t > self.SILENT_AFTER_TAKTS * self.cfg.takt_s
+            gap = self.t - b.last_measured_t - cal.break_overlap(b.last_measured_t, self.t)
+            silent = instrumented and gap > self.SILENT_AFTER_TAKTS * self.cfg.takt_s
             new = "silent" if silent else "ok"
             if new != b.health:
                 b.health = new

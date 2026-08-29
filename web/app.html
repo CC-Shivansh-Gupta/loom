@@ -83,7 +83,7 @@ textarea.cfg{width:100%;height:52vh;font-family:var(--mono);font-size:11.5px;lin
 </footer>
 <aside>
   <div class="tabs" id="tabs">
-    <button class="tab on" data-p="station">Station</button><button class="tab" data-p="inject">Inject</button><button class="tab" data-p="config">Line</button><button class="tab" data-p="supervisor">Floor</button><button class="tab" data-p="quality">Quality</button><button class="tab" data-p="maintenance">Maint.</button><button class="tab" data-p="manager">Mgr</button><button class="tab" data-p="events">Log</button>
+    <button class="tab on" data-p="station">Station</button><button class="tab" data-p="inject">Inject</button><button class="tab" data-p="config">Line</button><button class="tab" data-p="supervisor">Floor</button><button class="tab" data-p="quality">Quality</button><button class="tab" data-p="maintenance">Maint.</button><button class="tab" data-p="manager">Mgr</button><button class="tab" data-p="leadership">Exec</button><button class="tab" data-p="events">Log</button>
   </div>
   <div class="pane" id="pane"></div>
 </aside>
@@ -286,7 +286,7 @@ $("rec").addEventListener("click",async()=>{const on=!(S.frame&&S.frame.recordin
   if(!on){const el=$("toast");const d=document.createElement("div");d.className="rec";d.innerHTML=`Recorded ${r.minutes} min (${r.frames} frames) — <a href="${r.html}" target="_blank">open replay page</a> · <a href="${r.json}" download>data</a>`;el.appendChild(d);requestAnimationFrame(()=>d.classList.add("show"));setTimeout(()=>{d.classList.remove("show");setTimeout(()=>d.remove(),400)},30000);}});
 [...$("speed").children].forEach(b=>b.addEventListener("click",()=>api("/api/control",{speed:+b.dataset.s})));
 [...$("tabs").children].forEach(b=>b.addEventListener("click",()=>{S.pane=b.dataset.p;setTab();renderPane();}));
-setInterval(()=>{if(["supervisor","quality","maintenance","manager"].includes(S.pane))renderPane(); if(S.pane==="station"&&S.sel!=null)renderPane();},4000);
+setInterval(()=>{if(["supervisor","quality","maintenance","manager","leadership"].includes(S.pane))renderPane(); if(S.pane==="station"&&S.sel!=null)renderPane();},4000);
 setInterval(refreshScore,15000);
 (function loop(){ if(S.frame){const mix=Math.min(1,(performance.now()-(S.mixT||0))/100); applyFrame(S.frame,S.prev,mix);} render(); requestAnimationFrame(loop); })();
 </script>

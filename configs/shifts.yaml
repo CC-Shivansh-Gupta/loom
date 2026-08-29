@@ -1,0 +1,21 @@
+# Shift calendar and operator variation. Two 10-minute breaks; the night
+# crew (from 4 h) is 4% slower on the manual final-assembly stations. The
+# twin knows the calendar, so a break must not read as a stoppage and a
+# crew change must not read as tool wear -- and the real B3 ramp at 5 h
+# must still be caught.
+extends: healthy.yaml
+line:
+  id: L1-shifts
+  calendar:
+    breaks:
+      - {at_s: 7200, duration_s: 600}
+      - {at_s: 12600, duration_s: 600}
+    shifts:
+      - {name: day, start_s: 0}
+      - {name: night, start_s: 14400, cycle_mult: {F1: 1.03, F2: 1.03, F4: 1.03}}   # slower crew, still under takt
+scenario:
+  perturbations:
+    - {station: B3, at_s: 18000, ramp_s: 1200, cycle_s: 80}
+economics:
+  downtime_cost_per_min: 8000
+  bottleneck_events_per_week: 3

@@ -22,7 +22,7 @@ from typing import Callable
 
 from .config import LineCfg, ParamDrift, Perturbation, StationCfg
 from .events import (BLOCKED, EXIT, FINISH, INSPECT, LOST_SLOT, MOVE, PARAM,
-                     RELEASE, START, Event)
+                     RELEASE, REWORK, START, Event)
 
 IDLE, BUSY, BLOCKED_STATE = "idle", "busy", "blocked"
 
@@ -36,6 +36,9 @@ class Visit:
     params: dict[str, float] = field(default_factory=dict)   # true process values
 
 
+REWORK_BASE = 1_000_000     # event ids for rework passes: id + pass * REWORK_BASE
+
+
 @dataclass
 class Vehicle:
     id: int
@@ -46,6 +49,14 @@ class Vehicle:
     defects: set[str] = field(default_factory=set)       # latent, ground truth
     detected: set[str] = field(default_factory=set)      # caught at inspection
     inspections: list[tuple[str, float, str]] = field(default_factory=list)  # (station, t, result)
+    pass_no: int = 0                                     # rework passes so far
+    blocked_emitted: bool = False
+
+    @property
+    def event_id(self) -> int:
+        """Identity as seen by the sensors: a reworked vehicle re-enters the
+        line as a new thread so timelines stay one visit per station."""
+        return self.id + self.pass_no * REWORK_BASE
 
     def param(self, station: str, name: str) -> float | None:
         for x in self.record:
@@ -60,15 +71,33 @@ class Station:
     perturbations: tuple[Perturbation, ...] = ()
     drifts: tuple[ParamDrift, ...] = ()
     state: str = IDLE
-    vehicle: Vehicle | None = None
+    active: list[Vehicle] = field(default_factory=list)   # being processed (<= capacity)
+    done: list[Vehicle] = field(default_factory=list)     # finished, waiting to leave
+    rework_wait: list[Vehicle] = field(default_factory=list)
     state_since: float = 0.0
     time_in: dict[str, float] = field(
         default_factory=lambda: {IDLE: 0.0, BUSY: 0.0, BLOCKED_STATE: 0.0})
+
+    @property
+    def vehicle(self) -> Vehicle | None:
+        return self.done[0] if self.done else (self.active[0] if self.active else None)
+
+    def occupants(self) -> list[Vehicle]:
+        return self.active + self.done
+
+    @property
+    def free_slots(self) -> int:
+        return self.cfg.capacity - len(self.active) - len(self.done)
 
     def set_state(self, state: str, t: float) -> None:
         self.time_in[self.state] += t - self.state_since
         self.state = state
         self.state_since = t
+
+    def update_state(self, t: float) -> None:
+        new = BLOCKED_STATE if self.done else (BUSY if self.active else IDLE)
+        if new != self.state:
+            self.set_state(new, t)
 
     def nominal_cycle(self, t: float) -> float:
         """True nominal cycle at time t, after any scheduled perturbations."""
@@ -140,7 +169,7 @@ class Plant:
               vehicle: Vehicle | None = None, **payload) -> None:
         self._seq += 1
         ev = Event(self.t, self._seq, kind, station,
-                   vehicle.id if vehicle else None, payload)
+                   vehicle.event_id if vehicle else None, payload)
         self.events.append(ev)
         for fn in self.listeners:
             fn(ev)
@@ -173,7 +202,9 @@ class Plant:
 
     # -- line logic ------------------------------------------------------
     def _source_tick(self) -> None:
-        if len(self.buffers[0]) < self.stations[0].cfg.buffer_before:
+        if self.cfg.calendar.in_break(self.t):
+            pass                                          # nobody releases during a break
+        elif len(self.buffers[0]) < self.stations[0].cfg.buffer_before:
             v = Vehicle(self._next_vid, self.t, self._pick_variant())
             self._next_vid += 1
             self.vehicles[v.id] = v
@@ -184,35 +215,69 @@ class Plant:
             self._emit(LOST_SLOT)
         self._schedule(self.cfg.takt_s, self._source_tick)
 
+    def _processing_time(self, st: Station, v: Vehicle) -> float:
+        mult = self._variant_mult(v.variant, st.cfg.id)
+        shift = self.cfg.calendar.shift_at(self.t)
+        if shift is not None:
+            mult *= shift.cycle_mult.get(st.cfg.id, 1.0)
+        work = st.cycle_time(self.t, self.rng, self.cfg.cv, mult)
+        # a break that overlaps the cycle stops the work for its duration:
+        # wall time = work + breaks inside the wall-time window (fixed point)
+        dur = work
+        for _ in range(6):
+            total = work + self.cfg.calendar.break_overlap(self.t, self.t + dur)
+            if abs(total - dur) < 1e-9:
+                break
+            dur = total
+        return dur
+
     def _try_start(self, i: int) -> None:
         st = self.stations[i]
-        if st.state != IDLE or not self.buffers[i]:
-            return
-        v = self.buffers[i].popleft()
-        st.vehicle = v
-        st.set_state(BUSY, self.t)
-        visit = Visit(st.cfg.id, self.t, params=st.sample_params(self.t, self.rng))
-        v.record.append(visit)
-        self._emit(START, st.cfg.id, v)
-        for name, val in visit.params.items():
-            spec = next(p for p in st.cfg.params if p.name == name)
-            reading = val + (self.rng.gauss(0.0, spec.meas_sd) if spec.meas_sd else 0.0)
-            self._emit(PARAM, st.cfg.id, v, param=name, value=round(reading, 4))
-        self._materialise_defects(v, st.cfg.id)
-        mult = self._variant_mult(v.variant, st.cfg.id)
-        self._schedule(st.cycle_time(self.t, self.rng, self.cfg.cv, mult),
-                       lambda: self._finish(i))
-        # We freed a slot in buffer i; a blocked upstream station may move.
-        if i > 0 and self.stations[i - 1].state == BLOCKED_STATE:
-            self._try_push(i - 1)
+        # a repaired vehicle waiting to re-enter takes the next buffer slot
+        while st.rework_wait and len(self.buffers[i]) < st.cfg.buffer_before:
+            rv = st.rework_wait.pop(0)
+            self.buffers[i].append(rv)
+            self._emit(REWORK, st.cfg.id, rv, orig=rv.id, pass_no=rv.pass_no)
+        while st.free_slots > 0 and self.buffers[i]:
+            v = self.buffers[i].popleft()
+            st.active.append(v)
+            st.update_state(self.t)
+            visit = Visit(st.cfg.id, self.t, params=st.sample_params(self.t, self.rng))
+            v.record.append(visit)
+            self._emit(START, st.cfg.id, v)
+            for name, val in visit.params.items():
+                spec = next(p for p in st.cfg.params if p.name == name)
+                reading = val + (self.rng.gauss(0.0, spec.meas_sd) if spec.meas_sd else 0.0)
+                self._emit(PARAM, st.cfg.id, v, param=name, value=round(reading, 4))
+            self._materialise_defects(v, st.cfg.id)
+            self._schedule(self._processing_time(st, v), lambda v=v: self._finish(i, v))
+            # We freed a slot in buffer i; a blocked upstream station may move.
+            if i > 0 and self.stations[i - 1].done:
+                self._try_push(i - 1)
 
-    def _finish(self, i: int) -> None:
+    def _finish(self, i: int, v: Vehicle) -> None:
         st = self.stations[i]
-        st.vehicle.record[-1].finish_t = self.t
-        self._emit(FINISH, st.cfg.id, st.vehicle)
+        v.record[-1].finish_t = self.t
+        st.active.remove(v)
+        self._emit(FINISH, st.cfg.id, v)
+        to_rework = False
         if st.cfg.type.inspection:
-            self._inspect(st.vehicle, st.cfg.id)
-        self._try_push(i)
+            to_rework = self._inspect(v, st.cfg.id)
+        if to_rework:
+            v.record[-1].exit_t = self.t
+            st.update_state(self.t)
+            self._schedule(st.cfg.rework_s, lambda: self._rework_return(i, v))
+            self._try_start(i)
+        else:
+            st.done.append(v)
+            st.update_state(self.t)
+            self._try_push(i)
+
+    def _rework_return(self, i: int, v: Vehicle) -> None:
+        v.pass_no += 1
+        v.blocked_emitted = False
+        self.stations[i].rework_wait.append(v)
+        self._try_start(i)
 
     # -- quality: latent defects and inspections --------------------------
     def _materialise_defects(self, v: Vehicle, station: str) -> None:
@@ -230,7 +295,8 @@ class Plant:
             if ok and self.rng.random() < d.p:
                 v.defects.add(d.name)
 
-    def _inspect(self, v: Vehicle, station: str) -> None:
+    def _inspect(self, v: Vehicle, station: str) -> bool:
+        """Returns True if the vehicle is sent to rework instead of onward."""
         found = []
         for d in self.cfg.defects:
             if d.detected_at == station and d.name in v.defects and d.name not in v.detected:
@@ -240,27 +306,36 @@ class Plant:
         result = "fail" if found else "pass"
         v.inspections.append((station, self.t, result))
         self._emit(INSPECT, station, v, result=result, defects=found)
+        cfg = self.stations[self.cfg.index(station)].cfg
+        if found and cfg.rework_p > 0 and self.rng.random() < cfg.rework_p:
+            for name in found:                      # repaired: the defect is gone
+                v.defects.discard(name)
+            return True
+        return False
 
     def _try_push(self, i: int) -> None:
         st = self.stations[i]
-        v = st.vehicle
         last = i == len(self.stations) - 1
-        if not last and len(self.buffers[i + 1]) >= self.stations[i + 1].cfg.buffer_before:
-            if st.state != BLOCKED_STATE:
-                st.set_state(BLOCKED_STATE, self.t)
-                self._emit(BLOCKED, st.cfg.id, v)
-            return
-        v.record[-1].exit_t = self.t
-        st.vehicle = None
-        st.set_state(IDLE, self.t)
-        if last:
-            v.exited_t = self.t
-            self.exited.append(v)
-            self._emit(EXIT, st.cfg.id, v)
-        else:
-            self.buffers[i + 1].append(v)
-            self._emit(MOVE, st.cfg.id, v, to=self.stations[i + 1].cfg.id)
-            self._try_start(i + 1)
+        while st.done:
+            v = st.done[0]
+            if not last and len(self.buffers[i + 1]) >= self.stations[i + 1].cfg.buffer_before:
+                st.update_state(self.t)
+                if not v.blocked_emitted:
+                    v.blocked_emitted = True
+                    self._emit(BLOCKED, st.cfg.id, v)
+                return
+            st.done.pop(0)
+            v.record[-1].exit_t = self.t
+            v.blocked_emitted = False
+            st.update_state(self.t)
+            if last:
+                v.exited_t = self.t
+                self.exited.append(v)
+                self._emit(EXIT, st.cfg.id, v)
+            else:
+                self.buffers[i + 1].append(v)
+                self._emit(MOVE, st.cfg.id, v, to=self.stations[i + 1].cfg.id)
+                self._try_start(i + 1)
         self._try_start(i)
 
     # -- what-if: start from a believed state -------------------------------
@@ -274,10 +349,10 @@ class Plant:
             rem = busy.get(st.cfg.id)
             if rem is not None:
                 v = self._new_vehicle()
-                st.vehicle = v
-                st.set_state(BUSY, self.t)
+                st.active.append(v)
+                st.update_state(self.t)
                 v.record.append(Visit(st.cfg.id, self.t))
-                self._schedule(max(0.1, rem * st.cfg.cycle_s), lambda i=i: self._finish(i))
+                self._schedule(max(0.1, rem * st.cfg.cycle_s), lambda i=i, v=v: self._finish(i, v))
 
     def _new_vehicle(self) -> Vehicle:
         v = Vehicle(self._next_vid, self.t, self._pick_variant())
@@ -291,7 +366,7 @@ class Plant:
             "t": self.t,
             "stations": {
                 s.cfg.id: {"state": s.state,
-                           "vehicle": s.vehicle.id if s.vehicle else None}
+                           "vehicle": s.vehicle.event_id if s.vehicle else None}
                 for s in self.stations
             },
             "buffers": {s.cfg.id: [v.id for v in b]

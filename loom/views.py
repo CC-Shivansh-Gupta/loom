@@ -119,11 +119,12 @@ def maintenance(twin: Twin) -> str:
         if fit is None:
             continue
         slope_min = fit.slope * 60
-        over = fit.c_now > cfg.takt_s
+        c_eff = fit.c_now / s.capacity
+        over = c_eff > cfg.takt_s
         if over:
             eta = "over now"
         elif fit.slope > 0 and fit.tstat >= 2.0:
-            eta = f"~{(cfg.takt_s - fit.c_now) / fit.slope / 60:.0f} min"
+            eta = f"~{(cfg.takt_s * s.capacity - fit.c_now) / fit.slope / 60:.0f} min"
         else:
             eta = "-"
         status = ("SCHEDULE" if over or (fit.slope > 0 and fit.tstat >= twin.forecaster.min_tstat)
@@ -147,6 +148,67 @@ def maintenance(twin: Twin) -> str:
         lines.append(f"  next window: {', '.join(sid for _, sid, _ in sched)} -- intervene before the projected crossing")
     else:
         lines.append("  next window: nothing due")
+    return "\n".join(lines)
+
+
+def leadership(twin: Twin, scorecard: dict | None = None, containment: list | None = None,
+               coverage: dict[str, str] | None = None, voi_rank: list[dict] | None = None) -> str:
+    """The investment case, from measured twin performance and stated
+    economic assumptions (config `economics:`). Every input is printed so
+    a sceptic can change one and redo the arithmetic."""
+    twin.refresh()
+    cfg = twin.cfg
+    e = cfg.economics
+    lines = [f"LEADERSHIP  {cfg.plant.get('name', cfg.name)} · line {cfg.name}   t={_hm(twin.t)}"]
+    # measured inputs
+    leads = [s.lead_s / 60 for s in (scorecard or {}).get("scores", []) if s.lead_s]
+    lead = sum(leads) / len(leads) if leads else None
+    fa = len((scorecard or {}).get("false_alarms", []))
+    raised = (scorecard or {}).get("alerts_raised", 0)
+    lines.append("  measured on this line:")
+    lines.append(f"    warning lead        {'-' if lead is None else f'{lead:.1f} min'} (mean over {len(leads)} fault(s))")
+    lines.append(f"    false alarms        {fa} of {raised} alerts")
+    hold_saved = escaped = None
+    if containment:
+        c = containment[0]
+        if c.hold_size and c.blanket_size:
+            hold_saved = c.blanket_size - c.hold_size
+        escaped = c.escaped
+        lines.append(f"    containment         {c.hold_size} held vs {c.blanket_size} blanket "
+                     f"(precision {'-' if c.precision is None else f'{c.precision:.0%}'}), {c.escaped} escaped")
+    if coverage:
+        n = len(coverage)
+        dark = sum(1 for v in coverage.values() if v == "dark")
+        partial = sum(1 for v in coverage.values() if v not in ("plc_full", "dark"))
+        lines.append(f"    instrumentation     {n - dark - partial}/{n} full, {partial} partial, {dark} dark")
+    # value model
+    lines.append("  annual value (assumptions in configs `economics:`):")
+    minutes_saved = (lead or 0.0) * e.prevented_share * e.bottleneck_events_per_week * e.weeks_per_year
+    v_bottleneck = minutes_saved * e.downtime_cost_per_min
+    lines.append(f"    bottlenecks avoided  {lead or 0:.1f} min lead x {e.prevented_share:.0%} acted on x "
+                 f"{e.bottleneck_events_per_week:g}/wk x {e.weeks_per_year:g} wk x ${e.downtime_cost_per_min:,.0f}/min "
+                 f"= ${v_bottleneck:,.0f}")
+    hs = hold_saved if hold_saved is not None else 0
+    v_holds = hs * e.hold_cost_per_vehicle * e.quality_events_per_month * 12
+    lines.append(f"    targeted holds       {hs} fewer vehicles held/event x ${e.hold_cost_per_vehicle:,.0f} x "
+                 f"{e.quality_events_per_month:g}/mo x 12 = ${v_holds:,.0f}")
+    esc_avoided = 0 if escaped is None else max(0, (containment[0].n_defective - containment[0].detected_at_inspection) - escaped)
+    v_escape = esc_avoided * e.escape_cost_per_defect * e.quality_events_per_month * 12
+    lines.append(f"    escapes prevented    {esc_avoided} defects/event x ${e.escape_cost_per_defect:,.0f} x "
+                 f"{e.quality_events_per_month:g}/mo x 12 = ${v_escape:,.0f}")
+    total = v_bottleneck + v_holds + v_escape
+    n_dark = sum(1 for v in (coverage or {}).values() if v != "plc_full")
+    capex = n_dark * e.sensor_cost_per_station
+    lines.append(f"    total                ${total:,.0f} / year")
+    lines.append(f"  cost: licence ${e.licence_per_line_per_year:,.0f}/yr + retrofit of {n_dark} station(s) ${capex:,.0f} one-off")
+    net = total - e.licence_per_line_per_year
+    payback = None if net <= 0 else 12 * (capex + e.licence_per_line_per_year) / total
+    lines.append(f"  payback              {'n/a' if payback is None else f'{payback:.1f} months'}   (net ${net:,.0f}/yr after licence)")
+    if voi_rank:
+        r = voi_rank[0]
+        gain = "" if r["d_lead_s"] is None else f", +{r['d_lead_s'] / 60:.1f} min lead"
+        lines.append(f"  next retrofit        {r['station']} ({r['from']} -> cycle_only): ~${e.sensor_cost_per_station:,.0f}{gain}")
+    lines.append("  rollout              shadow 2 wk -> advisory -> reversible automatic; gate = trust ledger")
     return "\n".join(lines)
 
 

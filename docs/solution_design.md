@@ -180,7 +180,11 @@ the role of the edge collector, which is why it is the one module a real deploym
 
 ### S6 · Scalability and ROI
 
-Config replication (C6). ROI, with the assumptions stated so a judge can change them:
+Config replication (C6). ROI is a live view (`views.leadership`, the **Exec** tab), computed from
+this line's *measured* lead time, hold sizes and escapes and from stated assumptions in the plant
+file's `economics:` block — every input printed so a sceptic can change one and redo the arithmetic.
+Anchors from the research: an idle automotive line costs $2.3 M/h (Siemens 2024), of which one
+line's share is the default `downtime_cost_per_min: 8000`. Formulas:
 
 - **Bottleneck avoidance.** Lead time × fraction of events where a floater or re-balance prevents the
   block × line rate × contribution margin per vehicle. Illustrative: 8 min lead, 50 % prevented,
@@ -199,10 +203,10 @@ Config replication (C6). ROI, with the assumptions stated so a judge can change 
 |---|---|
 | **Shifting bottlenecks** — the constraint moves as mix and wear change | per-station forecasting plus the active-period cross-check; demo with two staggered ramps |
 | **Mixed-model sequence effects** — a run of SUVs overloads F1 even with no fault | variant multipliers in the plant; forecaster reads the variant mix waiting in upstream buffers |
-| **Shifts, breaks, operator variation** | shift calendar in config; per-shift baselines so the night shift's slower manual station is not a "drift" |
 | **Sensor faults vs process faults** — stuck sensor, clock skew, dropouts | sensor-health checks: a reading that contradicts its neighbours' timestamps is quarantined and its provenance downgraded to ◐ |
 | **Alarm flooding** — one bottleneck starves eight downstream stations | alerts grouped by causal chain; downstream starvation is a consequence line under the root alert, not eight alerts |
-| **Rework loops and parallel stations** | topology extension (`next:` routing in config); on the roadmap, design already accommodates it |
+| **Rework loops and parallel stations** | built: `capacity: n` workers share a queue (forecaster compares cycle/n to takt; what-if "floater" adds a worker); inspection `rework_p`/`rework_s` sends fails to a bay and re-enters them out of order as a new thread. `parallel_rework.yaml` shows a quality problem becoming a flow problem: F5 processes fails twice, turns into the bottleneck, and the forecaster names it — because supply is measured per station, not assumed to be takt |
+| **Shifts, breaks, operator variation** | built: `calendar:` with breaks (no releases, cycles paused; the twin subtracts break time from cycles and never calls a station silent during one) and shifts with per-station crew multipliers (trend windows restart at a shift change so a slower crew is not a ramp). `shifts.yaml`: two breaks, a slower night crew, and a real B3 ramp at 5 h — 0 false alarms, ramp caught |
 | **Onset-time uncertainty in containment** | window widened by the detection delay's uncertainty; marginal vehicles tagged ◐ and listed separately |
 | **Cost of a false hold** | every hold recommendation carries its expected precision; supervisor sees "12 vehicles, ~9 truly at risk" |
 | **Data governance and OT security** | read-only, on-prem edge, OT/IT segmentation; audit trail of every recommendation and override (supports IATF 16949 traceability) |

@@ -35,6 +35,11 @@ python -m loom.run configs/ramp_b3_dark.yaml --hours 2   # B3 dark: what step 3 
 | `weld_drift_b2.yaml` | silent drift: B2 weld current sags out of spec, no cycle-time symptom; defect surfaces at F5 — CUSUM catches it at source, targeted hold |
 | `multi_cause.yaml` | intermittent defect needing low torque at B4 **and** high humidity at P1; contribution analysis finds the pair |
 | `shifting.yaml` | B3 wears, is repaired, then F3 wears — the constraint moves; both forecast, momentary bottleneck tracked |
+| `parallel.yaml` | F2 is a two-operator station (`capacity: 2`, 100 s each) — not a bottleneck, and the twin knows |
+| `parallel_rework.yaml` | + F5 sends 70 % of fails to a 6-min rework bay; re-entry overloads F5 and the forecaster names it |
+| `shifts.yaml` | two breaks, a slower night crew, a real B3 ramp at 5 h — 0 false alarms |
+
+Views: `--view operator:<station>`, `supervisor`, `quality`, `maintenance`, `manager`, `leadership` (ROI with stated assumptions; **Exec** tab in the control room).
 
 Views: `--view operator:<station>`, `supervisor`, `quality`, `maintenance`, `manager`.
 
