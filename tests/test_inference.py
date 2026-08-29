@@ -36,12 +36,25 @@ def test_buffer_counts_never_go_negative():
         assert twin.buffer_count(i).value >= 0
 
 
-def test_checklist_station_gets_inferred_cycles():
-    cfg, plant, sensors, twin = build("configs/plant_b.yaml")
-    plant.run(2 * H)
+def test_checklist_station_gets_windowed_cycles_only_when_queued(tmp_path):
+    import os
+    # T01 (checklist, measured arrivals from P05) becomes the bottleneck:
+    # queued and never blocked, so windowed throughput == its cycle.
+    p = tmp_path / "t01_slow.yaml"
+    p.write_text(f"extends: {os.path.abspath('configs/plant_b.yaml')}\n"
+                 "scenario:\n  perturbations:\n"
+                 "    - {station: T01, at_s: 1800, ramp_s: 900, cycle_s: 95}\n")
+    cfg, plant, sensors, twin = build(str(p))
+    plant.run(2.5 * H)
+    t01 = twin.stations["T01"]
+    assert t01.inferred_samples > 5 and t01.measured_samples == 0
+    assert any(x.action == "raised" and x.alert.station == "T01" for x in twin.log)
+    # P01 (checklist) is never queued on a healthy stretch: finish-only
+    # timestamps cannot separate work from waiting, so the twin abstains.
     p01 = twin.stations["P01"]
-    assert p01.inferred_samples > 10
-    assert p01.measured_samples == 0        # finish only, start inferred
+    assert p01.measured_samples == 0 and p01.inferred_samples <= 3
+    twin.refresh()
+    assert p01.state.source == "inferred"
 
 
 def test_silent_sensor_is_detected_and_bridged():

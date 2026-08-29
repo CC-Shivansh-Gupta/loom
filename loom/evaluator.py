@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .events import BLOCKED
+from .events import BLOCKED, MOVE
 from .plant import Plant
 from .twin import INFERRED, MEASURED, Twin
 
@@ -147,6 +147,43 @@ def containment_scorecard(plant: Plant, twin: Twin) -> list[ContainmentScore]:
     return out
 
 
+def _blocked_intervals(plant: Plant, station: str) -> list[tuple[float, float]]:
+    out, t0 = [], None
+    for e in plant.events:
+        if e.station != station:
+            continue
+        if e.kind == BLOCKED:
+            t0 = e.t
+        elif e.kind == MOVE and t0 is not None:
+            out.append((t0, e.t))
+            t0 = None
+    if t0 is not None:
+        out.append((t0, plant.t))
+    return out
+
+
+def _sustained_block(plant: Plant, station: str, after: float,
+                     window_s: float = 600.0, min_fraction: float = 0.15) -> float | None:
+    """When the fault at `station` first *sustainably* blocks the station
+    before it: the first block after `after`, while the station is truly
+    over takt, that is followed by >= `min_fraction` blocked time in the
+    next `window_s`. Filters out transient blocks from surges (e.g. the
+    backlog released when an earlier bottleneck is repaired)."""
+    cfg = plant.cfg
+    i = cfg.index(station)
+    if i == 0:
+        return None
+    ivs = _blocked_intervals(plant, cfg.ids[i - 1])
+    for t0, _ in ivs:
+        if t0 < after or plant.true_cycle(station, t0) <= cfg.takt_s:
+            continue
+        end = t0 + window_s
+        blocked = sum(max(0.0, min(b, end) - max(a, t0)) for a, b in ivs)
+        if blocked / window_s >= min_fraction:
+            return t0
+    return None
+
+
 def bottleneck_scorecard(plant: Plant, twin: Twin) -> dict:
     cfg = plant.cfg
     takt = cfg.takt_s
@@ -155,6 +192,8 @@ def bottleneck_scorecard(plant: Plant, twin: Twin) -> dict:
     explained: set[int] = set()
 
     for p in cfg.perturbations:
+        if p.cycle_s <= takt:
+            continue                                  # a recovery, not a fault
         i = cfg.index(p.station)
         base = plant.stations[i].cfg.cycle_s
         t_over = None
@@ -163,13 +202,10 @@ def bottleneck_scorecard(plant: Plant, twin: Twin) -> dict:
                 t_over = p.at_s
             else:
                 t_over = p.at_s + p.ramp_s * (takt - base) / (p.cycle_s - base)
-        upstream = set(cfg.ids[:i])
-        t_block = next((e.t for e in plant.events
-                        if e.kind == BLOCKED and e.station in upstream and e.t >= p.at_s),
-                       None)
+        t_block = _sustained_block(plant, p.station, p.at_s)
         first = None
         for k, x in enumerate(raised):
-            if x.alert.station == p.station and x.t >= p.at_s:
+            if x.alert.station == p.station and x.t >= p.at_s and k not in explained:
                 first = x
                 explained.add(k)
                 break
@@ -183,3 +219,70 @@ def bottleneck_scorecard(plant: Plant, twin: Twin) -> dict:
     false_alarms = [x for k, x in enumerate(raised) if k not in explained]
     return {"scores": scores, "false_alarms": false_alarms,
             "alerts_raised": len(raised)}
+
+
+def true_bottleneck_now(plant: Plant, t: float, tol: float = 0.01) -> tuple[str, float] | None:
+    """Ground-truth momentary bottleneck by the active-period method,
+    from the plant's complete vehicle records."""
+    best = None
+    for st in plant.stations:
+        visits = sorted(((v.id, x) for v in plant.vehicles.values() for x in v.record
+                         if x.station == st.cfg.id), key=lambda r: r[0])
+        cur = None
+        for k, (vid, x) in enumerate(visits):
+            if x.start_t <= t and (x.exit_t is None or x.exit_t > t):
+                cur = k
+                break
+        if cur is None:
+            continue
+        x = visits[cur][1]
+        if x.finish_t is not None and x.finish_t <= t - tol:
+            continue                                      # blocked now
+        start = x.start_t
+        k = cur
+        while k > 0:
+            p = visits[k - 1][1]
+            if p.exit_t is None or visits[k][1].start_t - p.exit_t > tol:
+                break                                     # starved gap
+            if p.finish_t is None or p.exit_t - p.finish_t > tol:
+                break                                     # was blocked
+            start = p.start_t
+            k -= 1
+        dur = t - start
+        if best is None or dur > best[1]:
+            best = (st.cfg.id, dur)
+    return best
+
+
+def active_period_agreement(plant: Plant, twin: Twin, step_s: float = 60.0,
+                            warmup_s: float = 1200.0) -> dict:
+    """How often the twin's momentary bottleneck (from partial data) equals
+    the plant's (from complete data). Replays sensors -> twin over the
+    recorded events, sampling every `step_s`."""
+    from .sensors import SensorLayer
+    cfg = plant.cfg
+    sensors = SensorLayer(cfg, cfg.seed)
+    t2 = Twin(cfg)
+    sensors.subscribers.append(t2.ingest)
+    events = iter(plant.events)
+    pending = next(events, None)
+    hits = total = fault_hits = fault_total = 0
+    t = step_s
+    while t <= plant.t:
+        while pending is not None and pending.t <= t:
+            sensors.observe(pending)
+            pending = next(events, None)
+        t2.t = max(t2.t, t)
+        if t >= warmup_s:
+            truth = true_bottleneck_now(plant, t)
+            bn = t2.bottleneck_now()
+            hit = truth is not None and bn is not None and bn[0] == truth[0]
+            total += 1
+            hits += hit
+            if any(plant.true_cycle(p.station, t) > cfg.takt_s for p in cfg.perturbations):
+                fault_total += 1
+                fault_hits += hit
+        t += step_s
+    return {"samples": total, "agreement": (hits / total) if total else None,
+            "fault_samples": fault_total,
+            "fault_agreement": (fault_hits / fault_total) if fault_total else None}

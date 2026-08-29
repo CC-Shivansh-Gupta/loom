@@ -140,6 +140,8 @@ def render_view(spec: str, cfg, plant, sensors, twin) -> str:
         return views.supervisor(twin)
     if role == "quality":
         return views.quality(twin)
+    if role == "maintenance":
+        return views.maintenance(twin)
     if role == "manager":
         return views.manager(twin, bottleneck_scorecard(plant, twin), sensors.coverage(),
                              voi.rank(cfg, plant, twin))

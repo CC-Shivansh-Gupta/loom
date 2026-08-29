@@ -19,6 +19,7 @@ from the sensor profiles' declared jitter.
 """
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass, field
 
 from .config import LineCfg
@@ -118,7 +119,16 @@ class Twin:
 
         jit = [s.sensors.jitter_s for s in cfg.stations]
         self._tol = [2 * (jit[i] + (jit[i - 1] if i else 0.0)) + 0.5 for i in range(self.n)]
+        self._own_tol = [2 * jit[i] + 0.5 for i in range(self.n)]   # comparing a station's own stamps
+        self._jit = jit
         self._sees = [s.sensors for s in cfg.stations]
+        # A manual checklist stamps finishes with ~30 s jitter: per-vehicle
+        # cycles from it are garbage (and max(arrive, prev_exit) biases them
+        # upward). Such stations get a windowed throughput estimate instead
+        # and are excluded from the momentary-bottleneck vote.
+        self._noisy = [jit[i] > 0.05 * s.cycle_s for i, s in enumerate(cfg.stations)]
+        self._finishes: list[deque[tuple[int, float]]] = [deque(maxlen=12) for _ in range(self.n)]
+        self._arrivals: list[int] = [0] * self.n
         for s in cfg.stations:
             self.stations[s.id] = StationBelief(
                 state=Tagged("idle", MEASURED, 0.0),
@@ -181,6 +191,8 @@ class Twin:
                 return False                  # exact inference beats a bound; else first sticks
         d[i] = Stamp(t, source, exact if source == INFERRED else True)
         if kind == "arrive":
+            if cur is None:
+                self._arrivals[i] += 1
             if i not in tl.start:
                 self._pending[i].add(tl.vid)
             st = tl.start.get(i)
@@ -297,8 +309,50 @@ class Twin:
             if (i not in tl.sampled and i in tl.start and i in tl.finish
                     and tl.start[i].exact and tl.finish[i].exact):
                 tl.sampled.add(i)
-                self._sample(tl, i)
+                if self._noisy[i]:
+                    self._windowed_sample(tl, i)
+                else:
+                    self._sample(tl, i)
         return changed
+
+    def _windowed_sample(self, tl: VehicleTL, i: int) -> None:
+        """Throughput over the last N finishes: jitter averages out and there
+        is no max() bias. Valid only if supply never ran out in the window
+        (arrivals seen >= finishes), otherwise the interval includes
+        starvation and is not a cycle time."""
+        f = tl.finish[i]
+        if f.source != MEASURED or self._congested_downstream(i):
+            return                                   # blocked time would masquerade as cycle
+        win = self._finishes[i]
+        win.append((tl.vid, f.t))
+        if len(win) < win.maxlen:
+            return
+        (v0, t0), (v1, t1) = win[0], win[-1]
+        n = v1 - v0
+        if n <= 0:
+            return
+        # Never starved in the window: for every vehicle v the next one had
+        # measurably arrived (upstream timestamp) before v finished.
+        tol = 2 * self._jit[i]
+        for vid, ft in list(win)[:-1]:
+            nxt = self.tl.get(vid + 1)
+            ar = nxt.arrive.get(i) if nxt else None
+            if ar is None or ar.source != MEASURED or ar.t > ft - tol:
+                return
+        c = (t1 - t0) / n
+        sid = self.cfg.ids[i]
+        nominal = self.cfg.stations[i].cycle_s
+        if not (0.5 * nominal < c < 3 * nominal):
+            return
+        b = self.stations[sid]
+        b.inferred_samples += 1
+        self.samples[sid].append((tl.vid, c, INFERRED))
+        self.forecaster.observe(sid, f.t, c, INFERRED)
+        fit = self.forecaster.fit(sid, f.t)
+        if fit is not None:
+            b.cycle_s = Tagged(round(fit.c_now, 1), INFERRED, f.t)
+        cap = self.cfg.stations[i].buffer_before
+        self._track(sid, f.t, self.forecaster.assess(sid, f.t, len(self._pending[i]), cap))
 
     def _next_full(self, i: int) -> bool:
         if i + 1 >= self.n:
@@ -399,6 +453,52 @@ class Twin:
         measured = self._sees[i].passes(START) and all(
             self.tl[v].arrive[i].source == MEASURED for v in pend)
         return Tagged(len(pend), MEASURED if measured else INFERRED, self.t)
+
+    # -- active-period bottleneck (Roser) ---------------------------------
+    def active_since(self, i: int) -> Stamp | None:
+        """Start of the station's current uninterrupted active period.
+        Active = working. Starved (idle gap before a start) and blocked
+        (finished but not released) both end the period -- Roser's
+        definition, so the bottleneck is the station that neither waits
+        for parts nor waits to unload."""
+        ls = self._last_started[i]
+        if ls is None:
+            return None
+        tl = self.tl[ls]
+        if i in tl.exit:
+            return None                                   # idle now
+        fin = tl.finish.get(i)
+        tol = self._own_tol[i]
+        if i in tl.blocked or (fin is not None and self.t - fin.t > tol):
+            return None                                   # blocked now
+        cur = tl
+        start = tl.start[i]
+        while True:
+            prev = self.tl.get(cur.vid - 1)
+            if prev is None or i not in prev.start or i not in prev.exit:
+                break
+            if cur.start[i].t - prev.exit[i].t > tol:
+                break                                     # starved gap
+            pf = prev.finish.get(i)
+            if i in prev.blocked or (pf is not None and prev.exit[i].t - pf.t > tol):
+                break                                     # was blocked
+            start = prev.start[i]
+            cur = prev
+        return start
+
+    def bottleneck_now(self) -> tuple[str, float, str] | None:
+        """(station, active seconds, provenance) with the longest active period."""
+        best = None
+        for i, s in enumerate(self.cfg.stations):
+            if self._noisy[i]:
+                continue                                  # cannot see its gaps
+            st = self.active_since(i)
+            if st is None:
+                continue
+            dur = self.t - st.t
+            if best is None or dur > best[1]:
+                best = (s.id, dur, st.source)
+        return best
 
     def in_transit(self) -> int:
         """Vehicles on the line whose position the twin cannot pin down."""

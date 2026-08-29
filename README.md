@@ -34,8 +34,15 @@ python -m loom.run configs/ramp_b3_dark.yaml --hours 2   # B3 dark: what step 3 
 | `plant_b.yaml` | a different plant: 30 stations, 4 zones, 3 variants, mixed sensor maturity; `--voi` ranks which station to instrument next |
 | `weld_drift_b2.yaml` | silent drift: B2 weld current sags out of spec, no cycle-time symptom; defect surfaces at F5 — CUSUM catches it at source, targeted hold |
 | `multi_cause.yaml` | intermittent defect needing low torque at B4 **and** high humidity at P1; contribution analysis finds the pair |
+| `shifting.yaml` | B3 wears, is repaired, then F3 wears — the constraint moves; both forecast, momentary bottleneck tracked |
 
-Views: `--view operator:<station>`, `supervisor`, `quality`, `manager`.
+Views: `--view operator:<station>`, `supervisor`, `quality`, `maintenance`, `manager`.
+
+Benchmark over many seeds (every number against ground truth the twin never saw):
+
+```
+python -m loom.bench --seeds 5 --out docs/benchmark.md
+```
 
 ## AI layer
 

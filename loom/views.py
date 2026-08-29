@@ -45,6 +45,9 @@ def supervisor(twin: Twin) -> str:
     cfg = twin.cfg
     lines = [f"SUPERVISOR  line {cfg.name}   t={_hm(twin.t)}   out {twin.exited}   "
              f"unplaced {twin.in_transit()}   {LEGEND}"]
+    bn = twin.bottleneck_now()
+    if bn is not None:
+        lines.append(f"  momentary bottleneck (longest active period): {MARK[bn[2]]} {bn[0]} for {bn[1] / 60:.0f} min")
     lines.append(f"  {'stn':<5}{'zone':<8}{'state':<10}{'cycle':>8}{'buf':>7}  sensor      alert")
     bufs = twin.buffers
     for s in cfg.stations:
@@ -99,6 +102,51 @@ def quality(twin: Twin) -> str:
                 lines.append(f"      already exited (yard check): {h.exited}")
     else:
         lines.append("  containment: none active")
+    return "\n".join(lines)
+
+
+def maintenance(twin: Twin) -> str:
+    """Degradation trends per asset: which station is wearing, how fast, and
+    when it crosses takt or a spec limit -- the input to scheduling a
+    maintenance window."""
+    twin.refresh()
+    cfg = twin.cfg
+    lines = [f"MAINTENANCE  line {cfg.name}   t={_hm(twin.t)}   {LEGEND}"]
+    lines.append(f"  {'stn':<5}{'type':<12}{'cycle':>8}{'trend':>12}{'to takt':>10}  status")
+    rows = []
+    for s in cfg.stations:
+        fit = twin.forecaster.fit(s.id, twin.t)
+        if fit is None:
+            continue
+        slope_min = fit.slope * 60
+        over = fit.c_now > cfg.takt_s
+        if over:
+            eta = "over now"
+        elif fit.slope > 0 and fit.tstat >= 2.0:
+            eta = f"~{(cfg.takt_s - fit.c_now) / fit.slope / 60:.0f} min"
+        else:
+            eta = "-"
+        status = ("SCHEDULE" if over or (fit.slope > 0 and fit.tstat >= twin.forecaster.min_tstat)
+                  else ("watch" if fit.slope > 0 and fit.tstat >= 2.0 else "ok"))
+        src = MARK[INFERRED]
+        rows.append((0 if status == "SCHEDULE" else 1 if status == "watch" else 2, s.id,
+                     f"  {s.id:<5}{s.type.name:<12}{src}{fit.c_now:6.1f}s{slope_min:+9.2f}s/min{eta:>10}  {status}"))
+    for _, _, r in sorted(rows):
+        lines.append(r)
+    q = twin.quality
+    drifting = [(k, m) for k, m in q.monitors.items() if m.active is not None]
+    if drifting:
+        lines.append("  parameter drift (process side):")
+        for (sid, pname), m in drifting:
+            a = m.active
+            eta = ("out of spec now" if a.t_to_limit_s is not None and a.t_to_limit_s <= 0 else
+                   "no crossing projected" if a.t_to_limit_s is None else f"limit in ~{a.t_to_limit_s / 60:.0f} min")
+            lines.append(f"    {sid}.{pname}: {a.direction}, mean ● {m.mean_now():.3f} {m.spec.unit}, since ~{_hm(a.onset_t)}, {eta}")
+    sched = [r for r in rows if r[0] == 0]
+    if sched:
+        lines.append(f"  next window: {', '.join(sid for _, sid, _ in sched)} -- intervene before the projected crossing")
+    else:
+        lines.append("  next window: nothing due")
     return "\n".join(lines)
 
 

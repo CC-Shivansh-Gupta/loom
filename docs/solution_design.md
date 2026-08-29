@@ -271,10 +271,30 @@ Telemetry is kept for every LLM call (tokens, latency, cost) so the economics ar
 | 4 (done) | sensor noise model (jitter, clock offset, dropouts, latency, silent-sensor faults); flow reconstruction for dark and finish-only stations with exact/bound provenance; sensor-health detection; alert grouping by causal chain; VOI ranking; `plant_b.yaml` | C1, C3, S3, alarm flooding, sensor faults |
 | 5 (done) | process parameters with spec limits; EWMA/CUSUM drift with onset estimate; latent multi-cause defects visible only at inspection; contribution analysis (lift + Fisher exact, singles and pairs); targeted holds with sure/uncertain/exited split; containment scorecard vs blanket hold and vs end-of-line detection; quality view | C2, C4, S2 (drift, risk) |
 | 6 (done) | AI layer (§3b, `docs/ai_layer.md`): evidence pack, template/Claude provider boundary with cost telemetry, persona reports, what-if mitigation engine (LLM proposes from a menu, simulator judges), evaluation harness + gated improvement loop + calibration table, onboarding assistant | S4, "appropriate use of AI" |
-| 7 | multi-run evaluation harness, calibration curve, ledger over weeks; active-period cross-check; two staggered ramps | C7, shifting bottlenecks |
+| 7 (done) | multi-seed benchmark (`docs/benchmark.md`) with calibration table; active-period momentary-bottleneck detector scored against plant truth (97 % agreement during faults, dark B3 included); sustained-block truth definition; `shifting.yaml`; maintenance view | C7, shifting bottlenecks |
 | 8 | web UI on top of `views.py`; leadership view with ROI model | pitch |
 
 ---
+
+## 6b. What the benchmark says (`docs/benchmark.md`, 5 seeds per scenario)
+
+| claim | measured |
+|---|---|
+| Healthy line stays quiet | 0.2 bottleneck alerts and 0.8 drift warnings per 8 h line-wide; 0 holds |
+| Bottleneck warned ahead, fully instrumented | 5/5 caught, 7.0 min lead, ETA error 0.6 min |
+| …with the bottleneck station dark | 5/5 caught, 6.1 min lead; inferred cycle error 0.3 s |
+| …with a PLC link silent mid-fault | 5/5 caught, 6.8 min lead |
+| Shifting bottleneck (two faults, one repair) | 10/10 caught, 0 false alarms |
+| A different 30-station plant with 9 checklist/dark stations | 5/5 caught, 10.6 min lead, 0 false alarms |
+| Momentary bottleneck from partial data vs plant truth | 97–100 % agreement during faults |
+| Silent weld drift | hold 11 min before the first end-of-line catch, precision 80 %, recall 99 %, 0 escaped |
+| Two-condition intermittent defect | true pair ranked first in 5/5 runs |
+| Confidence means something | stated 0.9–1.0 → 100 % hit rate; 0.5–0.7 → 40 % |
+
+Known limits, stated rather than hidden: (1) a defect with no upstream signal is only learnable from
+inspection fails, so its hold necessarily trails the first catch; (2) two adjacent finish-only
+(checklist) stations cannot be told apart — the twin abstains rather than guess; (3) one false alarm
+per five 2-hour fault runs on the demo line sits at the budget, not below it.
 
 ## 7. Risks and mitigations
 

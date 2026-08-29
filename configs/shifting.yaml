@@ -1,0 +1,12 @@
+# Shifting bottleneck: B3 wears from 30 min, is fixed at 65 min (cycle
+# back to nominal), and F3 starts wearing at 70 min. The constraint moves
+# from body to final assembly. The forecaster must warn for both, in
+# order, and the active-period detector must follow the bottleneck.
+extends: healthy.yaml
+line:
+  id: L1-shifting
+scenario:
+  perturbations:
+    - {station: B3, at_s: 1800, ramp_s: 1200, cycle_s: 78}
+    - {station: B3, at_s: 3900, ramp_s: 0,    cycle_s: 56}     # repaired
+    - {station: F3, at_s: 4200, ramp_s: 900,  cycle_s: 80}

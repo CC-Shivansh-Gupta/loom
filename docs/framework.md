@@ -69,6 +69,17 @@ inspection fails ──▶ contribution analysis (lift, Fisher exact, singles + 
                                                     Hold (vehicles matching the condition, not yet inspected)
 ```
 
+## Noisy (finish-only) stations
+
+A manual checklist stamps finishes with ~30 s jitter. Per-vehicle cycles from it are garbage, and
+`max(arrive, prev_exit)` biases them upward, so for any station whose jitter exceeds 5 % of its
+cycle the twin: (a) takes a **windowed throughput** sample — (t_last − t_first)/n over 12 finishes —
+but only when the next vehicle had measurably arrived before each finish (never starved) and no
+downstream station is congested (never blocked); (b) excludes the station from the momentary-
+bottleneck vote, since its idle gaps are invisible. Two adjacent checklist stations therefore cannot
+be separated: the twin abstains. This is what took plant B from 9 false alarms and 3 % bottleneck
+agreement to 0 and 95 %.
+
 Why `h=8` rather than the textbook 5: a plant runs dozens of charts at once, so the in-control run
 length per chart must be ~10⁴ samples. Measured: 2 drift *warnings* and 0 holds in 8 h on the healthy
 line. A drift warning never holds on its own — only an out-of-spec reading does.
@@ -95,7 +106,8 @@ Built-in libraries can be extended or overridden per plant file.
 3. Config libraries + `extends`, sensor profiles that filter, model variants, role views, second plant.
 4. Sensor noise model; flow reconstruction (R1–R5 in `twin.py`) for dark / finish-only / silent stations with exact-vs-bound provenance; sensor health; alert grouping; value-of-information ranking.
 5. Process parameters with spec limits; EWMA/CUSUM drift monitors with onset estimate and time-to-limit projection; latent multi-cause defects surfacing at inspection stations; contribution analysis (lift + Fisher exact, pairs); targeted holds (sure / uncertain / already-exited) that grow while a drift is on; containment scorecard; quality view.
-6. AI layer (`docs/ai_layer.md`): evidence pack, provider boundary with template fallback and telemetry, persona reports, what-if mitigation engine, evaluation harness + gated improvement loop + calibration table, onboarding assistant.  ← here
+6. AI layer (`docs/ai_layer.md`): evidence pack, provider boundary with template fallback and telemetry, persona reports, what-if mitigation engine, evaluation harness + gated improvement loop + calibration table, onboarding assistant.
+7. Active-period momentary-bottleneck detector (Roser) in the twin, scored against the plant's own active periods; sustained-block truth for lead time (ignores surge transients); shifting-bottleneck scenario; maintenance view; multi-seed benchmark (`loom/bench.py` → `docs/benchmark.md`).  ← here
 7. Multi-run evaluation harness, calibration curve, active-period cross-check, shifting bottlenecks.
 8. Web UI, leadership view with ROI model.
 
