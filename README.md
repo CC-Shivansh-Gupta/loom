@@ -44,7 +44,30 @@ Benchmark over many seeds (every number against ground truth the twin never saw)
 python -m loom.bench --seeds 5 --out docs/benchmark.md
 ```
 
-## Control room (3D replay)
+## Control room (live)
+
+```
+python -m loom.server --config healthy.yaml     # then open http://localhost:8000
+```
+
+The plant and the twin run live in the server at 10–300× real time; the browser streams frames over
+a WebSocket and renders the line in 3D (Three.js). Nothing is precomputed.
+
+- **Scene** — plant truth in the front lane, Loom's belief behind it (solid = measured, dashed =
+  inferred, floating outlines = vehicles it cannot place; orange cone = forecast, purple ring =
+  momentary bottleneck). Click any station box or card for its panel: configuration, plant vs Loom
+  state, cycle history (plant solid, Loom dashed), every process parameter against its spec limits
+  with the CUSUM state, the forecast and any hold it is in.
+- **Inject** — wear a station (cycle + ramp), repair it, switch its instrumentation between
+  `plc_full` / `cycle_only` / `checklist` / `dark`, silence its sensor for N minutes, drift a
+  parameter out of spec. The plant changes at once; Loom only sees what the sensors pass.
+- **Line** — edit the YAML (stations, zones, buffers, sensors, variants, scheduled faults) and apply;
+  the plant and twin rebuild from zero. Any file in `configs/` loads from the picker.
+- **Floor / Quality / Maint. / Mgr / Log** — the persona views and the event log, live.
+- The scorecard strip fills in as outcomes happen: warning lead once the line actually blocks, false
+  alarms, holds with how many held vehicles are truly defective.
+
+## Control room (3D replay, static)
 
 ```
 python -m loom.export configs/ramp_b3_dark.yaml --hours 2 --out web/data/ramp_b3_dark.json   # one per scenario

@@ -135,6 +135,28 @@ class Twin:
                 vehicle=Tagged(None, MEASURED, 0.0),
                 cycle_s=Tagged(None, MEASURED, 0.0))
 
+    def set_profile(self, station: str, profile) -> None:
+        """Live retrofit / sensor loss: the twin's knowledge of what a
+        station reports changes from now on."""
+        import dataclasses
+        i = self.cfg.index(station)
+        stations = list(self.cfg.stations)
+        stations[i] = dataclasses.replace(stations[i], sensors=profile)
+        self.cfg = dataclasses.replace(self.cfg, stations=tuple(stations))
+        self._sees[i] = profile
+        self._jit[i] = profile.jitter_s
+        for j in (i, i + 1):
+            if j < self.n:
+                self._tol[j] = 2 * (self._jit[j] + (self._jit[j - 1] if j else 0.0)) + 0.5
+        self._own_tol[i] = 2 * self._jit[i] + 0.5
+        self._noisy[i] = self._jit[i] > 0.05 * stations[i].cycle_s
+        if profile.params:
+            self.quality.reports.add(station)
+        else:
+            self.quality.reports.discard(station)
+        self.stations[station].last_measured_t = self.t
+        self.stations[station].health = "ok"
+
     # -- ingest ---------------------------------------------------------
     def ingest(self, ev: Event) -> None:
         self.seen += 1

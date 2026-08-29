@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Loom Control Room</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{--bg:#0F1317;--panel:#161C22;--panel2:#1C232B;--line:#263039;--ink:#E8ECEF;--muted:#8C97A3;--dim:#5C6873;--accent:#B388FF;--busy:#2FB8A6;--blocked:#E8A33D;--alert:#F2542D;--idle:#3A454F;--hold:#5BA8FF;
+ --display:"Barlow Condensed","Arial Narrow",sans-serif;--body:"IBM Plex Sans",system-ui,sans-serif;--mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.45;height:100vh;display:grid;grid-template-rows:auto 1fr auto;grid-template-columns:1fr 420px;grid-template-areas:"head head" "stage side" "foot side";overflow:hidden}
+header{grid-area:head;display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+h1{font-family:var(--display);font-weight:700;font-size:26px;letter-spacing:.02em;margin:0;text-transform:uppercase}
+h1 small{font-family:var(--body);font-weight:400;font-size:12px;color:var(--muted);letter-spacing:0;text-transform:none;margin-left:10px}
+.legend{display:flex;gap:14px;margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px;background:var(--ink)}
+.legend .inf::before{background:linear-gradient(90deg,var(--ink) 50%,transparent 50%);border:1px solid var(--ink)}
+.legend .sim::before{background:transparent;border:1px dashed var(--ink)}
+select,button,input,textarea{font-family:var(--body);font-size:13px;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:6px 10px}
+button{cursor:pointer} button:hover,select:hover{border-color:var(--muted)} button:focus-visible,select:focus-visible,.tab:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button.play{font-family:var(--display);font-size:16px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:5px 14px;min-width:90px}
+button.danger{border-color:#5a2a22;color:#F2A08F} button.on{border-color:var(--accent);color:var(--accent)}
+.speed{display:flex;gap:4px} .speed button{padding:5px 8px}
+.status{font-family:var(--mono);font-size:12px;color:var(--muted)} .status i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--dim);margin-right:6px} .status i.live{background:var(--busy)}
+#stage{grid-area:stage;position:relative;min-height:0}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block}
+.hud{position:absolute;left:16px;top:14px;font-family:var(--mono);font-size:12px;color:var(--muted);pointer-events:none}
+.hud b{display:block;font-family:var(--display);font-size:38px;font-weight:600;color:var(--ink);line-height:1;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.hud .lane{margin-top:10px} .hud .lane i{display:inline-block;width:8px;height:8px;margin-right:6px;background:var(--ink)} .hud .lane i.b{background:var(--accent)}
+.toast{position:absolute;right:16px;top:14px;max-width:440px;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.toast div{background:rgba(22,28,34,.94);border-left:3px solid var(--alert);padding:8px 12px;font-family:var(--mono);font-size:12px;color:var(--ink);opacity:0;transform:translateY(-4px);transition:opacity .3s,transform .3s}
+.toast div.show{opacity:1;transform:none} .toast div.hold{border-color:var(--hold)} .toast div.drift{border-color:var(--blocked)} .toast div.cleared{border-color:var(--busy)} .toast div.inject{border-color:var(--accent)} .toast div.grouped{border-color:var(--muted)}
+.stations{position:absolute;left:0;right:0;bottom:0;display:flex;gap:6px;padding:10px 16px;overflow-x:auto}
+.stations div{flex:1 0 auto;min-width:66px;background:rgba(22,28,34,.88);border:1px solid var(--line);border-radius:3px;padding:6px 8px;font-family:var(--mono);font-size:11px;color:var(--muted);cursor:pointer}
+.stations div.sel{border-color:var(--accent)} .stations div .id{font-family:var(--display);font-size:16px;font-weight:600;color:var(--ink);letter-spacing:.04em}
+.stations div .st{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+.stations div.alert{border-color:var(--alert)} .stations div.alert .id{color:var(--alert)} .stations div.silent .id{color:var(--blocked)}
+footer{grid-area:foot;border-top:1px solid var(--line);background:var(--panel);padding:8px 16px 10px;display:grid;gap:6px}
+#timeline{width:100%;height:50px;display:block}
+.score{display:flex;gap:22px;font-family:var(--mono);font-size:12px;color:var(--muted);flex-wrap:wrap;min-height:30px}
+.score b{font-family:var(--display);font-size:22px;font-weight:600;color:var(--ink);margin-right:6px;font-variant-numeric:tabular-nums}
+.score b.good{color:var(--busy)} .score b.warn{color:var(--blocked)}
+aside{grid-area:side;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tab{flex:1;background:none;border:0;border-bottom:2px solid transparent;border-radius:0;padding:10px 2px;font-family:var(--display);font-size:14px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+.pane{flex:1;overflow:auto;padding:12px 14px}
+.pane pre{margin:0;font-family:var(--mono);font-size:11.5px;line-height:1.5;white-space:pre-wrap;color:var(--ink)}
+.pane h3{font-family:var(--display);font-size:18px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin:14px 0 8px;color:var(--ink)} .pane h3:first-child{margin-top:0}
+.pane p{margin:0 0 10px;color:var(--muted);max-width:60ch}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-family:var(--mono);font-size:12px;margin-bottom:10px} .kv span:nth-child(odd){color:var(--muted)}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-family:var(--mono);border:1px solid var(--line);color:var(--muted)}
+.pill.m{border-color:var(--ink);color:var(--ink)} .pill.i{border-style:dashed;color:var(--ink)} .pill.s{border-style:dotted}
+.row{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px} .row label{font-family:var(--mono);font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.row input[type=number]{width:74px}
+canvas.spark{width:100%;height:70px;display:block;background:var(--panel2);border:1px solid var(--line);border-radius:3px;margin:4px 0 10px}
+.cap{font-family:var(--mono);font-size:11px;color:var(--muted);display:flex;justify-content:space-between}
+textarea.cfg{width:100%;height:52vh;font-family:var(--mono);font-size:11.5px;line-height:1.45;resize:vertical;tab-size:2}
+.err{color:#F2A08F;font-family:var(--mono);font-size:12px;white-space:pre-wrap;margin:6px 0}
+.events{font-family:var(--mono);font-size:11.5px;display:grid;gap:4px} .events div{padding:4px 8px;border-left:2px solid var(--line)} .events .raised{border-color:var(--alert)} .events .hold{border-color:var(--hold)} .events .drift{border-color:var(--blocked)} .events .cleared{border-color:var(--busy)} .events .inject{border-color:var(--accent)}
+@media (prefers-reduced-motion:reduce){.toast div{transition:none}}
+</style></head><body>
+<header>
+  <h1>Loom <small>live twin · plant truth in front, Loom's belief behind</small></h1>
+  <select id="scenario" aria-label="Line configuration"></select>
+  <button class="play" id="play">Play</button>
+  <button id="reset">Reset</button>
+  <div class="speed" id="speed"><button data-s="10">10×</button><button data-s="30" class="on">30×</button><button data-s="120">120×</button><button data-s="300">300×</button></div>
+  <span class="status"><i id="dot"></i><span id="conn">connecting</span></span>
+  <div class="legend"><span>measured</span><span class="inf">inferred</span><span class="sim">simulated</span></div>
+</header>
+<section id="stage">
+  <canvas id="gl"></canvas>
+  <div class="hud"><b id="clock">00:00</b><span id="hudline"></span>
+    <div class="lane"><i></i>plant — what is actually happening<br><i class="b"></i>Loom — what it can see, infer and forecast</div></div>
+  <div class="toast" id="toast"></div>
+  <div class="stations" id="strip"></div>
+</section>
+<footer>
+  <canvas id="timeline"></canvas>
+  <div class="score" id="score"></div>
+</footer>
+<aside>
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-p="station">Station</button><button class="tab" data-p="inject">Inject</button><button class="tab" data-p="config">Line</button><button class="tab" data-p="supervisor">Floor</button><button class="tab" data-p="quality">Quality</button><button class="tab" data-p="maintenance">Maint.</button><button class="tab" data-p="manager">Mgr</button><button class="tab" data-p="events">Log</button>
+  </div>
+  <div class="pane" id="pane"></div>
+</aside>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const fmt=t=>`${String(Math.floor(t/3600)).padStart(2,"0")}:${String(Math.floor(t%3600/60)).padStart(2,"0")}`;
+const SRC=["measured","inferred","simulated"], STATE=["idle","busy","blocked"], HEALTH=["ok","silent","inconsistent"];
+const COL={bg:0x0F1317,accent:0xB388FF,busy:0x2FB8A6,blocked:0xE8A33D,alert:0xF2542D,idle:0x3A454F,floor:0x141A20};
+const VAR={"-":0xD9DEE3,sedan:0xD9DEE3,suv:0xB9C3CC,hatch:0xE6EBEF};
+const S={meta:null,frame:null,prev:null,events:[],sel:null,pane:"station",three:null,detail:null,history:[]};
+const api=(path,body)=>fetch(path,body?{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}:{}).then(r=>r.json());
+
+// ---------- three.js ----------
+function initThree(){
+  const canvas=$("gl"); const r=new THREE.WebGLRenderer({canvas,antialias:true}); r.setPixelRatio(Math.min(devicePixelRatio,2));
+  const scene=new THREE.Scene(); scene.background=new THREE.Color(COL.bg); scene.fog=new THREE.Fog(COL.bg,60,200);
+  const cam=new THREE.PerspectiveCamera(38,1,0.1,400);
+  scene.add(new THREE.HemisphereLight(0xBFD4E6,0x0F1317,0.9)); const sun=new THREE.DirectionalLight(0xFFFFFF,0.9); sun.position.set(-8,18,12); scene.add(sun);
+  const orbit={theta:0.04,phi:1.0,dist:40,cx:0,drag:false,px:0,py:0};
+  canvas.addEventListener("pointerdown",e=>{orbit.drag=true;orbit.px=e.clientX;orbit.py=e.clientY;canvas.setPointerCapture(e.pointerId)});
+  canvas.addEventListener("pointermove",e=>{if(!orbit.drag)return;orbit.theta-=(e.clientX-orbit.px)*0.005;orbit.phi=Math.max(0.25,Math.min(1.45,orbit.phi-(e.clientY-orbit.py)*0.005));orbit.px=e.clientX;orbit.py=e.clientY});
+  canvas.addEventListener("pointerup",e=>{orbit.drag=false; if(Math.hypot(e.clientX-orbit.downX,e.clientY-orbit.downY)<5)pickStation(e);});
+  canvas.addEventListener("pointerdown",e=>{orbit.downX=e.clientX;orbit.downY=e.clientY;});
+  canvas.addEventListener("pointermove",e=>{if(!orbit.drag)hoverStation(e);});
+  canvas.addEventListener("wheel",e=>{e.preventDefault();orbit.dist=Math.max(8,Math.min(400,orbit.dist*(1+Math.sign(e.deltaY)*0.08)))},{passive:false});
+  S.three={r,scene,cam,orbit,group:null,meshes:{}};
+}
+function label(text,color="#E8ECEF",size=64){const c=document.createElement("canvas");c.width=256;c.height=96;const g=c.getContext("2d");g.font=`600 ${size}px "Barlow Condensed","Arial Narrow",sans-serif`;g.fillStyle=color;g.textAlign="center";g.textBaseline="middle";g.fillText(text,128,52);const tex=new THREE.CanvasTexture(c);tex.minFilter=THREE.LinearFilter;const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false}));s.scale.set(2.6,1,1);return s;}
+function buildScene(){
+  const T=S.three, meta=S.meta; if(T.group)T.scene.remove(T.group);
+  const g=new THREE.Group(); T.group=g; T.meshes={st:[],bel:[],cars:new Map(),bcars:new Map(),beacons:[],slots:[],bslots:[],labels:[]};
+  let x=0,lastZone=null; const xs=[];
+  meta.stations.forEach(s=>{ if(lastZone&&s.zone!==lastZone)x+=1.6; x+=0.9*Math.min(s.buffer,6)+1.0; xs.push(x); x+=2.2; lastZone=s.zone; });
+  const width=x,cx=width/2; T.orbit.cx=cx; T.orbit.theta=0.04; T.orbit.phi=1.0; T.orbit.dist=Math.max(20,width*0.8+4); T.xs=xs;
+  T.scene.fog.near=T.orbit.dist*1.3; T.scene.fog.far=T.orbit.dist*3.2; T.cam.far=T.orbit.dist*4; T.cam.updateProjectionMatrix();
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(width+14,16),new THREE.MeshLambertMaterial({color:COL.floor})); floor.rotation.x=-Math.PI/2; floor.position.set(cx,-0.41,-2.2); g.add(floor);
+  const grid=new THREE.GridHelper(width+14,Math.round((width+14)/2),0x22303A,0x1B242C); grid.position.set(cx,-0.4,-2.2); g.add(grid);
+  [0,-4.4].forEach(z=>{const m=new THREE.Mesh(new THREE.BoxGeometry(width+8,0.06,0.5),new THREE.MeshLambertMaterial({color:0x1F2A33}));m.position.set(cx,-0.36,z);g.add(m);});
+  meta.stations.forEach((s,i)=>{
+    const geo=new THREE.BoxGeometry(2.0,1.0,1.5);
+    const mk=(z)=>{const mat=new THREE.MeshLambertMaterial({color:COL.idle,transparent:true,opacity:1});const m=new THREE.Mesh(geo,mat);m.position.set(xs[i],0.1,z);g.add(m);
+      const edge=new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color:0x8C97A3,transparent:true,opacity:0.6}));m.add(edge);m.userData.edge=edge;return m;};
+    T.meshes.st.push(mk(0)); T.meshes.bel.push(mk(-4.4));
+    const lb=label(s.id);lb.position.set(xs[i],1.35,0);g.add(lb); const lb2=label(s.id);lb2.position.set(xs[i],1.35,-4.4);g.add(lb2); T.meshes.labels.push(lb2);
+    if(i===0||meta.stations[i-1].zone!==s.zone){const zl=label(s.zone.toUpperCase(),"#8C97A3",46);zl.scale.set(3.2,1.2,1);zl.position.set(xs[i]-1.2,3.4,-2.2);g.add(zl);}
+    const slots=[],bslots=[];const n=Math.min(s.buffer,6);
+    for(let k=0;k<n;k++){const sx=xs[i]-1.6-k*0.9;const mkSlot=z=>{const q=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(0.7,0.04,0.9)),new THREE.LineBasicMaterial({color:0x33404B}));q.position.set(sx,-0.3,z);g.add(q);return q;};slots.push(mkSlot(0));bslots.push(mkSlot(-4.4));}
+    T.meshes.slots.push(slots);T.meshes.bslots.push(bslots);
+    const bc=new THREE.Mesh(new THREE.ConeGeometry(0.35,0.8,4),new THREE.MeshBasicMaterial({color:COL.alert,transparent:true,opacity:0}));bc.position.set(xs[i],2.3,-4.4);bc.rotation.x=Math.PI;g.add(bc);T.meshes.beacons.push(bc);
+  });
+  const bm=new THREE.Mesh(new THREE.TorusGeometry(1.5,0.05,8,40),new THREE.MeshBasicMaterial({color:COL.accent,transparent:true,opacity:0}));bm.rotation.x=Math.PI/2;bm.position.set(0,-0.3,-4.4);g.add(bm);T.meshes.bn=bm;
+  T.scene.add(g); applySensorLook();
+}
+function applySensorLook(){ // belief-lane boxes reflect instrumentation (live-editable)
+  const T=S.three; S.meta.stations.forEach((s,i)=>{const m=T.meshes.bel[i]; const dark=s.sensors==="dark", partial=s.sensors!=="plc_full"&&!dark;
+    m.userData.base=dark?0.12:partial?0.45:1.0; const e=m.userData.edge;
+    if(dark){e.material=new THREE.LineDashedMaterial({color:0xB388FF,dashSize:0.2,gapSize:0.12});e.computeLineDistances();} else {e.material=new THREE.LineBasicMaterial({color:0x8C97A3,transparent:true,opacity:0.6});}
+    T.meshes.labels[i].material.map=label(s.id,dark?"#B388FF":"#E8ECEF").material.map; T.meshes.labels[i].material.needsUpdate=true;});
+}
+function carMesh(color,wire){const geo=new THREE.BoxGeometry(0.82,0.34,0.56);
+  if(wire){const m=new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineDashedMaterial({color,dashSize:0.1,gapSize:0.06,transparent:true}));m.computeLineDistances();return m;}
+  const m=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color,transparent:true,emissive:color,emissiveIntensity:0.15}));const cab=new THREE.Mesh(new THREE.BoxGeometry(0.44,0.2,0.48),new THREE.MeshLambertMaterial({color}));cab.position.set(-0.05,0.27,0);m.add(cab);return m;}
+function applyFrame(f,fp,mix){
+  const T=S.three,meta=S.meta; if(!T.group||!f)return;
+  f.st.forEach((row,i)=>{const [ts,tv,bs,bsrc,bv,bt,bb,bbsrc,cyc,nom,eta,conf,health]=row;
+    T.meshes.st[i].material.color.setHex([COL.idle,COL.busy,COL.blocked][ts]);
+    const bm=T.meshes.bel[i]; bm.material.color.setHex([COL.idle,COL.busy,COL.blocked][bs]);
+    bm.material.opacity=bm.userData.base*(bsrc===1?0.6:1.0)+(bm.userData.base<0.2&&bsrc===1?0.15:0);
+    if(health===1){bm.material.opacity=0.35;bm.material.color.setHex(COL.alert);}
+    T.meshes.slots[i].forEach((q,k)=>q.material.color.setHex(k<bt?0x8C97A3:0x33404B));
+    T.meshes.bslots[i].forEach((q,k)=>q.material.color.setHex(k<bb?(bbsrc===1?0xB388FF:0x8C97A3):0x33404B));
+    const bc=T.meshes.beacons[i]; bc.material.opacity=eta==null?0:0.55+0.45*Math.abs(Math.sin(performance.now()/300)); bc.scale.setScalar(eta==null?0.001:1);});
+  const seen=new Set();
+  f.veh.forEach(([vid,loc,idx,prog,variant])=>{let m=T.meshes.cars.get(vid);if(!m){m=carMesh(VAR[variant]||0xD9DEE3,false);T.group.add(m);T.meshes.cars.set(vid,m);}seen.add(vid);
+    let x=loc===1?T.xs[idx]-0.6+1.2*Math.min(1,prog):T.xs[idx]-1.6-0.9*prog;
+    if(fp&&mix>0&&m.userData.x!=null&&m.userData.x<x)x=m.userData.x+(x-m.userData.x)*mix; m.userData.x=x; m.position.set(x,0.1,0);m.visible=true;});
+  T.meshes.cars.forEach((m,vid)=>{if(!seen.has(vid)){m.visible=false;m.userData.x=null;}});
+  const bseen=new Set();let unplaced=0;
+  f.bel.forEach(([vid,loc,idx,src])=>{let m=T.meshes.bcars.get(vid);const wire=src===1||loc===-1;
+    if(!m||m.userData.wire!==wire){if(m)T.group.remove(m);m=carMesh(loc===-1?COL.accent:(src===1?0xB388FF:0xD9DEE3),wire);m.userData.wire=wire;T.group.add(m);T.meshes.bcars.set(vid,m);}
+    bseen.add(vid);let x,y=0.1;
+    if(loc===-1){const di=meta.stations.findIndex(s=>s.sensors==="dark");x=(di>=0?T.xs[di]:T.orbit.cx)-0.5+unplaced*0.75;y=0.9;unplaced++;}
+    else if(loc===1){const tr=f.veh.find(v=>v[0]===vid);const prog=tr&&tr[1]===1?tr[3]:0.5;x=T.xs[idx]-0.6+1.2*Math.min(1,prog);}
+    else{const k=f.bel.filter(b=>b[1]===0&&b[2]===idx&&b[0]<vid).length;x=T.xs[idx]-1.6-0.9*k;}
+    m.position.set(x,y,-4.4);m.visible=true;});
+  T.meshes.bcars.forEach((m,k)=>{if(!bseen.has(k))m.visible=false;});
+  const bn=f.bn&&f.bn[1]>=2?f.bn:null; if(bn){const i=meta.stations.findIndex(s=>s.id===bn[0]);T.meshes.bn.position.x=T.xs[i];T.meshes.bn.material.opacity=0.9;}else T.meshes.bn.material.opacity=0;
+  // selected station: brighten its edges in both lanes
+  T.meshes.st.forEach((m,i)=>{const on=i===S.sel;[m,T.meshes.bel[i]].forEach(mm=>{if(mm.userData.edge&&mm.userData.edge.material.color){mm.userData.edge.material.opacity=on?1:0.6;if(!(S.meta.stations[i].sensors==="dark"&&mm===T.meshes.bel[i]))mm.userData.edge.material.color.setHex(on?0xB388FF:0x8C97A3);}});});
+}
+const _ray=new THREE.Raycaster(), _ndc=new THREE.Vector2();
+function stationAt(e){const T=S.three;if(!T.group)return -1;const r=T.r.domElement.getBoundingClientRect();_ndc.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);_ray.setFromCamera(_ndc,T.cam);
+  const hits=_ray.intersectObjects([...T.meshes.st,...T.meshes.bel],false);if(!hits.length)return -1;const m=hits[0].object;let i=T.meshes.st.indexOf(m);if(i<0)i=T.meshes.bel.indexOf(m);return i;}
+function pickStation(e){const i=stationAt(e);if(i<0)return;S.sel=i;S.pane="station";setTab();renderPane();}
+function hoverStation(e){const i=stationAt(e);const T=S.three;T.r.domElement.style.cursor=i>=0?"pointer":"grab";if(S.hover!=null&&S.hover!==i){[T.meshes.st[S.hover],T.meshes.bel[S.hover]].forEach(m=>m&&m.scale.setScalar(1));}
+  if(i>=0){[T.meshes.st[i],T.meshes.bel[i]].forEach(m=>m.scale.setScalar(1.08));}S.hover=i;}
+function render(){const T=S.three,o=T.orbit,cam=T.cam,cv=T.r.domElement;const w=cv.clientWidth,h=cv.clientHeight;
+  if(w&&h&&(cv.width!==Math.round(w*T.r.getPixelRatio())||cv.height!==Math.round(h*T.r.getPixelRatio()))){T.r.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();}
+  cam.position.set(o.cx+o.dist*Math.sin(o.phi)*Math.sin(o.theta),o.dist*Math.cos(o.phi),-2.2+o.dist*Math.sin(o.phi)*Math.cos(o.theta));cam.lookAt(o.cx,0.2,-2.2);T.r.render(T.scene,cam);}
+
+// ---------- live data ----------
+let ws=null;
+function connect(){
+  ws=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+"/ws");
+  ws.onopen=()=>{$("dot").classList.add("live");$("conn").textContent="live";};
+  ws.onclose=()=>{$("dot").classList.remove("live");$("conn").textContent="reconnecting";setTimeout(connect,1000);};
+  ws.onmessage=e=>{const f=JSON.parse(e.data); S.prev=S.frame; S.frame=f; S.mixT=performance.now();
+    $("play").textContent=f.playing?"Pause":"Play"; [...$("speed").children].forEach(b=>b.classList.toggle("on",+b.dataset.s===f.speed));
+    if(f.new_events.length){f.new_events.forEach(ev=>{S.events.push(ev);toast(ev);}); if(S.pane==="events")renderPane(); refreshScore();}
+    S.history.push([f.t,f.out[0],f.st.map(r=>r[10]!=null)]); if(S.history.length>2000)S.history.shift();
+    onFrame(f);};
+}
+function onFrame(f){
+  $("clock").textContent=fmt(f.t); $("hudline").textContent=`out ${f.out[0]} · loom counts ${f.out[1]}${f.bn&&f.bn[1]>=2?` · momentary bottleneck ${f.bn[0]} (${f.bn[1]} min, ${SRC[f.bn[2]]})`:""}${f.playing?"":" · paused"}`;
+  buildStripState(f); drawTimeline();
+}
+function toast(ev){const el=$("toast");const d=document.createElement("div");d.className=ev.kind;d.textContent=ev.text.replace(/^\[\s*[\d.]+\]\s*/,fmt(ev.t)+"  ");el.appendChild(d);requestAnimationFrame(()=>d.classList.add("show"));setTimeout(()=>{d.classList.remove("show");setTimeout(()=>d.remove(),400)},9000);while(el.children.length>4)el.firstChild.remove();}
+function buildStrip(){const el=$("strip");el.innerHTML="";S.meta.stations.forEach((s,i)=>{const d=document.createElement("div");d.dataset.i=i;d.innerHTML=`<span class="id">${s.id}</span> <span class="sens"></span><br><span class="st"></span><span class="cyc"></span>`;d.addEventListener("click",()=>{S.sel=i;S.pane="station";setTab();renderPane();});el.appendChild(d);});}
+function buildStripState(f){[...$("strip").children].forEach((d,i)=>{const row=f.st[i];if(!row)return;const [ts,,bs,bsrc,,,,,cyc,,eta,conf,health]=row;const s=S.meta.stations[i];
+  d.classList.toggle("sel",S.sel===i);d.classList.toggle("alert",eta!=null);d.classList.toggle("silent",health===1);
+  d.querySelector(".sens").textContent=s.sensors==="plc_full"?"":s.sensors;
+  const dot=d.querySelector(".st");dot.style.background=["var(--idle)","var(--busy)","var(--blocked)"][bs];dot.style.opacity=bsrc===1?0.5:1;dot.style.outline=bsrc===1?"1px dashed var(--ink)":"none";
+  d.querySelector(".cyc").textContent=(cyc==null?"—":`◐${cyc}s`)+(eta!=null?` ⚠${eta}m`:"")+(health===1?" silent":"");});}
+function drawTimeline(){const c=$("timeline");const w=c.clientWidth,h=50;if(c.width!==w*devicePixelRatio){c.width=w*devicePixelRatio;c.height=h*devicePixelRatio;}const g=c.getContext("2d");g.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);g.clearRect(0,0,w,h);
+  const now=S.frame?S.frame.t:0;const span=Math.max(1800,now);const t0=0;const X=t=>14+(w-28)*(t-t0)/span;
+  g.fillStyle="#1C232B";g.fillRect(14,22,w-28,8);
+  // throughput sparkline from history
+  if(S.history.length>2){g.strokeStyle="#2FB8A6";g.lineWidth=1;g.beginPath();S.history.forEach(([t,out],k)=>{const y=20-Math.min(18,out/Math.max(1,now/60)*8);k?g.lineTo(X(t),y):g.moveTo(X(t),y);});g.stroke();}
+  S.events.forEach(e=>{const col=e.kind==="raised"?"#F2542D":e.kind==="hold"?"#5BA8FF":e.kind==="drift"?"#E8A33D":e.kind==="cleared"?"#2FB8A6":e.kind==="inject"?"#B388FF":"#8C97A3";g.fillStyle=col;g.beginPath();g.moveTo(X(e.t),20);g.lineTo(X(e.t)-4,12);g.lineTo(X(e.t)+4,12);g.fill();});
+  g.fillStyle="#E8ECEF";g.fillRect(X(now)-1,10,2,30);g.fillStyle="#8C97A3";g.font="11px IBM Plex Mono, monospace";const stepM=span>7200?30:15;for(let m=0;m<=span/60;m+=stepM){g.fillText(fmt(m*60),X(m*60)-14,46);}}
+async function refreshScore(){const sc=await api("/api/scorecard");const el=$("score");let h="";
+  sc.bottleneck.forEach(s=>{h+=`<span><b class="${s.lead_min>0?'good':'warn'}">${s.lead_min==null?(s.alert_min!=null?"warned":"—"):s.lead_min.toFixed(1)+" min"}</b>${s.lead_min==null?(s.alert_min!=null?`at ${fmt(s.alert_min*60)}, outcome pending for ${s.station}`:`no warning for ${s.station} yet`):`warning before ${s.station} blocked the line`}</span>`;});
+  h+=`<span><b class="${sc.false_alarms?'warn':'good'}">${sc.false_alarms}</b>false alarms / ${sc.alerts_raised} raised</span>`;
+  sc.holds.forEach(hh=>{h+=`<span><b class="good">#${hh.id}</b>hold ${hh.reason} ${hh.station}.${hh.param}: ${hh.sure} sure (${hh.tp_sure} truly defective), ${hh.uncertain} uncertain (${hh.tp_unc})</span>`;});
+  sc.containment.forEach(c=>{if(c.escaped)h+=`<span><b class="warn">${c.escaped}</b>${c.defect} escaped</span>`;});
+  el.innerHTML=h||`<span>no faults injected yet — use the Inject tab or load a scenario</span>`;}
+
+// ---------- panes ----------
+function setTab(){[...$("tabs").children].forEach(b=>b.classList.toggle("on",b.dataset.p===S.pane));}
+function spark(canvas,series,opts){const w=canvas.clientWidth,h=70;if(canvas.width!==w*devicePixelRatio){canvas.width=w*devicePixelRatio;canvas.height=h*devicePixelRatio;}const g=canvas.getContext("2d");g.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);g.clearRect(0,0,w,h);
+  const all=series.flatMap(s=>s.pts.map(p=>p[1])).concat(opts.lines||[]);if(!all.length)return;let lo=Math.min(...all),hi=Math.max(...all);if(hi-lo<1e-9){hi=lo+1;}const pad=(hi-lo)*0.15;lo-=pad;hi+=pad;
+  const Y=v=>h-6-(h-12)*(v-lo)/(hi-lo);const n=Math.max(...series.map(s=>s.pts.length));const X=k=>8+(w-16)*k/Math.max(1,n-1);
+  (opts.lines||[]).forEach((v,k)=>{g.strokeStyle=k===0?"#F2542D":k===1?"#F2542D":"#5C6873";g.setLineDash(k<2?[3,3]:[]);g.beginPath();g.moveTo(8,Y(v));g.lineTo(w-8,Y(v));g.stroke();g.setLineDash([]);});
+  series.forEach(s=>{g.strokeStyle=s.color;g.lineWidth=s.width||1.5;g.setLineDash(s.dash||[]);g.beginPath();s.pts.forEach((p,k)=>{k?g.lineTo(X(k),Y(p[1])):g.moveTo(X(k),Y(p[1]));});g.stroke();g.setLineDash([]);
+    if(s.dots){g.fillStyle=s.color;s.pts.forEach((p,k)=>{g.beginPath();g.arc(X(k),Y(p[1]),2,0,7);g.fill();});}});
+  g.fillStyle="#8C97A3";g.font="10px IBM Plex Mono";g.fillText(hi.toFixed(1),w-38,10);g.fillText(lo.toFixed(1),w-38,h-2);}
+async function renderPane(){
+  const el=$("pane"),m=S.meta,p=S.pane;
+  if(p==="station"){const i=S.sel;if(i==null){el.innerHTML=`<h3>Station</h3><p>Click a station card under the scene. This panel shows what the plant is really doing at that station next to what Loom believes — cycle history, process parameters against their spec limits, the CUSUM state, the forecast.</p>`;return;}
+    const d=await api(`/api/station/${m.stations[i].id}`);S.detail=d;const pill=k=>`<span class="pill ${k==="measured"?"m":k==="inferred"?"i":"s"}">${k}</span>`;
+    let h=`<h3>${d.id} <span class="pill">${d.type}</span> <span class="pill">${d.zone}</span> <span class="pill">${d.sensors}</span></h3>
+    <div class="kv"><span>plant</span><span>${d.truth.state}${d.truth.vehicle?` · v${d.truth.vehicle}`:""} · buffer ${d.truth.buffer}/${d.buffer_cap} · busy ${d.truth.busy_pct}% blocked ${d.truth.blocked_pct}%</span>
+    <span>loom</span><span>${d.belief.state}${d.belief.vehicle?` · v${d.belief.vehicle}`:""} ${pill(d.belief.state_src)} · buffer ${d.belief.buffer}/${d.buffer_cap} ${pill(d.belief.buffer_src)}</span>
+    <span>cycle</span><span>true ${d.true_cycle_now}s (nominal ${d.nominal_cycle_s}s) · loom ${d.belief.cycle==null?"no estimate":d.belief.cycle+"s "+pill("inferred")}${d.belief.slope_s_per_min!=null?` · trend ${d.belief.slope_s_per_min>=0?"+":""}${d.belief.slope_s_per_min}s/min (t=${d.belief.tstat})`:""}</span>
+    <span>samples</span><span>${d.belief.measured_samples} measured, ${d.belief.inferred_samples} inferred</span>
+    <span>alert</span><span>${d.alert?`upstream blocks in ~${d.alert.eta_min} min · conf ${Math.round(d.alert.confidence*100)}% ${pill("simulated")}${d.alert.inferred_share?` · ${Math.round(d.alert.inferred_share*100)}% inferred evidence`:""}`:"none"}</span>
+    <span>sensor</span><span>${d.belief.health}${d.holds.length?` · holds #${d.holds.join(", #")}`:""}</span></div>
+    <div class="cap"><span>cycle time (s) — plant solid, loom dashed</span><span>takt ${m.takt_s}s</span></div><canvas class="spark" id="sp_cyc"></canvas>`;
+    d.params.forEach((q,k)=>{h+=`<div class="cap"><span>${q.name} (${q.unit}) — ${q.reported?"reported":"NOT reported to loom"} · true mean now ${q.true_mean_now}</span><span>ewma ${q.ewma} · cusum ${q.cusum_lo}/${q.cusum_hi}${q.drift?" · DRIFT":""}</span></div><canvas class="spark" id="sp_p${k}"></canvas>`;});
+    el.innerHTML=h;
+    spark($("sp_cyc"),[{pts:d.truth_cycles,color:"#E8ECEF",width:1.2},{pts:d.belief_cycles,color:"#B388FF",dash:[4,3],dots:true}],{lines:[m.takt_s]});
+    d.params.forEach((q,k)=>spark($("sp_p"+k),[{pts:q.truth,color:"#E8ECEF",width:1.2},{pts:q.readings,color:"#2FB8A6",dots:true}],{lines:[q.lsl,q.usl,q.nominal]}));
+    return;}
+  if(p==="inject"){const opts=m.stations.map(s=>`<option value="${s.id}">${s.id} · ${s.type} · ${s.sensors}</option>`).join("");const sid=S.injSel||m.stations[Math.min(2,m.stations.length-1)].id;
+    const st=m.stations.find(s=>s.id===sid)||m.stations[0];
+    el.innerHTML=`<h3>Inject a fault</h3><p>Changes hit the plant immediately; Loom only ever sees what the sensors let through.</p>
+    <div class="row"><label>station <select id="inj_st">${opts}</select></label></div>
+    <h3>Cycle time</h3><div class="row"><label>to <input type="number" id="inj_cyc" value="${Math.round(st.cycle_s*1.4)}"> s</label><label>ramp <input type="number" id="inj_ramp" value="20"> min</label><button id="inj_slow" class="danger">Wear</button><button id="inj_restore">Repair</button></div>
+    <h3>Instrumentation</h3><div class="row">${m.profiles.map(pr=>`<button data-prof="${pr}" class="prof ${st.sensors===pr?'on':''}">${pr}</button>`).join("")}</div>
+    <div class="row"><label>silent for <input type="number" id="inj_dur" value="25"> min</label><button id="inj_fault" class="danger">Sensor outage</button></div>
+    <h3>Process drift</h3>${st.params.length?`<div class="row"><label>param <select id="inj_param">${st.params.map(q=>`<option>${q}</option>`).join("")}</select></label><label>over <input type="number" id="inj_dramp" value="25"> min</label><button id="inj_drift" class="danger">Drift out of spec</button><button id="inj_dstop">Back to nominal</button></div><p>Drifts a parameter's mean to just below its lower spec limit. A defect model must exist for it to cause defects (see the weld_drift_b2 line); otherwise you will see the drift warning and an out-of-spec hold.</p>`:"<p>This station has no monitored parameters.</p>"}`;
+    $("inj_st").value=sid;$("inj_st").onchange=()=>{S.injSel=$("inj_st").value;renderPane();};
+    const post=(b)=>api("/api/inject",b).then(r=>{if(r.error){alert(r.error);return;}S.events.push({...r,kind:"inject"});toast({...r,kind:"inject"});if(r.kind==="sensor"){api("/api/meta").then(mm=>{S.meta=mm;applySensorLook();renderPane();});}});
+    $("inj_slow").onclick=()=>post({kind:"slow",station:sid,cycle_s:+$("inj_cyc").value,ramp_s:+$("inj_ramp").value*60});
+    $("inj_restore").onclick=()=>post({kind:"restore",station:sid});
+    [...el.querySelectorAll(".prof")].forEach(b=>b.onclick=()=>post({kind:"sensor",station:sid,profile:b.dataset.prof}));
+    $("inj_fault").onclick=()=>post({kind:"sensor_fault",station:sid,duration_s:+$("inj_dur").value*60});
+    if($("inj_drift")){$("inj_drift").onclick=()=>post({kind:"drift",station:sid,param:$("inj_param").value,ramp_s:+$("inj_dramp").value*60});$("inj_dstop").onclick=()=>post({kind:"drift_stop",station:sid});}
+    return;}
+  if(p==="config"){el.innerHTML=`<h3>Line configuration</h3><p>Edit the YAML and apply: stations, zones, cycle times, buffers, sensor profiles, model variants, scheduled faults. Applying rebuilds the plant and the twin from zero.</p><textarea class="cfg" id="cfg" spellcheck="false">${m.yaml.replace(/</g,"&lt;")}</textarea><div class="row"><button id="cfg_apply" class="play">Apply</button><button id="cfg_reload">Discard</button></div><div class="err" id="cfg_err"></div>`;
+    $("cfg_apply").onclick=async()=>{const r=await api("/api/load",{yaml:$("cfg").value});if(r.error){$("cfg_err").textContent=r.error;return;}$("cfg_err").textContent="";afterLoad(r.meta);};
+    $("cfg_reload").onclick=()=>renderPane();return;}
+  if(p==="events"){el.innerHTML=`<h3>Log</h3><div class="events">${S.events.slice().reverse().map(e=>`<div class="${e.kind}">${fmt(e.t)}  ${e.text.replace(/^\[\s*[\d.]+\]\s*/,"").replace(/</g,"&lt;")}</div>`).join("")||"<div>nothing yet</div>"}</div>`;return;}
+  const txt=await fetch(`/api/view/${p}`).then(r=>r.text());el.innerHTML=`<pre>${txt.replace(/</g,"&lt;")}</pre>`;
+}
+function afterLoad(meta){S.meta=meta;S.events=[];S.history=[];S.sel=null;S.frame=null;buildScene();buildStrip();$("scenario").value=meta.source;renderPane();refreshScore();}
+
+// ---------- wiring ----------
+initThree();
+api("/api/meta").then(meta=>{const sel=$("scenario");meta.scenarios.forEach(n=>{const o=document.createElement("option");o.value=n;o.textContent=n.replace(".yaml","");sel.appendChild(o);});afterLoad(meta);connect();});
+$("scenario").addEventListener("change",async()=>{const r=await api("/api/load",{name:$("scenario").value});if(r.meta)afterLoad(r.meta);});
+$("play").addEventListener("click",()=>api("/api/control",{playing:!(S.frame&&S.frame.playing)}));
+$("reset").addEventListener("click",async()=>{await api("/api/control",{reset:true});S.events=[];S.history=[];refreshScore();});
+[...$("speed").children].forEach(b=>b.addEventListener("click",()=>api("/api/control",{speed:+b.dataset.s})));
+[...$("tabs").children].forEach(b=>b.addEventListener("click",()=>{S.pane=b.dataset.p;setTab();renderPane();}));
+setInterval(()=>{if(["supervisor","quality","maintenance","manager"].includes(S.pane))renderPane(); if(S.pane==="station"&&S.sel!=null)renderPane();},4000);
+setInterval(refreshScore,15000);
+(function loop(){ if(S.frame){const mix=Math.min(1,(performance.now()-(S.mixT||0))/100); applyFrame(S.frame,S.prev,mix);} render(); requestAnimationFrame(loop); })();
+</script>
+</body></html>
