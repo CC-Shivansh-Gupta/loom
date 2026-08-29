@@ -1,0 +1,27 @@
+# Balanced line with realistic cycle-time noise and no faults.
+# Used to measure the twin's false-alarm rate.
+name: demo-line-stochastic
+takt_s: 60
+default_buffer: 2
+cv: 0.05
+seed: 1
+
+zones:
+  - name: body
+    stations:
+      - {id: B1, cycle_s: 55}
+      - {id: B2, cycle_s: 57}
+      - {id: B3, cycle_s: 56}
+      - {id: B4, cycle_s: 58}
+  - name: paint
+    stations:
+      - {id: P1, cycle_s: 55, buffer_before: 6}
+      - {id: P2, cycle_s: 58}
+      - {id: P3, cycle_s: 56}
+  - name: final
+    stations:
+      - {id: F1, cycle_s: 57}
+      - {id: F2, cycle_s: 55}
+      - {id: F3, cycle_s: 58}
+      - {id: F4, cycle_s: 56}
+      - {id: F5, cycle_s: 55}

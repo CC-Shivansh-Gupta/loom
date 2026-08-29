@@ -14,11 +14,13 @@ buffer is what the floor calls "starved").
 from __future__ import annotations
 
 import heapq
+import math
+import random
 from collections import deque
 from dataclasses import dataclass, field
 from typing import Callable
 
-from .config import LineCfg, StationCfg
+from .config import LineCfg, Perturbation, StationCfg
 from .events import (BLOCKED, EXIT, FINISH, LOST_SLOT, MOVE, RELEASE, START,
                      Event)
 
@@ -44,6 +46,7 @@ class Vehicle:
 @dataclass
 class Station:
     cfg: StationCfg
+    perturbations: tuple[Perturbation, ...] = ()
     state: str = IDLE
     vehicle: Vehicle | None = None
     state_since: float = 0.0
@@ -55,9 +58,25 @@ class Station:
         self.state = state
         self.state_since = t
 
-    def cycle_time(self, vehicle: Vehicle) -> float:
-        # Deterministic for now. Variation, drift and slowdowns hook in here.
-        return self.cfg.cycle_s
+    def nominal_cycle(self, t: float) -> float:
+        """True nominal cycle at time t, after any scheduled perturbations."""
+        c = self.cfg.cycle_s
+        for p in self.perturbations:
+            if t < p.at_s:
+                continue
+            if p.ramp_s <= 0 or t >= p.at_s + p.ramp_s:
+                c = p.cycle_s
+            else:
+                c = c + (p.cycle_s - c) * (t - p.at_s) / p.ramp_s
+        return c
+
+    def cycle_time(self, t: float, rng: random.Random, cv: float) -> float:
+        nominal = self.nominal_cycle(t)
+        if cv <= 0:
+            return nominal
+        # Lognormal with the requested CV, mean-corrected so E[cycle] == nominal.
+        sigma = math.sqrt(math.log(1 + cv * cv))
+        return nominal * math.exp(rng.gauss(-sigma * sigma / 2, sigma))
 
 
 class Plant:
@@ -69,7 +88,11 @@ class Plant:
         self.events: list[Event] = []
         self.listeners: list[Callable[[Event], None]] = []
 
-        self.stations = [Station(s) for s in cfg.stations]
+        self.rng = random.Random(cfg.seed)
+        self.stations = [
+            Station(s, tuple(p for p in cfg.perturbations if p.station == s.id))
+            for s in cfg.stations
+        ]
         self.buffers: list[deque[Vehicle]] = [deque() for _ in cfg.stations]
         self.vehicles: dict[int, Vehicle] = {}
         self.exited: list[Vehicle] = []
@@ -121,7 +144,8 @@ class Plant:
         st.set_state(BUSY, self.t)
         v.record.append(Visit(st.cfg.id, self.t))
         self._emit(START, st.cfg.id, v)
-        self._schedule(st.cycle_time(v), lambda: self._finish(i))
+        self._schedule(st.cycle_time(self.t, self.rng, self.cfg.cv),
+                       lambda: self._finish(i))
         # We freed a slot in buffer i; a blocked upstream station may move.
         if i > 0 and self.stations[i - 1].state == BLOCKED_STATE:
             self._try_push(i - 1)
@@ -166,6 +190,9 @@ class Plant:
             "buffers": {s.cfg.id: [v.id for v in b]
                         for s, b in zip(self.stations, self.buffers)},
         }
+
+    def true_cycle(self, station: str, t: float) -> float:
+        return self.stations[self.cfg.index(station)].nominal_cycle(t)
 
     def wip(self) -> int:
         return len(self.vehicles) - len(self.exited)

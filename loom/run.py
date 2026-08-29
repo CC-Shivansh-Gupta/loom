@@ -7,7 +7,7 @@ from __future__ import annotations
 import argparse
 
 from .config import load_line
-from .evaluator import state_agreement
+from .evaluator import bottleneck_scorecard, state_agreement
 from .plant import BLOCKED_STATE, BUSY, IDLE, Plant
 from .sensors import SensorLayer
 from .twin import Twin
@@ -23,9 +23,14 @@ def build(cfg_path: str, sensor_profiles: dict[str, str] | None = None):
     return cfg, plant, sensors, twin
 
 
+def _mins(x: float | None) -> str:
+    return "   -  " if x is None else f"{x / 60:6.1f}"
+
+
 def report(cfg, plant: Plant, sensors: SensorLayer, twin: Twin) -> str:
     hours = plant.t / 3600
-    lines = [f"line {cfg.name}: takt {cfg.takt_s:.0f}s, {len(cfg.stations)} stations, ran {hours:.2f} h"]
+    lines = [f"line {cfg.name}: takt {cfg.takt_s:.0f}s, {len(cfg.stations)} stations, "
+             f"cv {cfg.cv:.0%}, ran {hours:.2f} h"]
     done = plant.exited
     lines.append(f"  throughput {len(done) / hours:6.1f} veh/h   (takt ceiling {3600 / cfg.takt_s:.1f})")
     lines.append(f"  WIP now    {plant.wip():6d} veh")
@@ -35,14 +40,14 @@ def report(cfg, plant: Plant, sensors: SensorLayer, twin: Twin) -> str:
     lost = sum(1 for e in plant.events if e.kind == "lost_slot")
     lines.append(f"  lost slots {lost:6d}")
     lines.append("")
-    lines.append(f"  {'station':<8}{'zone':<8}{'cycle':>6}  {'busy':>6}{'block':>7}{'idle':>6}   buf  twin")
+    lines.append(f"  {'station':<8}{'zone':<8}{'cycle':>6}{'now':>6}  {'busy':>6}{'block':>7}{'idle':>6}   buf  twin")
     for st, buf in zip(plant.stations, plant.buffers):
         tot = sum(st.time_in.values()) or 1.0
         b = twin.stations[st.cfg.id]
         lines.append(
-            f"  {st.cfg.id:<8}{st.cfg.zone:<8}{st.cfg.cycle_s:>5.0f}s "
+            f"  {st.cfg.id:<8}{st.cfg.zone:<8}{st.cfg.cycle_s:>5.0f}s{st.nominal_cycle(plant.t):>5.0f}s "
             f"{st.time_in[BUSY] / tot:6.0%}{st.time_in[BLOCKED_STATE] / tot:7.0%}"
-            f"{st.time_in[IDLE] / tot:6.0%}   {len(buf):>2}   {b.state!r} {b.vehicle!r}"
+            f"{st.time_in[IDLE] / tot:6.0%}   {len(buf):>2}   {b.state!r} {b.vehicle!r} cyc{b.cycle_s!r}"
         )
     lines.append("")
     agree = state_agreement(plant, twin)
@@ -51,6 +56,24 @@ def report(cfg, plant: Plant, sensors: SensorLayer, twin: Twin) -> str:
     lines.append(f"  twin vs truth: {len(agree['mismatches'])} mismatches in {agree['checked']} checks")
     for m in agree["mismatches"]:
         lines.append(f"    {m}")
+
+    if twin.log:
+        lines.append("")
+        lines.append("  alert log:")
+        for x in twin.log:
+            lines.append(f"    {x}")
+
+    sc = bottleneck_scorecard(plant, twin)
+    if cfg.perturbations or sc["alerts_raised"]:
+        lines.append("")
+        lines.append("  bottleneck scorecard (minutes):")
+        lines.append(f"    {'station':<8}{'ramp@':>7}{'>takt@':>7}{'block@':>7}{'alert@':>7}"
+                     f"{'lead':>7}{'eta err':>9}")
+        for s in sc["scores"]:
+            lines.append(f"    {s.station:<8}{_mins(s.t_ramp_start):>7}{_mins(s.t_over_takt):>7}"
+                         f"{_mins(s.t_upstream_blocked):>7}{_mins(s.t_alert):>7}"
+                         f"{_mins(s.lead_s):>7}{_mins(s.eta_error_s):>9}")
+        lines.append(f"    false alarms: {len(sc['false_alarms'])} of {sc['alerts_raised']} raised")
     return "\n".join(lines)
 
 
