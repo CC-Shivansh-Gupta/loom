@@ -1,0 +1,27 @@
+# The Loom side of a Factory I/O scene: six conveyor stations, one dark,
+# one exit-only. Cycle times are the plc_stub's dwell times; takt is the
+# emitter period. Sensor profiles here are overridden from the map file.
+plant:
+  name: Factory I/O scene
+  site: Windows box
+  area: Demo line
+
+line:
+  id: FIO
+  takt_s: 20
+  cv: 0.05
+  seed: 3
+  default_buffer: 2
+  zones:
+    - name: line
+      stations:
+        - {id: S1, type: generic, cycle_s: 17}
+        - {id: S2, type: generic, cycle_s: 18}
+        - {id: S3, type: generic, cycle_s: 17}      # dark in the map
+        - {id: S4, type: generic, cycle_s: 18}
+        - {id: S5, type: generic, cycle_s: 17}      # exit sensor only in the map
+        - {id: S6, type: inspection, cycle_s: 16}
+
+scenario:
+  perturbations:
+    - {station: S2, at_s: 600, ramp_s: 300, cycle_s: 30}   # used by the fake factory only

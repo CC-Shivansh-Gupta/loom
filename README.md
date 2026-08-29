@@ -70,6 +70,19 @@ a WebSocket and renders the line in 3D (Three.js). Nothing is precomputed.
   hold and injection) and, on stop, writes `web/recordings/<name>.html`: a self-contained replay page
   you can send to anyone, plus the raw JSON.
 
+## Factory I/O (real third-party equipment, read-only)
+
+```
+python -m loom.plc_stub configs/factoryio_map.yaml --wear S2:600:30   # the "PLC", drives the scene
+python -m loom.server  --factoryio configs/factoryio_map.yaml          # Loom, reads Modbus inputs only
+```
+
+Loom polls Factory I/O's Modbus TCP/IP Server driver, turns photo-eye edges into its event schema
+and runs the same twin and control room. No Windows box handy: `python -m loom.fakefactory
+configs/factoryio_map.yaml --speed 30` is a Modbus server (port 5020) driven by Loom's own plant —
+then `--time-scale 30 --modbus-port 5020` on the server. Setup, scene contract and limits:
+`docs/factoryio.md`.
+
 ## Control room (3D replay, static)
 
 ```

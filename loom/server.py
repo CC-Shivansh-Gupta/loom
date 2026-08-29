@@ -85,12 +85,13 @@ async def load(body: Load):
 
 @app.post("/api/control")
 async def control(body: Control) -> dict:
+    external = getattr(sim, "feed", None) is not None
     if body.reset:
         sim.reset()
-        sim.playing = False
-    if body.playing is not None:
+        sim.playing = external
+    if body.playing is not None and not external:
         sim.playing = body.playing
-    if body.speed is not None:
+    if body.speed is not None and not external:
         sim.speed = max(1.0, min(600.0, body.speed))
     return {"playing": sim.playing, "speed": sim.speed, "t": sim.plant.t}
 
@@ -158,8 +159,16 @@ def main() -> None:
     ap.add_argument("--config", default="healthy.yaml")
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--host", default="127.0.0.1")
+    ap.add_argument("--factoryio", metavar="MAP", help="read a Factory I/O scene over Modbus/TCP instead of simulating")
+    ap.add_argument("--time-scale", type=float, default=None, help="sim seconds per real second (fake factory)")
+    ap.add_argument("--modbus-port", type=int, default=None, help="override the map's Modbus port (fake factory uses 5020)")
     args = ap.parse_args()
-    sim.load_named(args.config)
+    global sim
+    if args.factoryio:
+        from .factoryio import ExternalSim
+        sim = ExternalSim(args.factoryio, args.time_scale, args.modbus_port)
+    else:
+        sim.load_named(args.config)
     uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
 
 

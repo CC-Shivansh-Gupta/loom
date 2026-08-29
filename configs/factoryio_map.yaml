@@ -1,0 +1,25 @@
+# Factory I/O "Modbus TCP/IP Server" driver mapping for the six-station scene.
+# Discrete inputs = sensors (Loom reads these); coils = actuators (plc_stub only).
+host: 127.0.0.1          # Windows machine running Factory I/O; 127.0.0.1 for the fake factory
+port: 502
+unit: 1
+poll_hz: 50
+time_scale: 1.0          # 1.0 for a real scene; the fake factory tells you what to set
+line: factoryio_line.yaml
+
+stations:
+  S1: {entry: 0, exit: 1}
+  S2: {entry: 2, exit: 3}
+  S3: {}                  # no sensors: dark
+  S4: {entry: 6, exit: 7}
+  S5: {exit: 9}           # exit photo-eye only
+  S6: {entry: 10, exit: 11}
+
+actuators:
+  emit: 0
+  S1: {conveyor: 1}
+  S2: {conveyor: 2}
+  S3: {conveyor: 3}
+  S4: {conveyor: 4}
+  S5: {conveyor: 5}
+  S6: {conveyor: 6}

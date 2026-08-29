@@ -52,6 +52,9 @@ BUILTIN_SENSOR_PROFILES: dict[str, dict] = {
     "cycle_only": {"events": ["start", "finish"], "jitter_s": 1.0, "drop_p": 0.01},
     "checklist":  {"events": ["finish"], "latency_s": 120.0, "jitter_s": 30.0, "drop_p": 0.05},
     "dark":       {"events": []},
+    # external (Factory I/O) sources: photo-eyes at station entry and/or exit
+    "photo_eyes": {"events": ["start", "finish", "move", "exit"], "jitter_s": 0.1},
+    "exit_eye":   {"events": ["finish", "move", "exit"], "jitter_s": 0.1},
 }
 
 
