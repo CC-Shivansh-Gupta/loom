@@ -270,7 +270,7 @@ Telemetry is kept for every LLM call (tokens, latency, cost) so the economics ar
 | 1–3 (done) | DES plant, sensor profiles, forecaster with FA guards, config libraries, variants, three views | C5, C6, C7, S1, S2 (bottleneck), S4 |
 | 4 (done) | sensor noise model (jitter, clock offset, dropouts, latency, silent-sensor faults); flow reconstruction for dark and finish-only stations with exact/bound provenance; sensor-health detection; alert grouping by causal chain; VOI ranking; `plant_b.yaml` | C1, C3, S3, alarm flooding, sensor faults |
 | 5 (done) | process parameters with spec limits; EWMA/CUSUM drift with onset estimate; latent multi-cause defects visible only at inspection; contribution analysis (lift + Fisher exact, singles and pairs); targeted holds with sure/uncertain/exited split; containment scorecard vs blanket hold and vs end-of-line detection; quality view | C2, C4, S2 (drift, risk) |
-| 6 | AI layer (§3b): persona reports, what-if mitigation engine + recommender, statistical recalibration + gated agentic improvement loop, onboarding assistant; maintenance view | S4, "appropriate use of AI" |
+| 6 (done) | AI layer (§3b, `docs/ai_layer.md`): evidence pack, template/Claude provider boundary with cost telemetry, persona reports, what-if mitigation engine (LLM proposes from a menu, simulator judges), evaluation harness + gated improvement loop + calibration table, onboarding assistant | S4, "appropriate use of AI" |
 | 7 | multi-run evaluation harness, calibration curve, ledger over weeks; active-period cross-check; two staggered ramps | C7, shifting bottlenecks |
 | 8 | web UI on top of `views.py`; leadership view with ROI model | pitch |
 

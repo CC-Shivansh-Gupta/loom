@@ -263,6 +263,28 @@ class Plant:
             self._try_start(i + 1)
         self._try_start(i)
 
+    # -- what-if: start from a believed state -------------------------------
+    def prime(self, buffers: dict[str, int], busy: dict[str, float | None]) -> None:
+        """Populate buffers and stations before running: `buffers` gives
+        vehicles waiting in front of each station, `busy` the remaining
+        fraction of the current cycle (None = idle)."""
+        for i, st in enumerate(self.stations):
+            for _ in range(min(int(buffers.get(st.cfg.id, 0)), st.cfg.buffer_before)):
+                self.buffers[i].append(self._new_vehicle())
+            rem = busy.get(st.cfg.id)
+            if rem is not None:
+                v = self._new_vehicle()
+                st.vehicle = v
+                st.set_state(BUSY, self.t)
+                v.record.append(Visit(st.cfg.id, self.t))
+                self._schedule(max(0.1, rem * st.cfg.cycle_s), lambda i=i: self._finish(i))
+
+    def _new_vehicle(self) -> Vehicle:
+        v = Vehicle(self._next_vid, self.t, self._pick_variant())
+        self._next_vid += 1
+        self.vehicles[v.id] = v
+        return v
+
     # -- ground truth for the evaluator ---------------------------------
     def truth(self) -> dict:
         return {

@@ -37,6 +37,18 @@ python -m loom.run configs/ramp_b3_dark.yaml --hours 2   # B3 dark: what step 3 
 
 Views: `--view operator:<station>`, `supervisor`, `quality`, `manager`.
 
+## AI layer
+
+```
+python -m loom.ai report  configs/weld_drift_b2.yaml --persona quality     # grounded persona report
+python -m loom.ai whatif  configs/ramp_b3.yaml --hours 0.75                  # simulate mitigations, rank, explain
+python -m loom.ai improve --iterations 3                                     # propose → backtest → gate
+python -m loom.ai onboard "18 stations, takt 72 s, 4 manual, 2 dark, paint buffer 10"
+```
+
+Runs on deterministic templates by default; with `pip install anthropic` and credentials (or
+`LOOM_LLM=claude`) the same calls go to `claude-opus-5`. See `docs/ai_layer.md`.
+
 Sensor profiles carry noise: timestamp jitter, clock offset, dropouts and reporting latency
 (`loom/sensors.py`). Every twin value is tagged ● measured / ◐ inferred / ○ simulated, and inferred
 timestamps are further marked exact or bound so no cycle time is ever estimated from a bound.

@@ -94,8 +94,8 @@ Built-in libraries can be extended or overridden per plant file.
 2. Stochastic cycles, ramp perturbations, trend forecaster with false-alarm guards, scorecard.
 3. Config libraries + `extends`, sensor profiles that filter, model variants, role views, second plant.
 4. Sensor noise model; flow reconstruction (R1–R5 in `twin.py`) for dark / finish-only / silent stations with exact-vs-bound provenance; sensor health; alert grouping; value-of-information ranking.
-5. Process parameters with spec limits; EWMA/CUSUM drift monitors with onset estimate and time-to-limit projection; latent multi-cause defects surfacing at inspection stations; contribution analysis (lift + Fisher exact, pairs); targeted holds (sure / uncertain / already-exited) that grow while a drift is on; containment scorecard; quality view.  ← here
-6. Mitigations as recommendations with expected effect, alert grouping, maintenance view.
+5. Process parameters with spec limits; EWMA/CUSUM drift monitors with onset estimate and time-to-limit projection; latent multi-cause defects surfacing at inspection stations; contribution analysis (lift + Fisher exact, pairs); targeted holds (sure / uncertain / already-exited) that grow while a drift is on; containment scorecard; quality view.
+6. AI layer (`docs/ai_layer.md`): evidence pack, provider boundary with template fallback and telemetry, persona reports, what-if mitigation engine, evaluation harness + gated improvement loop + calibration table, onboarding assistant.  ← here
 7. Multi-run evaluation harness, calibration curve, active-period cross-check, shifting bottlenecks.
 8. Web UI, leadership view with ROI model.
 
