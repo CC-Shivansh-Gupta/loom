@@ -1,0 +1,25 @@
+# Same line, but B3 runs at 80s against a 60s takt. Expect: B1/B2 block,
+# everything after B3 starves, throughput drops to 45 veh/h.
+name: demo-line-slow-b3
+takt_s: 60
+default_buffer: 2
+
+zones:
+  - name: body
+    stations:
+      - {id: B1, cycle_s: 55}
+      - {id: B2, cycle_s: 57}
+      - {id: B3, cycle_s: 80}
+      - {id: B4, cycle_s: 58}
+  - name: paint
+    stations:
+      - {id: P1, cycle_s: 55, buffer_before: 6}
+      - {id: P2, cycle_s: 58}
+      - {id: P3, cycle_s: 56}
+  - name: final
+    stations:
+      - {id: F1, cycle_s: 57}
+      - {id: F2, cycle_s: 55}
+      - {id: F3, cycle_s: 58}
+      - {id: F4, cycle_s: 56}
+      - {id: F5, cycle_s: 55}
