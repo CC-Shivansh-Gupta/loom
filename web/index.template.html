@@ -1,0 +1,299 @@
+<title>Loom Control Room</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#0F1317; --panel:#161C22; --panel2:#1C232B; --line:#263039; --ink:#E8ECEF; --muted:#8C97A3; --dim:#5C6873;
+  --accent:#B388FF; --busy:#2FB8A6; --blocked:#E8A33D; --alert:#F2542D; --idle:#3A454F; --hold:#5BA8FF;
+  --display:"Barlow Condensed","Arial Narrow",sans-serif; --body:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.45;height:100vh;display:grid;grid-template-rows:auto 1fr auto;grid-template-columns:1fr 380px;grid-template-areas:"head head" "stage side" "foot side";overflow:hidden}
+header{grid-area:head;display:flex;align-items:center;gap:18px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
+h1{font-family:var(--display);font-weight:700;font-size:26px;letter-spacing:.02em;margin:0;text-transform:uppercase}
+h1 small{font-family:var(--body);font-weight:400;font-size:12px;color:var(--muted);letter-spacing:0;text-transform:none;margin-left:10px}
+.legend{display:flex;gap:14px;margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px;background:var(--ink)}
+.legend .inf::before{background:linear-gradient(90deg,var(--ink) 50%,transparent 50%);border:1px solid var(--ink)}
+.legend .sim::before{background:transparent;border:1px dashed var(--ink)}
+select,button{font-family:var(--body);font-size:13px;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:6px 10px;cursor:pointer}
+button:hover,select:hover{border-color:var(--muted)} button:focus-visible,select:focus-visible,.tab:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button.play{font-family:var(--display);font-size:16px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:5px 14px;min-width:84px}
+.speed{display:flex;gap:4px} .speed button{padding:5px 8px} .speed button.on{border-color:var(--accent);color:var(--accent)}
+#stage{grid-area:stage;position:relative;min-height:0}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block}
+.hud{position:absolute;left:16px;top:14px;font-family:var(--mono);font-size:12px;color:var(--muted);pointer-events:none}
+.hud b{display:block;font-family:var(--display);font-size:38px;font-weight:600;color:var(--ink);line-height:1;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.hud .lane{margin-top:10px} .hud .lane i{display:inline-block;width:8px;height:8px;margin-right:6px;background:var(--ink)} .hud .lane i.b{background:var(--accent)}
+.toast{position:absolute;right:16px;top:14px;max-width:420px;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.toast div{background:rgba(22,28,34,.92);border-left:3px solid var(--alert);padding:8px 12px;font-family:var(--mono);font-size:12px;color:var(--ink);opacity:0;transform:translateY(-4px);transition:opacity .3s,transform .3s}
+.toast div.show{opacity:1;transform:none} .toast div.hold{border-color:var(--hold)} .toast div.drift{border-color:var(--blocked)} .toast div.clear{border-color:var(--busy)}
+.stations{position:absolute;left:0;right:0;bottom:0;display:flex;gap:6px;padding:10px 16px;overflow-x:auto;pointer-events:none}
+.stations div{flex:1 0 auto;min-width:64px;background:rgba(22,28,34,.85);border:1px solid var(--line);border-radius:3px;padding:6px 8px;font-family:var(--mono);font-size:11px;color:var(--muted);pointer-events:auto;cursor:pointer}
+.stations div.sel{border-color:var(--accent)} .stations div .id{font-family:var(--display);font-size:16px;font-weight:600;color:var(--ink);letter-spacing:.04em}
+.stations div .st{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+.stations div .cyc{color:var(--ink)} .stations div.alert{border-color:var(--alert)} .stations div.alert .id{color:var(--alert)}
+footer{grid-area:foot;border-top:1px solid var(--line);background:var(--panel);padding:8px 16px 10px;display:grid;gap:6px}
+#timeline{width:100%;height:56px;display:block;cursor:pointer}
+.score{display:flex;gap:26px;font-family:var(--mono);font-size:12px;color:var(--muted);flex-wrap:wrap}
+.score b{font-family:var(--display);font-size:22px;font-weight:600;color:var(--ink);margin-right:6px;font-variant-numeric:tabular-nums}
+.score b.good{color:var(--busy)} .score b.warn{color:var(--blocked)}
+aside{grid-area:side;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tab{flex:1;background:none;border:0;border-bottom:2px solid transparent;border-radius:0;padding:10px 4px;font-family:var(--display);font-size:15px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+.pane{flex:1;overflow:auto;padding:12px 14px}
+.pane pre{margin:0;font-family:var(--mono);font-size:11.5px;line-height:1.5;white-space:pre-wrap;color:var(--ink)}
+.pane h3{font-family:var(--display);font-size:18px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin:0 0 8px;color:var(--ink)}
+.pane p{margin:0 0 10px;color:var(--muted);max-width:60ch}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-family:var(--mono);font-size:12px;margin-bottom:12px}
+.kv span:nth-child(odd){color:var(--muted)}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-family:var(--mono);border:1px solid var(--line);color:var(--muted)}
+.pill.m{border-color:var(--ink);color:var(--ink)} .pill.i{border-style:dashed;color:var(--ink)} .pill.s{border-style:dotted}
+.about p{color:var(--ink)} .about ul{padding-left:18px;color:var(--muted);margin:6px 0 12px} .about li{margin:3px 0}
+@media (prefers-reduced-motion:reduce){.toast div{transition:none}}
+@media (max-width:980px){body{grid-template-columns:1fr;grid-template-areas:"head" "stage" "foot"} aside{display:none}}
+</style>
+
+<header>
+  <h1>Loom <small>assembly-line digital twin · plant truth in front, Loom's belief behind</small></h1>
+  <select id="scenario" aria-label="Scenario"></select>
+  <button class="play" id="play">Play</button>
+  <div class="speed" id="speed"><button data-s="10">10×</button><button data-s="30" class="on">30×</button><button data-s="120">120×</button></div>
+  <div class="legend"><span>measured</span><span class="inf">inferred</span><span class="sim">simulated</span></div>
+</header>
+
+<section id="stage">
+  <canvas id="gl"></canvas>
+  <div class="hud"><b id="clock">00:00</b><span id="hudline"></span>
+    <div class="lane"><i></i>plant — what is actually happening<br><i class="b"></i>Loom — what it can see, infer and forecast</div></div>
+  <div class="toast" id="toast"></div>
+  <div class="stations" id="strip"></div>
+</section>
+
+<footer>
+  <canvas id="timeline"></canvas>
+  <div class="score" id="score"></div>
+</footer>
+
+<aside>
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-p="about">Story</button><button class="tab" data-p="station">Station</button><button class="tab" data-p="supervisor">Line</button><button class="tab" data-p="quality">Quality</button><button class="tab" data-p="maintenance">Maint.</button><button class="tab" data-p="manager">Manager</button>
+  </div>
+  <div class="pane" id="pane"></div>
+</aside>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const PACK = __DATA__;
+const STORIES = {
+  ramp_b3: {title:"Tool wear at B3", text:"Every station reports. From minute 30 the weld robot at B3 slows from 56 s to 80 s over twenty minutes. Watch the belief lane raise the alert around minute 43 — before B2 blocks at 51 — with an ETA the ledger later scores."},
+  ramp_b3_dark: {title:"Same fault, B3 dark", text:"B3 has no sensors and B2 reports only start/finish timestamps. Loom rebuilds B3 from its neighbours: whenever B4 starts a vehicle after sitting idle, that instant is exactly when B3 released it. The alert still comes, later and with lower stated confidence — and says so."},
+  sensor_fault_b2: {title:"A PLC link goes silent", text:"Mid-ramp, B2's instrumentation drops out for 25 minutes. Loom flags B2 as silent, stops treating the absence of events as evidence, bridges from B1 and B3, and keeps the forecast."},
+  weld_drift_b2: {title:"Silent drift, late defect", text:"B2's weld current sags out of spec with no cycle-time symptom. Weak welds only show at F5, eleven vehicles later. CUSUM catches the drift at source; the first out-of-spec reading opens a hold back-filled from the estimated onset — before inspection sees a single failure."},
+  shifting: {title:"The constraint moves", text:"B3 wears, gets repaired at 65 minutes, then F3 starts wearing. The forecaster warns for both in order, clears B3 on repair, and the momentary-bottleneck marker follows the constraint from body shop to final assembly."},
+  plant_b: {title:"A different plant, unchanged code", text:"Thirty stations, four zones, three model variants, nine stations on manual checklists or dark. Same code, different YAML. T04 wears from the hour mark; the manager view ranks which station to instrument next."},
+};
+const S = {data:null, key:null, fi:0, playing:false, speed:30, sel:null, pane:"about", lastT:0, three:null};
+const $ = id=>document.getElementById(id);
+const fmt = t=>`${String(Math.floor(t/3600)).padStart(2,"0")}:${String(Math.floor(t%3600/60)).padStart(2,"0")}`;
+const SRC = ["measured","inferred","simulated"], STATE=["idle","busy","blocked"];
+const COL = {bg:0x0F1317, ink:0xE8ECEF, muted:0x8C97A3, accent:0xB388FF, busy:0x2FB8A6, blocked:0xE8A33D, alert:0xF2542D, idle:0x3A454F, floor:0x141A20, dark:0x2A333C, hold:0x5BA8FF};
+const VAR = {"-":0xD9DEE3, sedan:0xD9DEE3, suv:0xB9C3CC, hatch:0xE6EBEF};
+
+function inflate(b64){ const bin=atob(b64); const u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i); return JSON.parse(pako.inflate(u,{to:"string"})); }
+
+// ---------- three.js scene ----------
+function initThree(){
+  const canvas=$("gl"); const r=new THREE.WebGLRenderer({canvas,antialias:true}); r.setPixelRatio(Math.min(devicePixelRatio,2));
+  const scene=new THREE.Scene(); scene.background=new THREE.Color(COL.bg); scene.fog=new THREE.Fog(COL.bg,40,110);
+  const cam=new THREE.PerspectiveCamera(38,1,0.1,300);
+  scene.add(new THREE.HemisphereLight(0xBFD4E6,0x0F1317,0.9));
+  const sun=new THREE.DirectionalLight(0xFFFFFF,0.9); sun.position.set(-8,18,12); scene.add(sun);
+  const orbit={theta:0.10,phi:0.98,dist:30,cx:0,drag:false,px:0,py:0};
+  canvas.addEventListener("pointerdown",e=>{orbit.drag=true;orbit.px=e.clientX;orbit.py=e.clientY;canvas.setPointerCapture(e.pointerId)});
+  canvas.addEventListener("pointermove",e=>{if(!orbit.drag)return;orbit.theta-=(e.clientX-orbit.px)*0.005;orbit.phi=Math.max(0.25,Math.min(1.45,orbit.phi-(e.clientY-orbit.py)*0.005));orbit.px=e.clientX;orbit.py=e.clientY});
+  canvas.addEventListener("pointerup",()=>orbit.drag=false);
+  canvas.addEventListener("wheel",e=>{e.preventDefault();orbit.dist=Math.max(8,Math.min(400,orbit.dist*(1+Math.sign(e.deltaY)*0.08)))},{passive:false});
+  S.three={r,scene,cam,orbit,group:null,meshes:{}};
+}
+function label(text,color="#E8ECEF",size=64){
+  const c=document.createElement("canvas"); c.width=256;c.height=96; const g=c.getContext("2d");
+  g.font=`600 ${size}px "Barlow Condensed", "Arial Narrow", sans-serif`; g.fillStyle=color; g.textAlign="center"; g.textBaseline="middle"; g.fillText(text,128,52);
+  const tex=new THREE.CanvasTexture(c); tex.minFilter=THREE.LinearFilter; const m=new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false});
+  const s=new THREE.Sprite(m); s.scale.set(2.6,1,1); return s;
+}
+function buildScene(){
+  const T=S.three, meta=S.data.meta; if(T.group)T.scene.remove(T.group);
+  const g=new THREE.Group(); T.group=g; T.meshes={st:[],bel:[],cars:new Map(),bcars:new Map(),beacons:[],slots:[],bslots:[]};
+  // x positions with zone gaps
+  let x=0, lastZone=null; const xs=[];
+  meta.stations.forEach((s,i)=>{ if(lastZone&&s.zone!==lastZone)x+=1.6; x+=0.9*Math.min(s.buffer,6)+1.0; xs.push(x); x+=2.2; lastZone=s.zone; });
+  const width=x; const cx=width/2; T.orbit.cx=cx; T.orbit.theta=0.04; T.orbit.phi=1.0; T.xs=xs;
+  T.orbit.dist=Math.max(20,width*0.8+4);
+  T.scene.fog.near=T.orbit.dist*1.3; T.scene.fog.far=T.orbit.dist*3.2; T.cam.far=T.orbit.dist*4; T.cam.updateProjectionMatrix();
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(width+14,16),new THREE.MeshLambertMaterial({color:COL.floor})); floor.rotation.x=-Math.PI/2; floor.position.set(cx,-0.41,-2.2); g.add(floor);
+  const grid=new THREE.GridHelper(width+14,Math.round((width+14)/2),0x22303A,0x1B242C); grid.position.set(cx,-0.4,-2.2); g.add(grid);
+  const lane=(z,dark)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(width+8,0.06,0.5),new THREE.MeshLambertMaterial({color:0x1F2A33})); m.position.set(cx,-0.36,z); g.add(m);};
+  lane(0); lane(-4.4);
+  const zoneLabelY=3.4;
+  meta.stations.forEach((s,i)=>{
+    const dark=s.sensors==="dark", partial=s.sensors!=="plc_full"&&!dark;
+    const geo=new THREE.BoxGeometry(2.0,1.0,1.5);
+    const mk=(z,isBelief)=>{
+      const mat=new THREE.MeshLambertMaterial({color:COL.idle,transparent:true,opacity:1});
+      const m=new THREE.Mesh(geo,mat); m.position.set(xs[i],0.1,z); g.add(m);
+      const edge=new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color:0x8C97A3,transparent:true,opacity:0.6})); m.add(edge);
+      if(isBelief&&dark){mat.opacity=0.08; edge.material=new THREE.LineDashedMaterial({color:0xB388FF,dashSize:0.2,gapSize:0.12}); edge.computeLineDistances();}
+      if(isBelief&&partial){mat.opacity=0.45;}
+      return m;};
+    T.meshes.st.push(mk(0,false)); T.meshes.bel.push(mk(-4.4,true));
+    const lb=label(s.id); lb.position.set(xs[i],1.35,0); g.add(lb);
+    const lb2=label(s.id,dark?"#B388FF":"#E8ECEF"); lb2.position.set(xs[i],1.35,-4.4); g.add(lb2);
+    if(i===0||meta.stations[i-1].zone!==s.zone){const zl=label(s.zone.toUpperCase(),"#8C97A3",46); zl.scale.set(3.2,1.2,1); zl.position.set(xs[i]-1.2,zoneLabelY,-2.2); g.add(zl);}
+    // buffer slots
+    const slots=[],bslots=[]; const n=Math.min(s.buffer,6);
+    for(let k=0;k<n;k++){const sx=xs[i]-1.6-k*0.9;
+      const mkSlot=z=>{const q=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(0.7,0.04,0.9)),new THREE.LineBasicMaterial({color:0x33404B})); q.position.set(sx,-0.3,z); g.add(q); return q;};
+      slots.push(mkSlot(0)); bslots.push(mkSlot(-4.4));}
+    T.meshes.slots.push(slots); T.meshes.bslots.push(bslots);
+    // beacon (belief lane)
+    const bc=new THREE.Mesh(new THREE.ConeGeometry(0.35,0.8,4),new THREE.MeshBasicMaterial({color:COL.alert,transparent:true,opacity:0})); bc.position.set(xs[i],2.3,-4.4); bc.rotation.x=Math.PI; g.add(bc); T.meshes.beacons.push(bc);
+  });
+  // bottleneck marker
+  const bm=new THREE.Mesh(new THREE.TorusGeometry(1.5,0.05,8,40),new THREE.MeshBasicMaterial({color:COL.accent,transparent:true,opacity:0})); bm.rotation.x=Math.PI/2; bm.position.set(0,-0.3,-4.4); g.add(bm); T.meshes.bn=bm;
+  T.scene.add(g);
+}
+function carMesh(color,wire){
+  const geo=new THREE.BoxGeometry(0.82,0.34,0.56);
+  if(wire){const m=new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineDashedMaterial({color,dashSize:0.1,gapSize:0.06,transparent:true})); m.computeLineDistances(); return m;}
+  const m=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color,transparent:true,emissive:color,emissiveIntensity:0.15})); const cab=new THREE.Mesh(new THREE.BoxGeometry(0.44,0.2,0.48),new THREE.MeshLambertMaterial({color})); cab.position.set(-0.05,0.27,0); m.add(cab); return m;
+}
+function carPos(loc,idx,prog){ const xs=S.three.xs; if(loc===1)return xs[idx]-0.6+1.2*Math.min(1,prog); if(loc===0)return xs[idx]-1.6-idx*0+(-0.9*prog); return null; }
+function applyFrame(fa,fb,mix){
+  const T=S.three, meta=S.data.meta, f=fa;
+  f.st.forEach((row,i)=>{
+    const [ts,tv,bs,bsrc,bv,bt,bb,bbsrc,cyc,nom,eta,conf,health]=row;
+    const col=[COL.idle,COL.busy,COL.blocked][ts]; T.meshes.st[i].material.color.setHex(col);
+    const bcol=[COL.idle,COL.busy,COL.blocked][bs]; const bm=T.meshes.bel[i]; bm.material.color.setHex(bcol);
+    const dark=meta.stations[i].sensors==="dark", partial=meta.stations[i].sensors!=="plc_full"&&!dark;
+    bm.material.opacity = dark?0.12+0.2*(bsrc===1?1:0) : (bsrc===1?0.5:1.0);
+    if(health===1){bm.material.opacity=0.35; bm.material.color.setHex(COL.alert);}
+    T.meshes.slots[i].forEach((q,k)=>q.material.color.setHex(k<bt?0x8C97A3:0x33404B));
+    T.meshes.bslots[i].forEach((q,k)=>q.material.color.setHex(k<bb?(bbsrc===1?0xB388FF:0x8C97A3):0x33404B));
+    const bc=T.meshes.beacons[i]; bc.material.opacity = eta==null?0:0.55+0.45*Math.abs(Math.sin(performance.now()/300)); bc.scale.setScalar(eta==null?0.001:1);
+  });
+  // truth cars
+  const seen=new Set();
+  f.veh.forEach(([vid,loc,idx,prog,variant])=>{
+    let m=T.meshes.cars.get(vid); if(!m){m=carMesh(VAR[variant]||0xD9DEE3,false); T.group.add(m); T.meshes.cars.set(vid,m);} seen.add(vid);
+    let x = loc===1? T.xs[idx]-0.6+1.2*Math.min(1,prog) : T.xs[idx]-1.6-0.9*prog;
+    // interpolate toward next frame position
+    if(fb&&mix>0){const nb=fb.veh.find(v=>v[0]===vid); if(nb){const [,l2,i2,p2]=nb; const x2=l2===1?T.xs[i2]-0.6+1.2*Math.min(1,p2):T.xs[i2]-1.6-0.9*p2; if(x2>x)x=x+(x2-x)*mix;}}
+    m.position.set(x,0.1,0); m.visible=true;
+  });
+  T.meshes.cars.forEach((m,vid)=>{if(!seen.has(vid))m.visible=false;});
+  // belief cars
+  const bseen=new Set(); let unplaced=0;
+  f.bel.forEach(([vid,loc,idx,src])=>{
+    const key=vid; let m=T.meshes.bcars.get(key); const wire=src===1||loc===-1;
+    if(!m||m.userData.wire!==wire){ if(m)T.group.remove(m); m=carMesh(loc===-1?COL.accent:(src===1?0xB388FF:0xD9DEE3),wire); m.userData.wire=wire; T.group.add(m); T.meshes.bcars.set(key,m);}
+    bseen.add(key);
+    let x, y=0.1;
+    if(loc===-1){ const darkIdx=meta.stations.findIndex(s=>s.sensors==="dark"); x=(darkIdx>=0?T.xs[darkIdx]:T.orbit.cx)-0.5+unplaced*0.75; y=0.9; unplaced++; }
+    else if(loc===1){ const tr=f.veh.find(v=>v[0]===vid); const prog=tr&&tr[1]===1?tr[3]:0.5; x=T.xs[idx]-0.6+1.2*Math.min(1,prog); }
+    else { const k=f.bel.filter(b=>b[1]===0&&b[2]===idx&&b[0]<vid).length; x=T.xs[idx]-1.6-0.9*k; }
+    m.position.set(x,y,-4.4); m.visible=true;
+  });
+  T.meshes.bcars.forEach((m,k)=>{if(!bseen.has(k))m.visible=false;});
+  // bottleneck marker
+  const bn=f.bn&&f.bn[1]>=2?f.bn:null; if(bn){const i=meta.stations.findIndex(s=>s.id===bn[0]); T.meshes.bn.position.x=T.xs[i]; T.meshes.bn.material.opacity=0.9;} else T.meshes.bn.material.opacity=0;
+}
+function render(){
+  const T=S.three, o=T.orbit; const cam=T.cam; const cv=T.r.domElement;
+  const w=cv.clientWidth,h=cv.clientHeight; if(w&&h&&(cv.width!==Math.round(w*T.r.getPixelRatio())||cv.height!==Math.round(h*T.r.getPixelRatio()))){T.r.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();}
+  cam.position.set(o.cx+o.dist*Math.sin(o.phi)*Math.sin(o.theta), o.dist*Math.cos(o.phi), -2.2+o.dist*Math.sin(o.phi)*Math.cos(o.theta));
+  cam.lookAt(o.cx,0.2,-2.2); T.r.render(T.scene,cam);
+}
+
+// ---------- UI ----------
+function loadScenario(key){
+  S.key=key; S.data=inflate(PACK[key]); S.fi=0; S.sel=null; S.lastT=performance.now();
+  buildScene(); buildStrip(); drawTimeline(); renderScore(); renderPane(); step(0);
+}
+function buildStrip(){
+  const el=$("strip"); el.innerHTML="";
+  S.data.meta.stations.forEach((s,i)=>{const d=document.createElement("div"); d.dataset.i=i; d.innerHTML=`<span class="id">${s.id}</span> <span class="sens">${s.sensors==="plc_full"?"":s.sensors}</span><br><span class="st"></span><span class="cyc"></span>`; d.addEventListener("click",()=>{S.sel=i;S.pane="station";setTab();renderPane();buildStripState();}); el.appendChild(d);});
+}
+function buildStripState(){
+  const f=S.data.frames[S.fi]; [...$("strip").children].forEach((d,i)=>{const row=f.st[i]; const [ts,,bs,bsrc,,,,,cyc,,eta,conf,health]=row;
+    d.classList.toggle("sel",S.sel===i); d.classList.toggle("alert",eta!=null);
+    const dot=d.querySelector(".st"); dot.style.background=["var(--idle)","var(--busy)","var(--blocked)"][bs]; dot.style.opacity=bsrc===1?0.5:1; dot.style.outline=bsrc===1?"1px dashed var(--ink)":"none";
+    d.querySelector(".cyc").textContent=(cyc==null?"—":`${bsrc===1||true?"◐":"●"}${cyc}s`)+(eta!=null?` ⚠${eta}m`:"")+(health===1?" silent":"");
+  });
+}
+function step(dt){
+  const frames=S.data.frames; if(S.playing){ const secs=dt/1000*S.speed; S.acc=(S.acc||0)+secs; while(S.acc>=S.data.meta.step&&S.fi<frames.length-1){S.acc-=S.data.meta.step;S.fi++;} if(S.fi>=frames.length-1){S.playing=false;$("play").textContent="Replay";} }
+  const f=frames[S.fi], fb=frames[Math.min(S.fi+1,frames.length-1)]; const mix=S.playing?Math.min(1,(S.acc||0)/S.data.meta.step):0;
+  applyFrame(f,fb,mix);
+  $("clock").textContent=fmt(f.t); $("hudline").textContent=`out ${f.out[0]} · loom counts ${f.out[1]}${f.bn&&f.bn[1]>=2?` · momentary bottleneck ${f.bn[0]} (${f.bn[1]} min, ${SRC[f.bn[2]]})`:""}`;
+  buildStripState(); drawTimeline(); showToasts(f.t); if(S.pane!=="about"&&S.pane!=="station")renderPane(); else if(S.pane==="station")renderPane();
+}
+let toastShown=new Set();
+function showToasts(t){
+  const el=$("toast"); const ev=S.data.events.filter(e=>e.t<=t&&e.t>t-240).slice(-4);
+  const ids=new Set(ev.map(e=>e.t+e.kind+e.station));
+  [...el.children].forEach(c=>{if(!ids.has(c.dataset.id))c.remove();});
+  ev.forEach(e=>{const id=e.t+e.kind+e.station; if(el.querySelector(`[data-id="${id}"]`))return; const d=document.createElement("div"); d.dataset.id=id; d.className=e.kind==="hold"?"hold":e.kind==="drift"?"drift":e.kind==="cleared"?"clear":""; d.textContent=e.text.replace(/^\[\s*[\d.]+\]\s*/,fmt(e.t)+"  "); el.appendChild(d); requestAnimationFrame(()=>d.classList.add("show"));});
+}
+function drawTimeline(){
+  const c=$("timeline"); const w=c.clientWidth,h=56; if(c.width!==w*devicePixelRatio){c.width=w*devicePixelRatio;c.height=h*devicePixelRatio;} const g=c.getContext("2d"); g.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0); g.clearRect(0,0,w,h);
+  const frames=S.data.frames, T=frames[frames.length-1].t; const X=t=>14+(w-28)*t/T;
+  g.fillStyle="#1C232B"; g.fillRect(14,24,w-28,8);
+  // fault windows
+  S.data.meta.perturbations.forEach(p=>{ if(p.cycle_s<=S.data.meta.takt_s)return; g.fillStyle="rgba(232,163,61,.35)"; g.fillRect(X(p.at_s),24,Math.max(2,X(Math.min(T,p.at_s+Math.max(p.ramp_s,1)))-X(p.at_s)),8);});
+  S.data.meta.sensor_faults.forEach(p=>{ g.fillStyle="rgba(242,84,45,.35)"; g.fillRect(X(p.at_s),24,X(Math.min(T,p.at_s+p.duration_s))-X(p.at_s),8);});
+  S.data.meta.param_drifts.forEach(p=>{ g.fillStyle="rgba(91,168,255,.35)"; g.fillRect(X(p.at_s),24,Math.max(2,X(Math.min(T,p.at_s+Math.max(p.ramp_s,1)))-X(p.at_s)),8);});
+  // block moments from scorecard
+  S.data.meta.scorecard.forEach(s=>{ if(s.block_min!=null){g.fillStyle="#E8A33D"; g.fillRect(X(s.block_min*60)-1,18,2,20);} });
+  S.data.events.forEach(e=>{ const col=e.kind==="raised"?"#F2542D":e.kind==="hold"?"#5BA8FF":e.kind==="drift"?"#E8A33D":e.kind==="cleared"?"#2FB8A6":"#8C97A3"; g.fillStyle=col; g.beginPath(); g.moveTo(X(e.t),14); g.lineTo(X(e.t)-4,6); g.lineTo(X(e.t)+4,6); g.fill(); });
+  g.fillStyle="#E8ECEF"; g.fillRect(X(frames[S.fi].t)-1,12,2,32);
+  g.fillStyle="#8C97A3"; g.font="11px IBM Plex Mono, monospace"; for(let m=0;m<=T/60;m+=15){g.fillText(fmt(m*60),X(m*60)-14,50);}
+  c.onclick=e=>{const r=c.getBoundingClientRect(); const t=(e.clientX-r.left-14)/(w-28)*T; S.fi=Math.max(0,Math.min(frames.length-1,Math.round(t/S.data.meta.step))); S.acc=0; step(0);};
+}
+function renderScore(){
+  const m=S.data.meta; const el=$("score"); let h="";
+  m.scorecard.forEach(s=>{ h+=`<span><b class="${s.lead_min>0?'good':'warn'}">${s.lead_min==null?"—":s.lead_min.toFixed(1)+" min"}</b>warning before ${s.station} blocks the line</span>`; if(s.eta_err_min!=null)h+=`<span><b>${Math.abs(s.eta_err_min).toFixed(1)} min</b>ETA error</span>`; if(s.conf!=null)h+=`<span><b>${Math.round(s.conf*100)}%</b>stated confidence${s.inferred?` · ${Math.round(s.inferred*100)}% inferred`:""}</span>`; });
+  h+=`<span><b class="${m.false_alarms?'warn':'good'}">${m.false_alarms}</b>false alarms / ${m.alerts_raised} raised</span>`;
+  m.containment.forEach(c=>{ h+=`<span><b class="good">${c.hold_min!=null&&c.first_fail_min!=null?(c.first_fail_min-c.hold_min).toFixed(0)+" min":"—"}</b>hold before first inspection catch</span><span><b>${c.hold_size}</b>held (precision ${c.precision==null?"—":Math.round(c.precision*100)+"%"}, recall ${c.recall==null?"—":Math.round(c.recall*100)+"%"}) vs blanket ${c.blanket}</span><span><b class="${c.escaped?'warn':'good'}">${c.escaped}</b>escaped</span>`; });
+  const cov=Object.values(m.coverage); const dark=cov.filter(v=>v==="dark").length, full=cov.filter(v=>v==="plc_full").length;
+  h+=`<span><b>${full}/${cov.length}</b>fully instrumented · ${cov.length-full-dark} partial · ${dark} dark</span>`;
+  el.innerHTML=h;
+}
+function setTab(){[...$("tabs").children].forEach(b=>b.classList.toggle("on",b.dataset.p===S.pane));}
+function renderPane(){
+  const el=$("pane"), m=S.data.meta, f=S.data.frames[S.fi];
+  if(S.pane==="about"){ const st=STORIES[S.key]||{title:m.id,text:""};
+    el.innerHTML=`<div class="about"><h3>${st.title}</h3><p>${st.text}</p><h3>How to read it</h3><ul><li>Front lane: the plant as it really is — every vehicle, every state.</li><li>Back lane: what Loom believes. Solid = measured, dashed/half = inferred, floating outlines = vehicles it cannot place.</li><li>Orange cone: bottleneck forecast with ETA. Purple ring: momentary bottleneck by the active-period method.</li><li>Timeline: amber = cycle-time fault, red = sensor outage, blue = parameter drift; ticks are alerts, holds, drift warnings; the amber bar is when the line actually blocked.</li><li>Click a station card for its operator view. Drag to orbit, wheel to zoom.</li></ul><h3>Next sensor to buy</h3><ul>${m.next_sensor.map(r=>`<li>${r.station} (${r.from} → cycle_only): +${r.d_samples} exact samples/h${r.d_lead_min?`, +${r.d_lead_min} min warning`:""}</li>`).join("")||"<li>every station already reports</li>"}</ul></div>`; return; }
+  if(S.pane==="station"){ const i=S.sel; if(i==null){el.innerHTML=`<h3>Station</h3><p>Click a station card below the scene.</p>`;return;}
+    const s=m.stations[i], row=f.st[i]; const [ts,tv,bs,bsrc,bv,bt,bb,bbsrc,cyc,nom,eta,conf,health]=row; const pill=k=>`<span class="pill ${["m","i","s"][k]}">${SRC[k]}</span>`;
+    el.innerHTML=`<h3>${s.id} <span class="pill">${s.type}</span> <span class="pill">${s.zone}</span></h3><p>${s.sensors==="dark"?"No sensors. Everything below is reconstructed from neighbours.":s.sensors==="plc_full"?"Full PLC telemetry.":s.sensors==="cycle_only"?"Start/finish timestamps only (e.g. a current clamp).":"Manual checklist: finish only, ~30 s jitter, 2 min late."}</p>
+      <div class="kv"><span>plant state</span><span>${STATE[ts]}${tv?` · vehicle ${tv}`:""}</span><span>loom believes</span><span>${STATE[bs]}${bv?` · vehicle ${bv}`:""} ${pill(bsrc)}</span><span>buffer</span><span>plant ${bt}/${s.buffer} · loom ${bb}/${s.buffer} ${pill(bbsrc)}</span><span>cycle</span><span>${cyc==null?"no estimate yet":`${cyc}s ${pill(1)}`} vs takt ${m.takt_s}s${nom!==s.cycle_s?` · true nominal now ${nom}s`:""}</span><span>alert</span><span>${eta==null?"none":`upstream blocks in ~${eta} min (conf ${Math.round(conf*100)}%) ${pill(2)}`}</span><span>sensor health</span><span>${["ok","silent","inconsistent"][health]}</span><span>parameters</span><span>${s.params.join(", ")||"—"}${s.sensors!=="plc_full"&&s.params.length?" (not reported)":""}</span></div>`; return; }
+  // persona text at nearest 60 s
+  const keys=Object.keys(S.data.personas).map(Number); let best=keys[0]; keys.forEach(k=>{if(k<=f.t)best=k;});
+  const txt=S.data.personas[String(best)][S.pane]||""; el.innerHTML=`<pre>${txt.replace(/</g,"&lt;")}</pre>`;
+}
+// ---------- wiring ----------
+initThree();
+const sel=$("scenario"); Object.keys(PACK).forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=(STORIES[k]||{}).title||k;sel.appendChild(o);});
+sel.addEventListener("change",()=>{S.playing=false;$("play").textContent="Play";loadScenario(sel.value);});
+$("play").addEventListener("click",()=>{ if(S.fi>=S.data.frames.length-1){S.fi=0;} S.playing=!S.playing; $("play").textContent=S.playing?"Pause":"Play"; S.lastT=performance.now(); });
+[...$("speed").children].forEach(b=>b.addEventListener("click",()=>{S.speed=+b.dataset.s;[...$("speed").children].forEach(x=>x.classList.toggle("on",x===b));}));
+[...$("tabs").children].forEach(b=>b.addEventListener("click",()=>{S.pane=b.dataset.p;setTab();renderPane();}));
+// deep link: #s=ramp_b3_dark&t=2700  (scenario, seconds)
+const H=new URLSearchParams(location.hash.slice(1)); const k0=PACK[H.get("s")]?H.get("s"):Object.keys(PACK)[0];
+sel.value=k0; loadScenario(k0);
+if(H.get("t")){S.fi=Math.max(0,Math.min(S.data.frames.length-1,Math.round(+H.get("t")/S.data.meta.step)));step(0);}
+(function loop(now){ const dt=now-(S.lastT||now); S.lastT=now; if(S.playing)step(dt); else{applyFrame(S.data.frames[S.fi],null,0);} render(); requestAnimationFrame(loop); })(performance.now());
+</script>

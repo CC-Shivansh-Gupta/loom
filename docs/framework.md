@@ -107,7 +107,8 @@ Built-in libraries can be extended or overridden per plant file.
 4. Sensor noise model; flow reconstruction (R1–R5 in `twin.py`) for dark / finish-only / silent stations with exact-vs-bound provenance; sensor health; alert grouping; value-of-information ranking.
 5. Process parameters with spec limits; EWMA/CUSUM drift monitors with onset estimate and time-to-limit projection; latent multi-cause defects surfacing at inspection stations; contribution analysis (lift + Fisher exact, pairs); targeted holds (sure / uncertain / already-exited) that grow while a drift is on; containment scorecard; quality view.
 6. AI layer (`docs/ai_layer.md`): evidence pack, provider boundary with template fallback and telemetry, persona reports, what-if mitigation engine, evaluation harness + gated improvement loop + calibration table, onboarding assistant.
-7. Active-period momentary-bottleneck detector (Roser) in the twin, scored against the plant's own active periods; sustained-block truth for lead time (ignores surge transients); shifting-bottleneck scenario; maintenance view; multi-seed benchmark (`loom/bench.py` → `docs/benchmark.md`).  ← here
+7. Active-period momentary-bottleneck detector (Roser) in the twin, scored against the plant's own active periods; sustained-block truth for lead time (ignores surge transients); shifting-bottleneck scenario; maintenance view; multi-seed benchmark (`loom/bench.py` → `docs/benchmark.md`).
+8. Control room: `loom/export.py` timelines (truth + belief every 10 s, persona texts every 60 s, scorecards) → `web/build.py` → one self-contained Three.js page with two lanes, timeline, station cards, persona tabs. Published as a shareable artifact.  ← here
 7. Multi-run evaluation harness, calibration curve, active-period cross-check, shifting bottlenecks.
 8. Web UI, leadership view with ROI model.
 

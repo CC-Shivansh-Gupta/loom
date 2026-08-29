@@ -44,6 +44,18 @@ Benchmark over many seeds (every number against ground truth the twin never saw)
 python -m loom.bench --seeds 5 --out docs/benchmark.md
 ```
 
+## Control room (3D replay)
+
+```
+python -m loom.export configs/ramp_b3_dark.yaml --hours 2 --out web/data/ramp_b3_dark.json   # one per scenario
+python web/build.py                                                                          # -> web/dist/index.html
+```
+
+Single self-contained page (Three.js from cdnjs, scenario data gzipped inline). Plant truth in the
+front lane, Loom's belief behind it: solid = measured, dashed = inferred, floating outlines = vehicles
+the twin cannot place; orange cone = bottleneck forecast, purple ring = momentary bottleneck. Deep link
+with `#s=<scenario>&t=<seconds>`.
+
 ## AI layer
 
 ```
