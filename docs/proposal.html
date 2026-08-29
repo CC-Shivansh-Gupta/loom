@@ -1,0 +1,218 @@
+<title>Loom Proposal</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#F7F8FA; --paper:#FFFFFF; --ink:#17202A; --muted:#5B6672; --rule:#D9DEE5; --accent:#6E2FD9; --accent-soft:#EFE8FB;
+  --good:#1F8F84; --warn:#B7791F; --bad:#B3413A;
+  --display:"Fraunces",Georgia,"Times New Roman",serif; --body:"Source Sans 3","Segoe UI",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12161B;--paper:#1A2028;--ink:#E6EAEE;--muted:#98A3AE;--rule:#2A333D;--accent:#B388FF;--accent-soft:#261E3A;--good:#4CC2B4;--warn:#E0B15B;--bad:#E07B73}}
+:root[data-theme="dark"]{--bg:#12161B;--paper:#1A2028;--ink:#E6EAEE;--muted:#98A3AE;--rule:#2A333D;--accent:#B388FF;--accent-soft:#261E3A;--good:#4CC2B4;--warn:#E0B15B;--bad:#E07B73}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.55}
+.page{max-width:860px;margin:0 auto;padding:56px 28px 96px}
+header.title{border-bottom:2px solid var(--ink);padding-bottom:22px;margin-bottom:34px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 14px}
+h1{font-family:var(--display);font-weight:700;font-size:54px;line-height:1.02;margin:0 0 14px;letter-spacing:-.01em;text-wrap:balance}
+h1 em{font-style:italic;font-weight:500;color:var(--accent)}
+.lede{font-size:21px;line-height:1.4;max-width:34em;margin:0;color:var(--ink);text-wrap:pretty}
+.meta{font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-top:18px;display:flex;gap:22px;flex-wrap:wrap}
+h2{font-family:var(--display);font-weight:600;font-size:30px;line-height:1.15;margin:52px 0 14px;letter-spacing:-.005em;text-wrap:balance;position:relative}
+h2::before{content:attr(data-mark);position:absolute;left:-52px;top:10px;font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:var(--accent)}
+h3{font-family:var(--body);font-weight:600;font-size:18px;margin:26px 0 8px}
+p{margin:0 0 14px;max-width:68ch;text-wrap:pretty}
+ul,ol{margin:0 0 14px;padding-left:22px;max-width:68ch} li{margin:4px 0}
+strong{font-weight:600}
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:26px 0 8px}
+.strip div{background:var(--paper);border:1px solid var(--rule);border-radius:4px;padding:14px 14px 12px}
+.strip b{display:block;font-family:var(--display);font-weight:600;font-size:30px;line-height:1;margin-bottom:6px;font-variant-numeric:tabular-nums}
+.strip span{font-size:13px;color:var(--muted);line-height:1.3;display:block}
+.strip b.good{color:var(--good)}
+.callout{background:var(--accent-soft);border-left:3px solid var(--accent);padding:14px 18px;margin:20px 0;max-width:72ch;border-radius:0 4px 4px 0}
+.callout p{margin:0}
+.tbl{overflow-x:auto;margin:14px 0 22px;border:1px solid var(--rule);border-radius:4px;background:var(--paper)}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500;background:transparent}
+tr:last-child td{border-bottom:0}
+td.num,th.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td b.g{color:var(--good)} td b.w{color:var(--warn)}
+.diagram{background:var(--paper);border:1px solid var(--rule);border-radius:4px;padding:16px 18px;margin:16px 0 22px;overflow-x:auto}
+.diagram pre{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.5;color:var(--ink)}
+.phases{counter-reset:ph;list-style:none;padding:0;max-width:72ch}
+.phases li{counter-increment:ph;display:grid;grid-template-columns:44px 1fr;gap:10px;padding:12px 0;border-top:1px solid var(--rule)}
+.phases li::before{content:counter(ph,decimal-leading-zero);font-family:var(--mono);color:var(--accent);font-size:13px;padding-top:4px}
+.phases li:last-child{border-bottom:1px solid var(--rule)}
+.phases b{display:block;font-weight:600;margin-bottom:2px}
+.phases span{color:var(--muted);font-size:15px}
+.small{font-size:14px;color:var(--muted)}
+.limits li{color:var(--ink)}
+.sources{font-size:13.5px;color:var(--muted);columns:2;column-gap:28px;max-width:none} .sources li{break-inside:avoid;margin:2px 0}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid var(--rule)} a:hover{border-bottom-color:var(--accent)}
+.sig{margin-top:44px;padding-top:18px;border-top:2px solid var(--ink);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+@media (max-width:760px){h1{font-size:40px} h2::before{position:static;display:block;margin-bottom:4px} .sources{columns:1}}
+@media print{body{background:#fff} .page{padding:0}}
+</style>
+
+<div class="page">
+<header class="title">
+  <p class="eyebrow">Accenture Innovation Challenge 2026 · Round 2 · Track 4 DigitalTwin.ai · Team SRsync</p>
+  <h1>Loom: a digital twin for the assembly line you <em>actually</em> have</h1>
+  <p class="lede">Most vehicle assembly lines are partly blind — legacy stations on manual checklists next to fully instrumented cells — and every twin on the market assumes they are not. Loom is a live twin that says what it measured, what it inferred and what it forecast; warns minutes before a bottleneck forms even when the failing station has no sensors; holds the exact vehicles a silent drift put at risk; and keeps a public score of its own accuracy.</p>
+  <div class="meta"><span>Business proposal</span><span>Prototype: 6,000 lines, 57 tests, 17 commits</span><span>29 August 2026</span></div>
+</header>
+
+<h2 data-mark="SUMMARY">What we are proposing</h2>
+<p>A software product, deployed read-only beside an existing line, that gives four roles — floor supervisor, quality engineer, maintenance, plant manager — one consistent picture of the line and of what is about to go wrong, from whatever sensors the line already has. It ships with its own scorekeeper, so the plant can see the twin's lead time and false-alarm rate before trusting it, and an AI layer that writes the briefings, proposes what to try and tunes the system — through a gate it cannot bypass.</p>
+<div class="strip">
+  <div><b class="good">6–11 min</b><span>warning before a wearing station blocks the line, fully instrumented</span></div>
+  <div><b class="good">6.1 min</b><span>same warning with the failing station <em>dark</em> — reconstructed from its neighbours</span></div>
+  <div><b class="good">11 min</b><span>hold issued before end-of-line inspection sees the first weak weld; 80 % precision, 99 % recall, 0 escaped</span></div>
+  <div><b>0.2 / 8 h</b><span>false bottleneck alerts on a healthy line, over 40 simulated hours</span></div>
+  <div><b class="good">0 writes</b><span>to the plant: read-only over Modbus/OPC UA, proven against a third-party PLC simulator</span></div>
+</div>
+<p class="small">Every figure above is measured against ground truth the twin never saw, over five seeds per scenario, and the benchmark is reproducible from the repository (<code>docs/benchmark.md</code>).</p>
+
+<h2 data-mark="PROBLEM">The problem, as it exists on the floor</h2>
+<p>An idle automotive line costs <strong>$2.3 million an hour</strong> — more than double the 2019 figure — and the average plant now takes 81 minutes to restart after a stoppage (Siemens, <em>True Cost of Downtime 2024</em>). Unplanned downtime drains $1.4 trillion a year from the world's 500 largest companies. The instinctive answer is a digital twin, and automotive has tried: more than 70 % of manufacturers in the sector are piloting or deploying one. Yet <strong>64 % of digital-twin projects never leave pilot</strong>, Gartner finds only one in three deployed beyond it, and a 2025 IoT Analytics survey traces 58 % of delays to OT/IT integration.</p>
+<p>The reason is in the brief's own words: real lines are a patchwork of legacy and modern equipment with <em>uneven sensor coverage</em>. Some stations stream PLC telemetry; others are a clipboard. A twin that only works when every station reports is a twin for a plant nobody has. Three consequences follow, and they are the three things a plant team most needs to know before they happen:</p>
+<ul>
+  <li><strong>A local slip has line-wide effects.</strong> A station running slower than takt starves everything after it and blocks everything before it — but the queue that reveals it forms several stations away, minutes later.</li>
+  <li><strong>Defects are introduced early and surface late.</strong> A weld current sagging out of spec has no cycle-time symptom; the weak weld appears at end-of-line inspection eleven vehicles later, and every vehicle built in between carries it.</li>
+  <li><strong>The person deciding is working blind and under time pressure.</strong> Hold a batch or let it ship, call a floater or wait — one supervisor, incomplete information, seconds to decide.</li>
+</ul>
+
+<h2 data-mark="MARKET">What exists, and the gap</h2>
+<div class="tbl"><table>
+<tr><th>segment</th><th>examples</th><th>strength</th><th>why it does not fit the brownfield line</th></tr>
+<tr><td>Offline simulation</td><td>Siemens Plant Simulation, Simul8, AnyLogic, FlexSim, Simio</td><td>What-if design studies, buffer sizing</td><td>Expert-built model, not connected to live data; "requires model validation, complex to maintain"</td></tr>
+<tr><td>Real-time OEE analytics</td><td>Vorne, MachineMetrics, Fabrico</td><td>Live takt-vs-actual, downtime Pareto</td><td>A sensor at every monitored point — "wire sensors to the bottleneck; moving them is a hassle if the constraint shifts"; detects, does not predict</td></tr>
+<tr><td>Manual-process capture</td><td>Tulip</td><td>Operator taps as the sensor</td><td>No line-flow model, no forecast</td></tr>
+<tr><td>Industrial-metaverse twins (2026)</td><td>Siemens Digital Twin Composer on NVIDIA Omniverse; Industrial Copilot for Operations</td><td>Physics-accurate factory, AI agents; PepsiCo reports +20 % throughput</td><td>Assumes a fully modelled, fully instrumented plant and on-prem Blackwell GPUs — the greenfield showcase, not the brownfield majority</td></tr>
+<tr><td>Academic bottleneck detection</td><td>Active-period, turning-point, arrow, bottleneck-walk methods</td><td>Rigorous detection on complete logs</td><td>The 2023 systematic review names <em>prediction</em> and <em>incomplete data</em> as the open problems</td></tr>
+</table></div>
+<div class="callout"><p><strong>The gap.</strong> Nothing on this list is built for a line that is partly blind. The high end assumes you can see everything and can afford to model it; the OEE tier assumes a sensor wherever you want an answer. Loom's position is between them: live, configured rather than modelled, honest about what it cannot see, and self-scoring — for the majority of lines, not the showcase.</p></div>
+
+<h2 data-mark="SOLUTION">How Loom works</h2>
+<p>Four layers, one event schema, and a hard wall between what the plant does and what the twin believes. The wall is the design: the twin can only ever use what the sensor layer passes, so its honesty about coverage is architectural, not a setting.</p>
+<div class="diagram"><pre>PLANT  ──events──▶  SENSORS  ──what escapes──▶  LOOM  ──▶  VIEWS   operator · supervisor · quality
+(the line)         per-station profile:        the twin        maintenance · manager · leadership
+                   full PLC · timestamps only          │
+                   manual checklist · dark             ▼
+                                              EVALUATOR  (sees both; keeps the trust ledger)</pre></div>
+<h3>Flow: warn before the line blocks</h3>
+<p>The twin reconstructs every vehicle's timeline from the flow rules of a serial line; measurements pin values, inference fills the gaps, and every value carries a mark — <strong>measured</strong>, <strong>inferred</strong> or <strong>simulated</strong>. For a station with no sensors, the rule that does the work is simple and exact: when the next station measurably starts a vehicle after sitting idle, that instant is when the dark station released it. That yields exact cycle samples precisely when the dark station is the bottleneck — the case that matters. A trend fit with standard-error and persistence guards, then a short forward simulation of buffer fill, produces "B2 blocks in ~7 minutes, confidence 70 %, 100 % of evidence inferred". A naïve trend test produced 49 false alarms per shift; the guards brought it to 0.2 per 8 hours, and the tuning table is in the repository.</p>
+<h3>Quality: catch the drift at source, hold only what is at risk</h3>
+<p>Process parameters (weld current, torque, booth humidity) are monitored with EWMA/CUSUM charts baselined on the spec. A drift is a warning until a reading actually goes out of spec; that first reading opens a hold back-filled from the estimated onset. When inspections fail without an upstream signal, contribution analysis scores every upstream condition — and pairs of conditions — by lift and Fisher exact test, and returns ranked hypotheses with evidence, never a verdict. Holds list vehicles as <em>sure</em>, <em>uncertain</em> (built inside the onset margin or at a station that does not report) and <em>already exited</em>.</p>
+<h3>Beyond serial</h3>
+<p>Parallel stations sharing a queue, rework loops that re-enter inspection out of order, shift calendars with breaks and crew-specific cycle multipliers. The rework scenario shows something every automotive engineer has lived: a quality problem becoming a flow problem, as the inspection station processes fails twice and becomes the bottleneck — and the forecaster names it.</p>
+<h3>Integration: a read-only tap</h3>
+<p>Loom subscribes — OPC UA, Modbus, historian, MES events, operator app — and never writes to a PLC. Deployment is a ladder: <strong>shadow</strong> (the twin runs, nobody sees alerts, the evaluator scores them) → <strong>advisory</strong> → <strong>reversible automatic</strong> (flag a batch for extra inspection; nothing that touches the physical line). We proved the tap against Factory I/O, a third-party PLC-driven simulator we did not write, over a real Modbus socket at 50 Hz: every part tracked, a sensorless station reconstructed, a wearing station forecast — zero writes.</p>
+<h3>Onboarding is a file</h3>
+<p>The line is data, not code: an ISA-95-shaped YAML with libraries of station types and sensor profiles, and <code>extends:</code> for site variants. A second plant — 30 stations, 4 zones, 3 model variants, 9 stations on checklists or dark — runs on unchanged code and is forecast 10.6 minutes ahead with no false alarms. An AI onboarding assistant drafts the file from a sentence: "18 stations, takt 72 s, 4 manual, 2 dark, paint buffer 10."</p>
+
+<h2 data-mark="AI">Where AI belongs — and where it does not</h2>
+<p>This is an AI competition, and the brief warns against treating the model as the source of truth. Our rule, enforced by every module: <strong>statistics and simulation produce every number; the LLM turns numbers into decisions, proposes hypotheses for the simulator to test, and drives the improvement loop through a gate it cannot bypass.</strong></p>
+<div class="tbl"><table>
+<tr><th>use</th><th>mechanism</th><th>guard</th></tr>
+<tr><td>Persona briefings</td><td>Shift handover, containment memo, weekly summary — one evidence pack, three audiences</td><td>Every number must appear in the pack; provenance words required; the pack is content-hashed before the model sees it and every report row stores the hash, prompt hash, cost and a mechanical grounding check</td></tr>
+<tr><td>Improvement suggestions</td><td>The model proposes mitigations from a fixed menu (floater, rebalance, buffer); the twin's what-if engine simulates each from believed state; the model explains the ranked result</td><td>Hypothesis generator, not judge. Measured: floater at B3 → 56 veh/h and no blocking vs 50 veh/h and 10 min blocked</td></tr>
+<tr><td>Self-improvement</td><td>Propose a threshold change → backtest on recorded shifts → accept only if the false-alarm budget holds and lead time did not fall</td><td>Two proposals that raised lead time were <em>refused</em> for breaking the budget; one accepted. The gate decides</td></tr>
+<tr><td>Onboarding</td><td>Plain language → plant file in schema, with stated assumptions</td><td>The loader validates; errors are fed back once</td></tr>
+<tr><td>Predicting, scoring a vehicle, deciding a hold, changing a live threshold</td><td colspan="2"><strong>Never.</strong> Not validatable, not explainable at a hold decision.</td></tr>
+</table></div>
+<p>This is where the market is going — 2026 is the year "agents enter the decision loop" of plant operations, with Deloitte forecasting adoption in manufacturing rising from 6 % to 24 % — and the same sources insist the guardrails, traceability and permission boundaries be part of the technology. In Loom they are the mechanism, not a slide.</p>
+
+<h2 data-mark="EVIDENCE">What the prototype proves</h2>
+<div class="tbl"><table>
+<tr><th>claim</th><th>scenario</th><th class="num">result (5 seeds)</th></tr>
+<tr><td>Warns before the line blocks</td><td>B3 tool wear, fully instrumented</td><td class="num"><b class="g">5/5</b> caught · 7.0 min lead · ETA error 0.6 min</td></tr>
+<tr><td>…with the failing station dark</td><td>same fault, B3 no sensors, B2 timestamps only</td><td class="num"><b class="g">5/5</b> · 6.1 min · inferred cycle error 0.3 s</td></tr>
+<tr><td>…with a PLC link silent mid-fault</td><td>B2's sensor dead for 25 min</td><td class="num"><b class="g">5/5</b> · 6.8 min · flagged "silent", bridged</td></tr>
+<tr><td>Follows a moving constraint</td><td>B3 wears, repaired, F3 wears</td><td class="num"><b class="g">10/10</b> · 0 false alarms</td></tr>
+<tr><td>Another plant, unchanged code</td><td>30 stations, 9 partial/dark</td><td class="num"><b class="g">5/5</b> · 10.6 min · 0 false alarms</td></tr>
+<tr><td>Momentary bottleneck from partial data</td><td>vs the plant's own active periods</td><td class="num"><b class="g">97–100 %</b> agreement during faults</td></tr>
+<tr><td>Stays quiet when nothing is wrong</td><td>healthy line, 40 h</td><td class="num">0.2 alerts / 8 h · 0 holds</td></tr>
+<tr><td>Catches a silent drift and contains it</td><td>weld current sags; defect visible only at end of line</td><td class="num"><b class="g">hold 11 min before</b> first catch · 80 % precision · 99 % recall · 0 escaped · blanket would be 90 vehicles</td></tr>
+<tr><td>Finds a two-condition cause</td><td>low torque AND high humidity, neither alone</td><td class="num"><b class="g">5/5</b> pair ranked first (lift 89×, p = 4 × 10⁻⁸)</td></tr>
+<tr><td>Confidence means something</td><td>all alerts, all scenarios</td><td class="num">stated 0.9–1.0 → 100 % hit · 0.5–0.7 → 40 %</td></tr>
+<tr><td>Works on third-party equipment</td><td>Factory I/O over Modbus/TCP at 50 Hz</td><td class="num"><b class="g">0 writes</b> · dark station reconstructed · wear forecast</td></tr>
+</table></div>
+<p>Beyond the numbers: a live 3D control room (the plant's truth in front, the twin's belief behind it, clickable stations with cycle and parameter charts, fault injection, a YAML line editor, six persona tabs, session recording), and a persistence layer that stores every event the twin received, its beliefs every minute, every human action with actor and note, and every AI report with the hash of the evidence it was written from. A stored run replays to the same beliefs.</p>
+
+<h2 data-mark="USERS">Who uses it</h2>
+<div class="tbl"><table>
+<tr><th>role</th><th>horizon</th><th>what they see</th><th>what they do</th></tr>
+<tr><td>Operator / technician</td><td>now, my station</td><td>State, cycle vs takt, next alert — with "measured" or "inferred" on every number</td><td>Fix it now; call maintenance</td></tr>
+<tr><td>Line supervisor</td><td>this shift</td><td>Andon by station, forecasts with ETA and confidence, buffers filling, momentary bottleneck</td><td>Call a floater, rebalance, hold a batch — with a simulated effect for each</td></tr>
+<tr><td>Quality engineer</td><td>today</td><td>Drift trends, ranked root-cause hypotheses with evidence, at-risk vehicles split sure / uncertain</td><td>Targeted hold, extra inspection, physical check of the top hypothesis</td></tr>
+<tr><td>Maintenance</td><td>this week</td><td>Degradation per asset, projected time-to-takt, which window to use</td><td>Schedule the intervention before the crossing</td></tr>
+<tr><td>Plant manager</td><td>month</td><td>Output, trust ledger (lead time, false alarms, containment precision), coverage map, next sensor to buy</td><td>Fund the retrofit with the best return; approve the next rung of the rollout ladder</td></tr>
+<tr><td>Leadership</td><td>quarter</td><td>Annual value with every assumption printed, payback, rollout plan</td><td>Decide on the next line, the next plant</td></tr>
+</table></div>
+
+<h2 data-mark="VALUE">Business case</h2>
+<p>The value model runs live in the product (the Exec view) from the line's <em>measured</em> lead time, hold sizes and escapes, with every assumption printed so a sceptic can change one and redo the arithmetic. Anchors from the research: an idle automotive line costs $2.3 M per hour; a defect caught downstream costs ~10× the point-of-origin fix, ~100× at final assembly, ~1000× in the field; one plant cut a containment exercise from two days of log review to four minutes with genealogy.</p>
+<div class="tbl"><table>
+<tr><th>value line</th><th>formula</th><th class="num">illustrative, one line, one year</th></tr>
+<tr><td>Bottlenecks avoided</td><td>lead × share acted on × events/week × weeks × downtime cost/min</td><td class="num">6.3 min × 50 % × 3/wk × 48 × $8,000 = <b class="g">$3.6 M</b></td></tr>
+<tr><td>Targeted holds</td><td>(blanket − targeted) × cost per held vehicle × events</td><td class="num">13 × $250 × 12 = $39 k</td></tr>
+<tr><td>Escapes prevented</td><td>defects caught upstream that inspection would have missed × field cost × events</td><td class="num">19 × $5,000 × 12 = <b class="g">$1.1 M</b></td></tr>
+<tr><td>Cost</td><td>licence per line per year + retrofit of ranked stations</td><td class="num">$60 k + ~$500 per station</td></tr>
+</table></div>
+<p>We deliberately use a per-line downtime cost of $8,000 per minute — about a fifth of the plant-wide Siemens figure — and a 50 % share of warnings acted on in time. Even at a tenth of the bottleneck line alone, payback is inside a quarter. The claim we make to a plant is not the number; it is that after a two-week shadow period the plant will have its own number, from its own line, in the trust ledger.</p>
+
+<h2 data-mark="ROADMAP">Phased roadmap</h2>
+<ol class="phases">
+  <li><b>Pilot line, shadow mode — weeks 0–4</b><span>Read-only tap on one line (OPC UA/Modbus + MES events). Twin runs; alerts hidden; evaluator scores lead time and false alarms against what actually happened. Deliverable: the plant's own trust ledger.</span></li>
+  <li><b>Advisory — weeks 4–10</b><span>Alerts and holds go to the supervisor and quality screens with evidence and confidence. Operators confirm or dismiss; dismissals recalibrate. First value-of-information retrofits in an existing maintenance window.</span></li>
+  <li><b>Reversible automation — weeks 10–16</b><span>Pre-approved, reversible actions run automatically: flag a batch for extra inspection, open a hold. Anything touching the physical line stays with a person.</span></li>
+  <li><b>Second line, second plant — quarter 2</b><span>A new line is a plant file. Libraries of station types and sensor profiles are shared; thresholds self-calibrate per station. The onboarding assistant drafts the file; the engineer reviews it.</span></li>
+  <li><b>Product — quarter 3 onward</b><span>Historian-backed store, plant SSO for the audit trail, IATF 16949 retention, Claude on-prem or VPC for the AI layer, fleet view across plants.</span></li>
+</ol>
+
+<h2 data-mark="RISKS">Key risks and mitigations</h2>
+<div class="tbl"><table>
+<tr><th>risk</th><th>mitigation</th></tr>
+<tr><td>"You predict what you injected" — a simulated plant is circular</td><td>The wall between plant and twin is architectural; the healthy-line false-alarm floor is the honest half of the benchmark; the Factory I/O run is a third party's equipment; the deployment ladder starts in shadow mode on real data</td></tr>
+<tr><td>False alarms erode floor trust faster than hits build it</td><td>Published false-alarm budget (&lt; 1 per five shifts), statistical guards, alert grouping by causal chain, operator dismissals fed back, calibration curve in the ledger</td></tr>
+<tr><td>Inference is wrong at a dark station</td><td>Intervals and provenance, not point claims; confidence discounted by inferred share; the twin abstains where it cannot separate work from waiting (adjacent checklist stations)</td></tr>
+<tr><td>A defect with no upstream signal</td><td>Learnable only from inspection fails, so its hold trails the first catch — stated, not hidden; the VOI ranking tells the plant which parameter to start measuring</td></tr>
+<tr><td>OT security and change control</td><td>Read-only, on-prem edge, no PLC writes; retrofits only in scheduled windows; every recommendation and override audited</td></tr>
+<tr><td>AI says something the data does not support</td><td>Content-hashed evidence packs, grounding check on every report, no LLM in the prediction path, cost telemetry on the manager view</td></tr>
+</table></div>
+
+<h2 data-mark="LIMITS">What we do not claim</h2>
+<ul class="limits">
+  <li>Rework breaks first-in-first-out order; inference at a sensorless station downstream of a rework loop is exact only between rework points.</li>
+  <li>Two adjacent finish-only stations cannot be told apart; the twin abstains rather than guess.</li>
+  <li>The demo line sits at the false-alarm budget, not under it; the 30-station plant sits under it.</li>
+  <li>The Factory I/O run used a stand-in controller; the real scene needs one round of adjustment.</li>
+  <li>Process parameters do not come out of a Factory I/O scene, so the quality side is proven on the simulated plant only.</li>
+</ul>
+
+<h2 data-mark="ASK">What we ask</h2>
+<p>One line, one shadow period, four weeks. We bring the tap, the twin and the scorekeeper; the plant brings the sensors it already has. At the end the plant owns a number nobody had to take on faith.</p>
+
+<h2 data-mark="SOURCES">Sources</h2>
+<ul class="sources">
+  <li><a href="https://wcfcourier.com/exclusive/article_cf813bdd-21ae-5d2f-90df-e4acb004e870.html">Siemens, True Cost of Downtime 2024 (coverage)</a></li>
+  <li><a href="https://www.info2soft.com/blogs/unplanned-downtime-cost-2026-updated.html">Unplanned downtime cost, 2026 data points</a></li>
+  <li><a href="https://www.patsnap.com/resources/blog/articles/digital-twin-tech-landscape-for-manufacturing-2026/">Digital twin landscape for manufacturing 2026</a></li>
+  <li><a href="https://www.iiot-world.com/smart-manufacturing/factory-digital-twins-2026/">IIoT World: factory digital twins 2026 (IoT Analytics survey)</a></li>
+  <li><a href="https://maccelerator.la/en/blog/startup-strategy/digital-twin-implementation-for-industrial-companies/">Why digital twin projects fail (pilot figures)</a></li>
+  <li><a href="https://www.iiot-world.com/smart-manufacturing/discrete-manufacturing/breaking-pilot-purgatory/">Breaking pilot purgatory in manufacturing</a></li>
+  <li><a href="https://press.siemens.com/global/en/pressrelease/siemens-unveils-technologies-accelerate-industrial-ai-revolution-ces-2026">Siemens CES 2026: Digital Twin Composer, Industrial Copilot</a></li>
+  <li><a href="https://nvidianews.nvidia.com/news/siemens-and-nvidia-expand-partnership-industrial-ai-operating-system">Siemens–NVIDIA industrial AI operating system</a></li>
+  <li><a href="https://www.fabrico.io/blog/best-manufacturing-bottleneck-analysis-software-2026-review/">Bottleneck analysis software review 2026 (Vorne, Simul8, MachineMetrics, Tulip)</a></li>
+  <li><a href="https://www.tandfonline.com/doi/full/10.1080/21693277.2023.2283031">Throughput bottleneck detection: systematic review (2023)</a></li>
+  <li><a href="https://www.allaboutlean.com/active-period-method/">Active period method (Roser)</a></li>
+  <li><a href="https://ifactoryapp.com/industries/automotive-manufacturing/automotive-traceability-serialization-production-genealogy">Production genealogy and containment in automotive</a></li>
+  <li><a href="https://www.microsoft.com/en-us/microsoft-cloud/blog/manufacturing/2026/06/18/agentic-ai-for-plant-operations-from-dashboards-to-decisions/">Agentic AI for plant operations (2026)</a></li>
+  <li><a href="https://www.customertimes.com/ai-agents-in-manufacturing">AI agents in manufacturing 2026 (Deloitte adoption forecast)</a></li>
+  <li><a href="https://link.springer.com/article/10.1007/s10270-024-01255-0">Digital twin and the Asset Administration Shell</a></li>
+  <li><a href="https://www.symestic.com/en-us/blog/mes/isa95">ISA-95 for MES architectures</a></li>
+</ul>
+
+<div class="sig"><span>Team SRsync — Rujula Ganesh Rahate, Shivansh Gupta · IIT Bombay</span><span>Prototype and documentation: loom repository</span></div>
+</div>
