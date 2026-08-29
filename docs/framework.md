@@ -58,8 +58,8 @@ Built-in libraries can be extended or overridden per plant file.
 
 1. Deterministic serial line, pass-through sensors, mirror twin, evaluator.
 2. Stochastic cycles, ramp perturbations, trend forecaster with false-alarm guards, scorecard.
-3. Config libraries + `extends`, sensor profiles that filter, model variants, role views, second plant.  ← here
-4. Dark-station interval inference (soft sensor for flow state), value-of-information ranking.
+3. Config libraries + `extends`, sensor profiles that filter, model variants, role views, second plant.
+4. Sensor noise model; flow reconstruction (R1–R5 in `twin.py`) for dark / finish-only / silent stations with exact-vs-bound provenance; sensor health; alert grouping; value-of-information ranking.  ← here
 5. Process parameters, EWMA/CUSUM drift, latent defects, inspection outcomes, build-record trace, targeted hold, quality view.
 6. Mitigations as recommendations with expected effect, alert grouping, maintenance view.
 7. Multi-run evaluation harness, calibration curve, active-period cross-check, shifting bottlenecks.

@@ -206,6 +206,26 @@ Config replication (C6). ROI, with the assumptions stated so a judge can change 
 
 ---
 
+## 3b. Where AI belongs (and where it does not)
+
+This is an AI competition, so the use of AI has to be visible — and defensible to a judge who has seen
+LLMs hallucinate a number. The rule: **statistics and simulation produce every number; an LLM turns
+numbers into decisions people can act on, proposes hypotheses for the simulator to test, and drives
+the improvement loop through a gate it cannot bypass.**
+
+| use | valid? | mechanism | why it survives scrutiny |
+|---|---|---|---|
+| **Persona reports** — shift handover for the supervisor, weekly summary for the plant manager, containment memo for quality | yes | `narrate.py`: LLM is given the twin's structured evidence (alerts, scorecard, ledger, VOI ranking, at-risk sets) as JSON and writes for one persona; deterministic template fallback for offline demo | grounded generation; the LLM never computes; every figure in the text is traceable to a field |
+| **Improvement suggestions** | yes, with a constraint | `whatif.py`: a what-if engine clones the twin's *believed* state and simulates candidate mitigations (floater at B3 → cycle × 0.8, rebalance work B3→B4, hold batch, larger buffer) and ranks them by predicted lead-time and throughput gain. LLM proposes candidates from a fixed menu given the situation, then explains the ranked, quantified options with caveats | LLM as hypothesis generator, simulator as judge — recommendations come with a predicted effect and are validated by the evaluator like any prediction |
+| **Root-cause narration** (step 5) | yes | contribution analysis produces ranked hypotheses with lift and support; LLM writes the quality engineer's brief and suggests which hypothesis to check first and how | the ranking is statistical; the LLM adds the "what to do about it" |
+| **Self-improving loop** | partly | two forms. (a) Statistical: evaluator outcomes and operator dismissals recalibrate per-station thresholds and confidence — no LLM, fully verifiable. (b) Agentic: an agent reviews the trust ledger, proposes parameter or rule changes, and they are accepted **only** if they pass the evaluation harness on recorded shifts (false-alarm budget kept, lead time not worse). One iteration is shown in the demo | propose → backtest → gate. Nothing an LLM says changes live behaviour without passing the same test humans set |
+| **Onboarding assistant** | yes | "18 stations, three manual, paint buffer holds 10, takt 72 s…" → draft plant YAML, validated by the loader, reviewed by the engineer | turns the "extend to other plants" argument into a five-minute demo |
+| LLM as the predictor or scorer | **no** | — | not validatable, not explainable at a hold decision, and the brief warns against exactly this |
+
+Telemetry is kept for every LLM call (tokens, latency, cost) so the economics are on the manager view.
+
+---
+
 ## 4. Why this can place
 
 1. **It works on the plant people actually have.** Partial instrumentation is the default case;
@@ -243,9 +263,9 @@ Config replication (C6). ROI, with the assumptions stated so a judge can change 
 | step | builds | proves |
 |---|---|---|
 | 1–3 (done) | DES plant, sensor profiles, forecaster with FA guards, config libraries, variants, three views | C5, C6, C7, S1, S2 (bottleneck), S4 |
-| 4 | dark-station interval inference; VOI ranking; `plant_b.yaml` | C1, C3, S3 |
+| 4 (done) | sensor noise model (jitter, clock offset, dropouts, latency, silent-sensor faults); flow reconstruction for dark and finish-only stations with exact/bound provenance; sensor-health detection; alert grouping by causal chain; VOI ranking; `plant_b.yaml` | C1, C3, S3, alarm flooding, sensor faults |
 | 5 | process parameters with tolerance bands, EWMA/CUSUM drift, latent defects, inspection outcomes, build-record trace, targeted hold, quality view | C2, C4, S2 (drift, risk) |
-| 6 | mitigations (floater, re-balance, hold) as recommendations with expected effect; alert grouping; maintenance view | S4, alarm flooding |
+| 6 | AI layer (§3b): persona reports, what-if mitigation engine + recommender, statistical recalibration + gated agentic improvement loop, onboarding assistant; maintenance view | S4, "appropriate use of AI" |
 | 7 | multi-run evaluation harness, calibration curve, ledger over weeks; active-period cross-check; two staggered ramps | C7, shifting bottlenecks |
 | 8 | web UI on top of `views.py`; leadership view with ROI model | pitch |
 

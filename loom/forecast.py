@@ -26,11 +26,13 @@ class Alert:
     slope: float            # s of cycle per s of wall time
     confidence: float       # 0..1
     basis: str              # "over_takt" | "trend"
+    inferred_share: float = 0.0   # fraction of samples that were inferred
 
     def __str__(self) -> str:
+        src = "" if self.inferred_share == 0 else f", {self.inferred_share:.0%} inferred"
         return (f"[{self.t:8.1f}] ALERT {self.station}: upstream blocks in "
                 f"~{self.eta_s / 60:.1f} min  (cycle {self.cycle_now:.1f}s, "
-                f"{self.slope * 60:+.2f}s/min, conf {self.confidence:.2f}, {self.basis})")
+                f"{self.slope * 60:+.2f}s/min, conf {self.confidence:.2f}, {self.basis}{src})")
 
 
 @dataclass
@@ -83,16 +85,22 @@ class Forecaster:
         self.min_over_z = min_over_z
         self.horizon = horizon_s
         self.step = step_s
-        self.samples: dict[str, deque[tuple[float, float]]] = {}
+        self.samples: dict[str, deque[tuple[float, float, str]]] = {}
 
-    def observe(self, station: str, t: float, cycle_s: float) -> None:
-        self.samples.setdefault(station, deque(maxlen=self.window)).append((t, cycle_s))
+    def observe(self, station: str, t: float, cycle_s: float, source: str = "measured") -> None:
+        self.samples.setdefault(station, deque(maxlen=self.window)).append((t, cycle_s, source))
 
     def fit(self, station: str, t: float) -> Fit | None:
         s = self.samples.get(station)
         if not s or len(s) < self.min_samples:
             return None
-        return linfit([x for x, _ in s], [y for _, y in s], t)
+        return linfit([x for x, _, _ in s], [y for _, y, _ in s], t)
+
+    def inferred_share(self, station: str) -> float:
+        s = self.samples.get(station)
+        if not s:
+            return 0.0
+        return sum(1 for _, _, src in s if src != "measured") / len(s)
 
     def assess(self, station: str, t: float, queue: int, capacity: int) -> Alert | None:
         fit = self.fit(station, t)
@@ -126,4 +134,7 @@ class Forecaster:
         else:
             conf = min(1.0, fit.tstat / (2 * self.min_tstat))
             basis = "trend"
-        return Alert(t, station, elapsed, fit.c_now, fit.slope, conf, basis)
+        # Inferred samples rest on flow assumptions; discount accordingly.
+        share = self.inferred_share(station)
+        conf *= 1.0 - 0.3 * share
+        return Alert(t, station, elapsed, fit.c_now, fit.slope, conf, basis, share)

@@ -29,4 +29,10 @@ python -m loom.run configs/ramp_b3_dark.yaml --hours 2   # B3 dark: what step 3 
 | `slow_b3.yaml` | B3 at 80 s from t=0 → blocking upstream, starvation downstream |
 | `healthy.yaml` | 5 % cycle noise, 2 model variants, no faults (false-alarm baseline) |
 | `ramp_b3.yaml` | B3 tool wear 56→80 s over 20 min, starting at 30 min |
-| `ramp_b3_dark.yaml` | same, but B3 has no sensors and B2 only reports cycle timestamps |
+| `ramp_b3_dark.yaml` | same, but B3 has no sensors and B2 only reports cycle timestamps — the twin reconstructs B3 from its neighbours |
+| `sensor_fault_b2.yaml` | same ramp; B2's PLC link goes silent for 25 min mid-ramp — the twin notices and bridges |
+| `plant_b.yaml` | a different plant: 30 stations, 4 zones, 3 variants, mixed sensor maturity; `--voi` ranks which station to instrument next |
+
+Sensor profiles carry noise: timestamp jitter, clock offset, dropouts and reporting latency
+(`loom/sensors.py`). Every twin value is tagged ● measured / ◐ inferred / ○ simulated, and inferred
+timestamps are further marked exact or bound so no cycle time is ever estimated from a bound.

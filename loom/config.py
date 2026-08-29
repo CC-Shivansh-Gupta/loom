@@ -32,10 +32,12 @@ BUILTIN_STATION_TYPES: dict[str, dict] = {
     "inspection":  {"sensors": "plc_full", "params": [], "inspection": True},
 }
 
+# jitter_s: sd of timestamp noise. clock_offset_s: fixed skew of that
+# station's clock. drop_p: per-event loss. latency_s: reporting delay.
 BUILTIN_SENSOR_PROFILES: dict[str, dict] = {
-    "plc_full":   {"events": "all"},
-    "cycle_only": {"events": ["start", "finish"]},
-    "checklist":  {"events": ["finish"], "latency_s": 120.0},
+    "plc_full":   {"events": "all", "jitter_s": 0.2},
+    "cycle_only": {"events": ["start", "finish"], "jitter_s": 1.0, "drop_p": 0.01},
+    "checklist":  {"events": ["finish"], "latency_s": 120.0, "jitter_s": 30.0, "drop_p": 0.05},
     "dark":       {"events": []},
 }
 
@@ -46,9 +48,19 @@ class SensorProfile:
     events: frozenset[str] | None       # None = all
     latency_s: float = 0.0
     drop_p: float = 0.0
+    jitter_s: float = 0.0
+    clock_offset_s: float = 0.0
 
     def passes(self, kind: str) -> bool:
         return self.events is None or kind in self.events
+
+
+@dataclass(frozen=True)
+class SensorFault:
+    """Instrumentation on `station` goes silent for `duration_s` from `at_s`."""
+    station: str
+    at_s: float
+    duration_s: float
 
 
 @dataclass(frozen=True)
@@ -97,6 +109,7 @@ class LineCfg:
     seed: int = 0
     variants: tuple[Variant, ...] = ()
     perturbations: tuple[Perturbation, ...] = ()
+    sensor_faults: tuple[SensorFault, ...] = ()
 
     @property
     def ids(self) -> list[str]:
@@ -138,7 +151,8 @@ def _sensor_profiles(raw: dict) -> dict[str, SensorProfile]:
         ev = p.get("events", "all")
         out[name] = SensorProfile(
             name, None if ev == "all" else frozenset(ev),
-            float(p.get("latency_s", 0.0)), float(p.get("drop_p", 0.0)))
+            float(p.get("latency_s", 0.0)), float(p.get("drop_p", 0.0)),
+            float(p.get("jitter_s", 0.0)), float(p.get("clock_offset_s", 0.0)))
     return out
 
 
@@ -185,12 +199,18 @@ def load_line(path: str | Path) -> LineCfg:
         total = sum(v.share for v in variants)
         variants = [Variant(v.name, v.share / total, v.cycle_mult) for v in variants]
 
+    scenario = raw.get("scenario") or {}
     perts = []
-    for p in (raw.get("scenario") or {}).get("perturbations", []) or []:
+    for p in scenario.get("perturbations", []) or []:
         if p["station"] not in ids:
             raise ValueError(f"{path}: perturbation on unknown station {p['station']}")
         perts.append(Perturbation(str(p["station"]), float(p["at_s"]),
                                   float(p["cycle_s"]), float(p.get("ramp_s", 0))))
+    faults = []
+    for f in scenario.get("sensor_faults", []) or []:
+        if f["station"] not in ids:
+            raise ValueError(f"{path}: sensor fault on unknown station {f['station']}")
+        faults.append(SensorFault(str(f["station"]), float(f["at_s"]), float(f["duration_s"])))
 
     return LineCfg(
         name=str(line.get("id", Path(path).stem)),
@@ -201,4 +221,5 @@ def load_line(path: str | Path) -> LineCfg:
         seed=int(line.get("seed", 0)),
         variants=tuple(variants),
         perturbations=tuple(perts),
+        sensor_faults=tuple(faults),
     )

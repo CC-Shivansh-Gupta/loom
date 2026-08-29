@@ -1,0 +1,9 @@
+# Same tool-wear ramp at B3, but B2's PLC link drops out for 25 minutes
+# in the middle of it. The twin must notice B2 has gone silent, keep
+# reconstructing B2 from B1/B3, and not freeze or false-alarm.
+extends: ramp_b3.yaml
+line:
+  id: L1-ramp-b3-sensor-fault
+scenario:
+  sensor_faults:
+    - {station: B2, at_s: 2400, duration_s: 1500}
