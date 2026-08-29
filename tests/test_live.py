@@ -50,3 +50,26 @@ def test_bad_yaml_is_rejected_without_breaking_the_sim():
     with pytest.raises(Exception):
         sim.load_yaml("line:\n  takt_s: 60\n  zones: []\n")
     assert sim.meta()["id"] == "L1-healthy"
+
+
+def test_recording_produces_replay_page(tmp_path, monkeypatch):
+    from loom import live
+    monkeypatch.setattr(live, "RECORDINGS", tmp_path)
+    sim = LiveSim("ramp_b3.yaml")
+    sim.playing = True
+    sim.speed = 600
+    for _ in range(10):
+        sim.step(0.1)
+    sim.start_recording("demo run")
+    sim.inject("sensor", "B3", profile="dark")
+    for _ in range(40):
+        sim.step(0.1)
+    r = sim.stop_recording()
+    assert r["frames"] >= 20 and r["minutes"] > 30
+    html = (tmp_path / "demo_run.html").read_text()
+    assert "Loom Control Room" in html and "demo run" in html
+    import json
+    data = json.loads((tmp_path / "demo_run.json").read_text())
+    assert data["meta"]["recorded_from_s"] > 0
+    assert any(e["kind"] == "inject" for e in data["events"])
+    assert data["frames"][-1]["st"][2][3] == 1          # B3 inferred in the replay too

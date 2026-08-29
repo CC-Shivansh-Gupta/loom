@@ -18,6 +18,8 @@ select,button,input,textarea{font-family:var(--body);font-size:13px;background:v
 button{cursor:pointer} button:hover,select:hover{border-color:var(--muted)} button:focus-visible,select:focus-visible,.tab:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 button.play{font-family:var(--display);font-size:16px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:5px 14px;min-width:90px}
 button.danger{border-color:#5a2a22;color:#F2A08F} button.on{border-color:var(--accent);color:var(--accent)}
+#rec.rec{border-color:var(--alert);color:var(--alert);animation:blink 1.2s infinite} @keyframes blink{50%{opacity:.55}}
+.toast div.rec{border-color:var(--busy);pointer-events:auto} .toast a{color:var(--ink)}
 .speed{display:flex;gap:4px} .speed button{padding:5px 8px}
 .status{font-family:var(--mono);font-size:12px;color:var(--muted)} .status i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--dim);margin-right:6px} .status i.live{background:var(--busy)}
 #stage{grid-area:stage;position:relative;min-height:0}
@@ -63,6 +65,7 @@ textarea.cfg{width:100%;height:52vh;font-family:var(--mono);font-size:11.5px;lin
   <select id="scenario" aria-label="Line configuration"></select>
   <button class="play" id="play">Play</button>
   <button id="reset">Reset</button>
+  <button id="rec" title="Record this run as a self-contained replay page">● Record</button>
   <div class="speed" id="speed"><button data-s="10">10×</button><button data-s="30" class="on">30×</button><button data-s="120">120×</button><button data-s="300">300×</button></div>
   <span class="status"><i id="dot"></i><span id="conn">connecting</span></span>
   <div class="legend"><span>measured</span><span class="inf">inferred</span><span class="sim">simulated</span></div>
@@ -116,7 +119,9 @@ function buildScene(){
   const g=new THREE.Group(); T.group=g; T.meshes={st:[],bel:[],cars:new Map(),bcars:new Map(),beacons:[],slots:[],bslots:[],labels:[]};
   let x=0,lastZone=null; const xs=[];
   meta.stations.forEach(s=>{ if(lastZone&&s.zone!==lastZone)x+=1.6; x+=0.9*Math.min(s.buffer,6)+1.0; xs.push(x); x+=2.2; lastZone=s.zone; });
-  const width=x,cx=width/2; T.orbit.cx=cx; T.orbit.theta=0.04; T.orbit.phi=1.0; T.orbit.dist=Math.max(20,width*0.8+4); T.xs=xs;
+  const width=x,cx=width/2; T.orbit.cx=cx; T.orbit.theta=0.0; T.orbit.phi=1.0; T.xs=xs;
+  const cv=T.r.domElement, aspect=Math.max(1.2,(cv.clientWidth||1200)/(cv.clientHeight||600));
+  T.orbit.dist=Math.max(20,(width/2+5)/(Math.tan(T.cam.fov*Math.PI/360)*aspect)*1.12);
   T.scene.fog.near=T.orbit.dist*1.3; T.scene.fog.far=T.orbit.dist*3.2; T.cam.far=T.orbit.dist*4; T.cam.updateProjectionMatrix();
   const floor=new THREE.Mesh(new THREE.PlaneGeometry(width+14,16),new THREE.MeshLambertMaterial({color:COL.floor})); floor.rotation.x=-Math.PI/2; floor.position.set(cx,-0.41,-2.2); g.add(floor);
   const grid=new THREE.GridHelper(width+14,Math.round((width+14)/2),0x22303A,0x1B242C); grid.position.set(cx,-0.4,-2.2); g.add(grid);
@@ -191,6 +196,7 @@ function connect(){
   ws.onclose=()=>{$("dot").classList.remove("live");$("conn").textContent="reconnecting";setTimeout(connect,1000);};
   ws.onmessage=e=>{const f=JSON.parse(e.data); S.prev=S.frame; S.frame=f; S.mixT=performance.now();
     $("play").textContent=f.playing?"Pause":"Play"; [...$("speed").children].forEach(b=>b.classList.toggle("on",+b.dataset.s===f.speed));
+    $("rec").classList.toggle("rec",!!f.recording); $("rec").textContent=f.recording?"■ Stop recording":"● Record";
     if(f.new_events.length){f.new_events.forEach(ev=>{S.events.push(ev);toast(ev);}); if(S.pane==="events")renderPane(); refreshScore();}
     S.history.push([f.t,f.out[0],f.st.map(r=>r[10]!=null)]); if(S.history.length>2000)S.history.shift();
     onFrame(f);};
@@ -276,6 +282,8 @@ api("/api/meta").then(meta=>{const sel=$("scenario");meta.scenarios.forEach(n=>{
 $("scenario").addEventListener("change",async()=>{const r=await api("/api/load",{name:$("scenario").value});if(r.meta)afterLoad(r.meta);});
 $("play").addEventListener("click",()=>api("/api/control",{playing:!(S.frame&&S.frame.playing)}));
 $("reset").addEventListener("click",async()=>{await api("/api/control",{reset:true});S.events=[];S.history=[];refreshScore();});
+$("rec").addEventListener("click",async()=>{const on=!(S.frame&&S.frame.recording);const r=await api("/api/record",{on});if(r.error){alert(r.error);return;}
+  if(!on){const el=$("toast");const d=document.createElement("div");d.className="rec";d.innerHTML=`Recorded ${r.minutes} min (${r.frames} frames) — <a href="${r.html}" target="_blank">open replay page</a> · <a href="${r.json}" download>data</a>`;el.appendChild(d);requestAnimationFrame(()=>d.classList.add("show"));setTimeout(()=>{d.classList.remove("show");setTimeout(()=>d.remove(),400)},30000);}});
 [...$("speed").children].forEach(b=>b.addEventListener("click",()=>api("/api/control",{speed:+b.dataset.s})));
 [...$("tabs").children].forEach(b=>b.addEventListener("click",()=>{S.pane=b.dataset.p;setTab();renderPane();}));
 setInterval(()=>{if(["supervisor","quality","maintenance","manager"].includes(S.pane))renderPane(); if(S.pane==="station"&&S.sel!=null)renderPane();},4000);

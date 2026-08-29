@@ -101,10 +101,15 @@ def export(cfg_path: str, hours: float, step: float, persona_every: float = 60.0
         events.append({"t": round(h.t), "kind": "hold", "station": h.station, "text": str(h),
                        "sure": h.sure, "uncertain": h.uncertain, "tp_sure": tps, "tp_unc": tpu})
     events.sort(key=lambda e: e["t"])
+    meta = meta_dict(cfg, plant, twin, sensors, hours, step)
+    return {"meta": meta, "frames": frames, "events": events, "personas": personas}
+
+
+def meta_dict(cfg, plant, twin, sensors, hours: float, step: float) -> dict:
     sc = bottleneck_scorecard(plant, twin)
     cont = containment_scorecard(plant, twin)
     ranking = voi.rank(cfg, plant, twin)
-    meta = {
+    return {
         "id": cfg.name, "plant": cfg.plant, "takt_s": cfg.takt_s, "hours": hours, "step": step,
         "stations": [{"id": s.id, "zone": s.zone, "type": s.type.name, "sensors": s.sensors.name,
                       "cycle_s": s.cycle_s, "buffer": s.buffer_before, "inspection": s.type.inspection,
@@ -135,7 +140,19 @@ def export(cfg_path: str, hours: float, step: float, persona_every: float = 60.0
                         for r in ranking[:3]],
         "coverage": sensors.coverage(),
     }
-    return {"meta": meta, "frames": frames, "events": events, "personas": personas}
+
+
+def bundle(pack: dict[str, dict], stories: dict[str, dict] | None = None) -> str:
+    """Self-contained replay page: gzip+base64 each timeline into the template."""
+    import base64
+    import gzip
+    template = (Path(__file__).resolve().parent.parent / "web" / "index.template.html").read_text()
+    enc = {k: base64.b64encode(gzip.compress(json.dumps(v, separators=(",", ":")).encode(), 9)).decode()
+           for k, v in pack.items()}
+    html = template.replace("__DATA__", json.dumps(enc))
+    if stories:
+        html = html.replace("const STORIES = {", "const STORIES = " + json.dumps(stories)[:-1] + ",", 1)
+    return html
 
 
 def main() -> None:

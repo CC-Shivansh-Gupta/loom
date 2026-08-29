@@ -104,6 +104,28 @@ async def inject(body: Inject):
         return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
 
 
+class Record(BaseModel):
+    on: bool
+    name: str | None = None
+
+
+@app.post("/api/record")
+async def record(body: Record):
+    try:
+        return sim.start_recording(body.name) if body.on else sim.stop_recording()
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+
+
+@app.get("/recordings/{name}")
+async def recording(name: str):
+    from fastapi.responses import FileResponse
+    p = (WEB / "recordings" / name).resolve()
+    if not p.is_file() or p.parent != (WEB / "recordings").resolve():
+        return JSONResponse({"error": "not found"}, status_code=404)
+    return FileResponse(p)
+
+
 @app.get("/api/station/{sid}")
 async def station(sid: str) -> dict:
     return sim.station_detail(sid)

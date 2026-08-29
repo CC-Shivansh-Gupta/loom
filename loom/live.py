@@ -4,6 +4,7 @@ user control. The web server wraps this; nothing here knows about HTTP.
 from __future__ import annotations
 
 import dataclasses
+import json
 import threading
 from pathlib import Path
 
@@ -13,7 +14,9 @@ from . import views, voi
 from .config import (BUILTIN_SENSOR_PROFILES, ParamDrift, Perturbation, SensorFault,
                      load_line)
 from .evaluator import bottleneck_scorecard, containment_scorecard, hold_precision
-from .export import HEALTH, SRC, STATE, snapshot
+from .export import HEALTH, SRC, STATE, bundle, meta_dict, snapshot
+
+RECORDINGS = Path(__file__).resolve().parent.parent / "web" / "recordings"
 from .plant import Plant
 from .sensors import SensorLayer
 from .twin import Twin
@@ -51,6 +54,7 @@ class LiveSim:
             self._holds_sent = 0
             self._drifts_sent = 0
             self.injections: list[dict] = []
+            self.recording: dict | None = None
 
     def reset(self) -> None:
         self.load_yaml(self.yaml_text, self.source)
@@ -61,6 +65,67 @@ class LiveSim:
         with self.lock:
             self.t += real_dt * self.speed
             self.plant.run(self.t)
+            if self.recording is not None:
+                self._capture()
+
+    # -- recording ----------------------------------------------------------
+    STEP_S = 10.0
+    PERSONA_EVERY_S = 60.0
+
+    def start_recording(self, name: str | None = None) -> dict:
+        with self.lock:
+            name = name or f"{self.cfg.name}-{int(self.plant.t)}s"
+            self.recording = {"name": name, "t0": self.plant.t, "frames": [], "personas": {},
+                              "next_frame": self.plant.t, "next_persona": self.plant.t,
+                              "events_from": len(self.twin.log), "drifts_from": len(self.twin.quality.drift_log),
+                              "holds_from": len(self.twin.quality.holds), "inj_from": len(self.injections)}
+            self._capture()
+            return {"recording": name, "since": self.plant.t}
+
+    def _capture(self) -> None:
+        r = self.recording
+        t = self.plant.t
+        if t >= r["next_frame"]:
+            r["frames"].append(snapshot(self.cfg, self.plant, self.twin, t))
+            r["next_frame"] = t + self.STEP_S
+        if t >= r["next_persona"]:
+            sc = bottleneck_scorecard(self.plant, self.twin)
+            r["personas"][str(round(t))] = {
+                "supervisor": views.supervisor(self.twin), "quality": views.quality(self.twin),
+                "maintenance": views.maintenance(self.twin),
+                "manager": views.manager(self.twin, sc, self.sensors.coverage())}
+            r["next_persona"] = t + self.PERSONA_EVERY_S
+
+    def stop_recording(self) -> dict:
+        with self.lock:
+            r = self.recording
+            if r is None:
+                raise ValueError("not recording")
+            self._capture()
+            self.recording = None
+            q = self.twin.quality
+            events = [{"t": round(x.t), "kind": x.action, "station": x.alert.station, "text": str(x),
+                       "eta_min": round(x.alert.eta_s / 60, 1), "conf": round(x.alert.confidence, 2)}
+                      for x in self.twin.log[r["events_from"]:]]
+            events += [{"t": round(a.t), "kind": "drift", "station": a.station, "text": str(a)}
+                       for a in q.drift_log[r["drifts_from"]:]]
+            events += [{"t": round(h.t), "kind": "hold", "station": h.station, "text": str(h)}
+                       for h in q.holds[r["holds_from"]:]]
+            events += [{"t": e["t"], "kind": "inject", "station": e["station"], "text": e["text"]}
+                       for e in self.injections[r["inj_from"]:]]
+            events.sort(key=lambda e: e["t"])
+            hours = (self.plant.t - r["t0"]) / 3600
+            meta = meta_dict(self.cfg, self.plant, self.twin, self.sensors, hours, self.STEP_S)
+            meta["recorded_from_s"] = r["t0"]
+            data = {"meta": meta, "frames": r["frames"], "events": events, "personas": r["personas"]}
+            safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in r["name"])
+            RECORDINGS.mkdir(parents=True, exist_ok=True)
+            (RECORDINGS / f"{safe}.json").write_text(json.dumps(data, separators=(",", ":")))
+            story = {safe: {"title": r["name"], "text": "Recorded from the live control room. "
+                     + "; ".join(e["text"] for e in events if e["kind"] == "inject")}}
+            (RECORDINGS / f"{safe}.html").write_text(bundle({safe: data}, story))
+            return {"name": safe, "frames": len(r["frames"]), "minutes": round(hours * 60, 1),
+                    "html": f"/recordings/{safe}.html", "json": f"/recordings/{safe}.json"}
 
     # -- live injections ----------------------------------------------------
     def _station(self, sid: str):
@@ -122,6 +187,7 @@ class LiveSim:
             f = snapshot(self.cfg, self.plant, self.twin, self.plant.t)
             f["playing"] = self.playing
             f["speed"] = self.speed
+            f["recording"] = None if self.recording is None else self.recording["name"]
             f["new_events"] = self._new_events()
             return f
 

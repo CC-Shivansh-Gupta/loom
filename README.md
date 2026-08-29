@@ -66,6 +66,9 @@ a WebSocket and renders the line in 3D (Three.js). Nothing is precomputed.
 - **Floor / Quality / Maint. / Mgr / Log** — the persona views and the event log, live.
 - The scorecard strip fills in as outcomes happen: warning lead once the line actually blocks, false
   alarms, holds with how many held vehicles are truly defective.
+- **Record** — captures the live run (frames every 10 s, persona views every minute, every alert,
+  hold and injection) and, on stop, writes `web/recordings/<name>.html`: a self-contained replay page
+  you can send to anyone, plus the raw JSON.
 
 ## Control room (3D replay, static)
 

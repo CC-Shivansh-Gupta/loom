@@ -1,25 +1,9 @@
-# Same ramp, but B3 is a dark station (no sensors) and B2 reports only
-# cycle timestamps. The twin can no longer see B3 directly -- this is the
-# case step 3 (inference) has to solve. Until then, expect mismatches.
-extends: ramp_b3.yaml
+# Tool wear at B3: 30 min into the shift its cycle ramps 56 s -> 80 s over
+# 20 minutes. It crosses the 60 s takt ~3.3 min into the ramp; B2 blocks
+# some minutes after that. Loom should warn before B2 blocks.
+extends: healthy.yaml
 line:
-  id: L1-ramp-b3-dark
-  zones:
-    - name: body
-      stations:
-        - {id: B1, type: robot_weld, cycle_s: 55}
-        - {id: B2, type: robot_weld, cycle_s: 57, sensors: cycle_only}
-        - {id: B3, type: robot_weld, cycle_s: 56, sensors: dark}
-        - {id: B4, type: inspection, cycle_s: 58}
-    - name: paint
-      stations:
-        - {id: P1, type: paint_booth, cycle_s: 55, buffer_before: 6}
-        - {id: P2, type: paint_booth, cycle_s: 58}
-        - {id: P3, type: inspection,  cycle_s: 56}
-    - name: final
-      stations:
-        - {id: F1, type: door_fit,   cycle_s: 57, sensors: plc_full}
-        - {id: F2, type: manual_fit, cycle_s: 55, sensors: plc_full}
-        - {id: F3, type: manual_fit, cycle_s: 58, sensors: plc_full}
-        - {id: F4, type: manual_fit, cycle_s: 56, sensors: plc_full}
-        - {id: F5, type: inspection, cycle_s: 55}
+  id: L1-ramp-b3
+scenario:
+  perturbations:
+    - {station: B3, at_s: 1800, ramp_s: 1200, cycle_s: 80}
