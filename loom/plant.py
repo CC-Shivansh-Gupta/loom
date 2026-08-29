@@ -39,6 +39,7 @@ class Visit:
 class Vehicle:
     id: int
     released_t: float
+    variant: str = "-"
     exited_t: float | None = None
     record: list[Visit] = field(default_factory=list)
 
@@ -70,8 +71,9 @@ class Station:
                 c = c + (p.cycle_s - c) * (t - p.at_s) / p.ramp_s
         return c
 
-    def cycle_time(self, t: float, rng: random.Random, cv: float) -> float:
-        nominal = self.nominal_cycle(t)
+    def cycle_time(self, t: float, rng: random.Random, cv: float,
+                   mult: float = 1.0) -> float:
+        nominal = self.nominal_cycle(t) * mult
         if cv <= 0:
             return nominal
         # Lognormal with the requested CV, mean-corrected so E[cycle] == nominal.
@@ -122,14 +124,32 @@ class Plant:
         for s in self.stations:
             s.set_state(s.state, until)   # close out time-in-state
 
+    # -- mixed model -----------------------------------------------------
+    def _pick_variant(self) -> str:
+        if not self.cfg.variants:
+            return "-"
+        r = self.rng.random()
+        acc = 0.0
+        for v in self.cfg.variants:
+            acc += v.share
+            if r < acc:
+                return v.name
+        return self.cfg.variants[-1].name
+
+    def _variant_mult(self, variant: str, station: str) -> float:
+        for v in self.cfg.variants:
+            if v.name == variant:
+                return v.cycle_mult.get(station, 1.0)
+        return 1.0
+
     # -- line logic ------------------------------------------------------
     def _source_tick(self) -> None:
         if len(self.buffers[0]) < self.stations[0].cfg.buffer_before:
-            v = Vehicle(self._next_vid, self.t)
+            v = Vehicle(self._next_vid, self.t, self._pick_variant())
             self._next_vid += 1
             self.vehicles[v.id] = v
             self.buffers[0].append(v)
-            self._emit(RELEASE, vehicle=v)
+            self._emit(RELEASE, vehicle=v, variant=v.variant)
             self._try_start(0)
         else:
             self._emit(LOST_SLOT)
@@ -144,7 +164,8 @@ class Plant:
         st.set_state(BUSY, self.t)
         v.record.append(Visit(st.cfg.id, self.t))
         self._emit(START, st.cfg.id, v)
-        self._schedule(st.cycle_time(self.t, self.rng, self.cfg.cv),
+        mult = self._variant_mult(v.variant, st.cfg.id)
+        self._schedule(st.cycle_time(self.t, self.rng, self.cfg.cv, mult),
                        lambda: self._finish(i))
         # We freed a slot in buffer i; a blocked upstream station may move.
         if i > 0 and self.stations[i - 1].state == BLOCKED_STATE:

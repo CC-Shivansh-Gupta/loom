@@ -4,8 +4,11 @@ test:
 	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest
 
 demo:
-	python3 -m loom.run configs/line_basic.yaml --hours 2
+	python3 -m loom.run configs/plant_demo.yaml --hours 2
 	@echo
-	python3 -m loom.run configs/line_slow_b3.yaml --hours 2
+	python3 -m loom.run configs/ramp_b3.yaml --hours 2
 
-.PHONY: test demo
+views:
+	python3 -m loom.run configs/ramp_b3.yaml --hours 0.75 --view operator:B3 --view supervisor --view manager
+
+.PHONY: test demo views

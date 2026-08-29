@@ -1,0 +1,40 @@
+# Base plant. Scenarios extend this file and change a few lines.
+#
+# 12 stations in 3 zones, all balanced to a 60 s takt. Deterministic
+# (cv 0) so the baseline flows cleanly; scenarios add noise and faults.
+plant:
+  name: Demo Vehicle Plant
+  site: Pune
+  area: Assembly
+
+libraries:
+  # Built-ins: generic, robot_weld, manual_fit, paint_booth, inspection.
+  # Built-in sensor profiles: plc_full, cycle_only, checklist, dark.
+  station_types:
+    door_fit: {sensors: checklist, params: [gap_mm], description: manual door hang}
+
+line:
+  id: L1
+  takt_s: 60
+  cv: 0.0
+  seed: 1
+  default_buffer: 2
+  zones:
+    - name: body
+      stations:
+        - {id: B1, type: robot_weld, cycle_s: 55}
+        - {id: B2, type: robot_weld, cycle_s: 57}
+        - {id: B3, type: robot_weld, cycle_s: 56}
+        - {id: B4, type: inspection, cycle_s: 58}
+    - name: paint
+      stations:
+        - {id: P1, type: paint_booth, cycle_s: 55, buffer_before: 6}   # paint entry buffer
+        - {id: P2, type: paint_booth, cycle_s: 58}
+        - {id: P3, type: inspection,  cycle_s: 56}
+    - name: final
+      stations:
+        - {id: F1, type: door_fit,   cycle_s: 57, sensors: plc_full}    # override type default
+        - {id: F2, type: manual_fit, cycle_s: 55, sensors: plc_full}
+        - {id: F3, type: manual_fit, cycle_s: 58, sensors: plc_full}
+        - {id: F4, type: manual_fit, cycle_s: 56, sensors: plc_full}
+        - {id: F5, type: inspection, cycle_s: 55}

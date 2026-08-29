@@ -1,0 +1,9 @@
+# Healthy line with realistic cycle-time noise and a 2-variant mix.
+# Used to measure the twin's false-alarm rate.
+extends: plant_demo.yaml
+line:
+  id: L1-healthy
+  cv: 0.05
+variants:
+  sedan: {share: 0.6}
+  suv:   {share: 0.4, cycle_mult: {F1: 1.04, F3: 1.03}}

@@ -1,0 +1,9 @@
+# Tool wear at B3: 30 min into the shift its cycle ramps 56 s -> 80 s over
+# 20 minutes. It crosses the 60 s takt ~3.3 min into the ramp; B2 blocks
+# some minutes after that. Loom should warn before B2 blocks.
+extends: healthy.yaml
+line:
+  id: L1-ramp-b3
+scenario:
+  perturbations:
+    - {station: B3, at_s: 1800, ramp_s: 1200, cycle_s: 80}

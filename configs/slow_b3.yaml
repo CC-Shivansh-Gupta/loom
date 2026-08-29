@@ -1,0 +1,8 @@
+# B3 runs at 80 s from the start against a 60 s takt (deterministic).
+# Expect: B1/B2 block, everything after B3 starves, throughput 45 veh/h.
+extends: plant_demo.yaml
+line:
+  id: L1-slow-b3
+scenario:
+  perturbations:
+    - {station: B3, at_s: 0, cycle_s: 80}
