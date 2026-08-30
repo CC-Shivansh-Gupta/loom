@@ -46,9 +46,12 @@ Views: `--view operator:<station>`, `supervisor`, `quality`, `maintenance`, `man
 Benchmark over many seeds (every number against ground truth the twin never saw):
 
 ```
-python -m loom.bench     --seeds 10 --out docs/benchmark.md    # absolute performance
+python -m loom.bench     --seeds 20 --out docs/benchmark.md    # absolute performance
 python -m loom.baseline  --seeds 10 --out docs/baselines.md    # vs no twin / threshold alarm / detection-only
 python -m loom.ablate    --seeds 10 --out docs/ablation.md     # what each mechanism buys
+python -m loom.coverage  --seeds 5  --out docs/coverage.md     # lead time vs share of stations dark
+python -m loom.trace                --out docs/traces.md       # the single runs the docs quote
+python -m loom.numbers docs/proposal.md                        # every figure in the prose is in one of the above
 ```
 
 `baseline` is the answer to "compared to what?": every comparator sees the same sensor-filtered
@@ -56,7 +59,14 @@ event stream the twin saw, so the difference is the mechanism and not the data. 
 alarm gets more lead time than Loom on an instrumented station — and raises **145 alarms per 8 h**
 on a healthy line against Loom's **0.3**, and never warns at all when the failing station is dark.
 `ablate` turns one mechanism off at a time; without inferred samples the dark ramp is missed 5/5,
-without the pair search the two-condition cause is never found.
+without the pair search the two-condition cause is never found. `coverage` darkens a growing share
+of stations, the failing one first: the warning survives to 30 % dark, and reconstruction error
+holds at 0.2 s even at 50 % — inference and forecasting fail separately, and it matters which.
+
+`numbers` applies the AI layer's grounding rule to our own writing: a figure in the proposal must
+appear in a document a run produced, or be declared in `docs/exempt_numbers.md` with a source. It
+runs in the test suite. We are in no position to demand grounding from a language model and not
+from ourselves.
 
 ## Control room (live)
 

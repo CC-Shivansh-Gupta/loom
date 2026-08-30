@@ -43,6 +43,7 @@ class Agg:
     misses: int = 0
     faults: int = 0
     false_alarms: int = 0
+    fault_hours: float = 0.0
     healthy_hours: float = 0.0
     healthy_alarms: int = 0
     ap_agreement: list[float] = field(default_factory=list)
@@ -88,6 +89,7 @@ def run(seeds: int, scenarios=SCENARIOS) -> dict[str, Agg]:
                 a.holds_on_healthy += len(twin.quality.holds)
                 continue
             a.false_alarms += len(card["false_alarms"])
+            a.fault_hours += hours
             for s in card["scores"]:
                 a.faults += 1
                 if s.lead_s is not None and s.lead_s > 0:
@@ -145,12 +147,16 @@ def markdown(res: dict[str, Agg], seeds: int) -> str:
             L.append(f"| `{cfg}` | {a.healthy_hours:.0f} | {a.healthy_alarms / a.healthy_hours * 8:.2f} | "
                      f"{a.drift_warnings / a.healthy_hours * 8:.2f} | {a.holds_on_healthy} |")
     L += ["", "## Bottleneck forecasting", "",
-          "| scenario | faults | caught | lead min (mean, p10, p90) | ETA error min | false alarms | active-period agreement | inferred cycle MAE s |",
+          "A false alarm is an alert that no injected fault explains. The rate is per 8 h of run "
+          "time so it can be compared with the healthy-line floor above.", "",
+          "| scenario | faults | caught | lead min (mean, p10, p90) | ETA error min | false alarms (per 8 h) | active-period agreement | inferred cycle MAE s |",
           "|---|---|---|---|---|---|---|---|"]
     for cfg, a in res.items():
         if a.faults:
+            rate = (a.false_alarms / a.fault_hours * 8) if a.fault_hours else 0.0
             L.append(f"| `{cfg}` | {a.faults} | {a.faults - a.misses} | {_q(a.leads)} | {_q(a.eta_err)} | "
-                     f"{a.false_alarms} | {_q(a.ap_agreement, '{:.0%}')} | {_q(a.inferred_mae)} |")
+                     f"{a.false_alarms} ({rate:.1f}) | {_q(a.ap_agreement, '{:.0%}')} | "
+                     f"{_q(a.inferred_mae)} |")
     L += ["", "## Containment", "",
           "Hold timing is relative to the first end-of-line catch: positive = the twin held before "
           "inspection saw anything (drift-triggered); negative = the hold was learned from inspection "

@@ -53,10 +53,12 @@ parameters can physically affect which defect) restrict the search space; this i
 the causal-Bayesian-network approach in the literature, kept interpretable.
 
 **Prototype evidence.** `multi_cause.yaml`: paint adhesion fails only when B4 torque is low *and* P1
-humidity is high; neither alone. No drift signal. After the third inspection fail the hypothesis table
-reads `B4.torque low AND P1.humidity high: lift 88.9x, 5/6 defective under it vs 1/159 otherwise,
-p=3.7e-08`, ranked above `B4.torque low` alone (p=7.7e-07) and far above humidity alone (p=0.01). The
-hold names the un-inspected vehicles that match the pair; zero defective vehicles escape.
+humidity is high; neither alone. No drift signal. As the inspection fails accumulate the hypothesis
+table ranks `B4.torque low AND P1.humidity high` first — lift 53.8x, 4 of the 5 vehicles under it
+defective against 2 of 167 otherwise, p=2.1e-06 — above `B4.torque low` alone (16.0x, p=2.5e-06),
+with humidity alone never clearing the bars. The hold names the un-inspected vehicles that match the
+pair. The trace is generated: `docs/traces.md`. Across 20 seeds the true pair is ranked first in 17;
+the containment that follows it is weak, and §6b says so.
 
 ### C3 · Modifying live production systems is risky; retrofits only in maintenance windows
 
@@ -82,10 +84,12 @@ line stop. Onset uncertainty is handled by widening the window and tagging the m
 
 **Prototype evidence.** `weld_drift_b2.yaml`: B2's weld current sags out of spec from minute 30 with
 no cycle-time symptom; weak welds surface only at the F5 end-of-line inspection. Measured on a 2-hour
-shift: CUSUM warning at 39 min (onset estimated at 31 min, true 30), hold opened at 43 min on the first
-out-of-spec reading — **11 minutes before the first inspection catch at 54 min** — 77 vehicles held,
-precision 84 %, recall 100 %, zero escaped; the no-genealogy blanket hold would be 90 vehicles and would
-not have started until inspection caught the first one. Research figures for the pitch: a defect caught
+shift (seed 0, `docs/traces.md`): CUSUM warning on `B2.weld_current` at 38.9 min with the onset
+estimated at 32.9 min (true 30), the hold opened the same minute on the first out-of-spec reading —
+**16.7 minutes before the first inspection catch at 55.6 min** — 77 vehicles held, 79 % precision,
+98 % recall, zero escaped; the no-genealogy blanket hold would be 90 vehicles and would not have
+started until inspection caught the first one. Over 20 seeds: 12.8 min ahead, 81 % precision, 99 %
+recall. Research figures for the pitch: a defect caught
 downstream costs ~10×, at final assembly ~100×, in the field ~1000×; one plant cut a containment
 exercise from two days of log review to four minutes with genealogy.
 
@@ -280,22 +284,24 @@ Telemetry is kept for every LLM call (tokens, latency, cost) so the economics ar
 
 ---
 
-## 6b. What the benchmark says (`docs/benchmark.md`, 5 seeds per scenario)
+## 6b. What the benchmark says (`docs/benchmark.md`, 20 seeds per scenario)
 
 | claim | measured |
 |---|---|
-| Healthy line stays quiet | 0.2 bottleneck alerts and 0.8 drift warnings per 8 h line-wide; 0 holds |
-| Bottleneck warned ahead, fully instrumented | 5/5 caught, 7.0 min lead, ETA error 0.6 min |
-| …with the bottleneck station dark | 5/5 caught, 6.1 min lead; inferred cycle error 0.3 s |
-| …with a PLC link silent mid-fault | 5/5 caught, 6.8 min lead |
-| Shifting bottleneck (two faults, one repair) | 10/10 caught, 0 false alarms |
-| A different 30-station plant with 9 checklist/dark stations | 5/5 caught, 10.6 min lead, 0 false alarms |
-| Momentary bottleneck from partial data vs plant truth | 97–100 % agreement during faults |
-| Silent weld drift | hold 11 min before the first end-of-line catch, precision 80 %, recall 99 %, 0 escaped |
-| Two-condition intermittent defect | true pair ranked first in 5/5 runs |
-| Confidence means something | stated 0.9–1.0 → 100 % hit rate; 0.5–0.7 → 40 % |
+| Healthy line stays quiet | 0.30 bottleneck alerts and 0.45 drift warnings per 8 h line-wide; 0 holds over 160 h |
+| Bottleneck warned ahead, fully instrumented | 20/20 caught, 7.9 min lead, ETA error 1.4 min |
+| …with the bottleneck station dark | 20/20 caught, 6.0 min lead; inferred cycle error 0.3 s |
+| …with a PLC link silent mid-fault | 20/20 caught, 7.7 min lead |
+| Shifting bottleneck (two faults, one repair) | 37/40 caught, **15 false alarms** |
+| A different 30-station plant with 9 checklist/dark stations | 20/20 caught, 12.0 min lead, **10 false alarms** |
+| Momentary bottleneck from partial data vs plant truth | 96–99 % agreement during faults |
+| Silent weld drift | hold 12.8 min before the first end-of-line catch, precision 81 %, recall 99 % |
+| Two-condition intermittent defect | true pair ranked first in 17/20 runs |
+| Confidence means something | stated 0.9–1.0 → 97 % hit rate; 0.7–0.9 → 75 %; 0.5–0.7 → 44 % |
 
-Known limits, stated rather than hidden: (1) a defect with no upstream signal is only learnable from
+Known limits, stated rather than hidden: (0) **the false-alarm budget is met on a healthy line and
+not on the multi-fault scenarios** — 2.4 per 8 h on `shifting`, 1.3 on `plant_b`, against a budget of
+0.2. The 5-seed benchmark reported zero on both; 20 seeds found it. Top open item. (1) a defect with no upstream signal is only learnable from
 inspection fails, so its hold necessarily trails the first catch; (2) two adjacent finish-only
 (checklist) stations cannot be told apart — the twin abstains rather than guess; (3) one false alarm
 per five 2-hour fault runs on the demo line sits at the budget, not below it.

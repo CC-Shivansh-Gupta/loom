@@ -101,17 +101,24 @@ Either a scenario exercises it or the claim leaves the proposal (spec item E6a).
 
 **(c) Absolute performance** (`benchmark.md`, `solution_design.md` §6b):
 
-| claim | result |
+| claim | result (20 seeds) |
 |---|---|
-| warns before the line blocks | 7.0 min lead fully instrumented; 6.1 with the station dark; 6.8 with a PLC link silent; 10.6 on the 30-station plant |
-| stays quiet when nothing is wrong | 0.2 alerts / 8 h; 0 holds on 40 h healthy |
-| momentary bottleneck from partial data | 97–100 % agreement with the plant's own active periods during faults |
-| catches a silent drift and contains it | hold 11 min before the first inspection catch; 80 % precision, 99 % recall, 0 escaped; the blanket hold would be 90 vehicles and start later |
-| finds a two-condition cause | 5/5 |
-| confidence means something | 0.9–1.0 stated → 100 % realised; 0.5–0.7 → 40 % |
+| warns before the line blocks | 7.9 min lead fully instrumented; 6.0 with the station dark; 7.7 with a PLC link silent; 12.0 on the 30-station plant |
+| stays quiet when nothing is wrong | 0.30 alerts / 8 h; 0 holds on 160 h healthy |
+| momentary bottleneck from partial data | 96–99 % agreement with the plant's own active periods during faults |
+| catches a silent drift and contains it | hold 12.8 min before the first inspection catch; 81 % precision, 99 % recall; the blanket hold would be 90 vehicles and start later |
+| finds a two-condition cause | 17/20 |
+| confidence means something | 0.9–1.0 stated → 97 % realised; 0.7–0.9 → 75 %; 0.5–0.7 → 44 % |
+| degrades rather than breaks | warning survives to 30 % of stations dark; reconstruction error flat at 0.2 s to 50 % |
 | survives real sensor semantics | Factory I/O adapter through a real Modbus socket at 50 Hz; dark and exit-only stations handled |
 
-Where we are weaker, said plainly: a defect with no upstream signal is only learnable from
+**What the 20-seed re-run cost us, stated plainly.** The previous benchmark was 5 seeds and reported
+0 false alarms on `shifting` and on `plant_b`. At 20 seeds those are 15 and 10 — 2.4 and 1.3 per
+8 h, above our published budget — and `shifting` misses 3 of 40 faults. The old numbers were noise.
+This is the top open engineering item, and it is the argument for having a benchmark at all.
+
+Where we are weaker, said plainly: the false-alarm budget holds on a healthy line and not on the
+multi-fault scenarios (above); a defect with no upstream signal is only learnable from
 inspection fails, so its hold trails the first catch (the multi-cause scenario); two adjacent
 checklist stations cannot be told apart, so the twin abstains; the demo line sits at the
 false-alarm budget rather than under it; rework breaks FIFO, so inference at a dark station
@@ -156,7 +163,10 @@ side-by-side in the deck; the template path is the demo fallback, not the headli
 | Pitch deck + video | not started; storyboard = the five demo scenes + Factory I/O clip + AI side-by-side | next |
 | Claude key wired; LLM side-by-side | template path only | you |
 | Factory I/O run on the real scene | adapter tested against the fake; `plc_stub` unverified on real conveyor geometry | you |
-| Benchmark re-run at 10 seeds after topology changes | 5 seeds, pre-change | cheap |
+| Benchmark re-run after topology changes | **done — 20 seeds; found two claims that did not survive** | — |
+| Baselines, ablation, coverage curve | **done** — `baselines.md`, `ablation.md`, `coverage.md` | — |
+| Prose grounding check on our own numbers | **done** — `python -m loom.numbers` | — |
+| False-alarm rate on multi-fault scenarios | **open** — 1.3–2.4 per 8 h against a 0.2 budget | next |
 
 ## 7. The pitch in one paragraph
 

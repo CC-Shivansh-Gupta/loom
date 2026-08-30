@@ -13,11 +13,12 @@ Priority: **P0** blocks submission · **P1** separates a good entry from a winni
 |---|---|---|---|---|
 | E1 | Baseline comparators (no-twin / threshold alarm / detection-only) | P0 | `loom/baseline.py` | **done** → `docs/baselines.md` |
 | E2 | Ablation table (what each mechanism buys) | P0 | `loom/ablate.py` | **done** → `docs/ablation.md` |
-| E3 | Coverage degradation curve | P1 | `loom/coverage.py` | — |
-| E4 | 20-seed re-run, numbers as single source of truth | P0 | `loom/bench.py`, `loom/numbers.py` | — |
+| E3 | Coverage degradation curve | P1 | `loom/coverage.py` | **done** → `docs/coverage.md` |
+| E4 | 20-seed re-run, numbers as single source of truth | P0 | `loom/bench.py`, `loom/numbers.py` | **done** — and it found two claims that did not survive |
 | E5 | Restore the forecaster tuning sweep | P1 | `loom/sweep.py` | — |
 | E6 | Multi-cause: discriminating sample instead of a bad hold | P1 | `loom/quality.py` | — |
-| E6a | Back-fill: a scenario that exercises it, or drop the claim | P1 | `configs/`, `docs/proposal.md` | **found by E2** |
+| E6a | Back-fill: a scenario that exercises it, or drop the claim | P1 | `configs/`, `docs/proposal.md` | **open** — claim removed from the proposal for now |
+| E7 | False-alarm rate on multi-fault scenarios (1.3–2.4 / 8 h vs a 0.2 budget) | **P0** | `loom/forecast.py`, `loom/twin.py` | **open — new, found by E4** |
 | A1 | Claude wired; live run of all four AI features | P0 | env + `loom/llm.py` | — |
 | A2 | AI tab: reports, what-if, improve, onboard in the control room | P0 | `loom/server.py`, `web/app.html` | — |
 | A3 | Grounding catch — the model caught reaching for a number | P0 | `loom/evidence.py` | — |
@@ -119,6 +120,28 @@ Two acceptable resolutions, in order of preference:
    soon as the drift is detected.
 
 Either way the claim and the evidence must agree before submission.
+
+## E7 · The false-alarm budget on faulting lines (opened by the 20-seed re-run)
+
+The 5-seed benchmark reported **0 false alarms** on `shifting.yaml` and `plant_b.yaml`. At 20 seeds
+they are 15 and 10 — **2.4 and 1.3 per 8 h**, against a published budget of 0.2 — and `shifting`
+misses 3 of 40 faults. The healthy-line floor is fine at 0.30 per 8 h; the problem is specific to
+runs that contain faults.
+
+The likely mechanism, worth checking before tuning anything: when a real bottleneck forms, the
+stations downstream of it are starved and the stations upstream are blocked, and both look like
+cycle-time anomalies. Alert grouping already collapses *downstream starvation* under the root
+alert; `shifting` adds a repair, which releases a backlog and produces a surge that looks like a
+second fault. Two candidate fixes:
+
+1. Extend the causal-chain grouping to cover post-repair surges — an alert raised within one buffer
+   drain-time of a cleared alert upstream is a consequence, not a cause.
+2. Suppress trend alerts while the station's supply interval is itself anomalous, which is already
+   measured (`assess(interarrival=...)`) but not used as a guard.
+
+Whichever wins must go through `improve.py`'s gate like any other change: it may not raise the
+healthy-line floor or lower mean lead by more than 0.5 min. **This is now the top P0 engineering
+item** — a published budget we miss is worse than no budget.
 
 ## E5 · Restore the tuning sweep
 

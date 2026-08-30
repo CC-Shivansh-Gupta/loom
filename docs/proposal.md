@@ -9,8 +9,10 @@ when the failing station has no sensors; holds the exact vehicles a silent drift
 a public score of its own accuracy.
 
 > The published, designed version of this proposal is the artifact page; this file is the same content
-> in plain text for the repository. Numbers are from `docs/benchmark.md` (5 seeds per scenario, all
-> against ground truth the twin never saw).
+> in plain text for the repository. Numbers are from `docs/benchmark.md` (20 seeds per scenario),
+> `docs/baselines.md`, `docs/ablation.md` and `docs/coverage.md` — all against ground truth the
+> twin never saw. `python -m loom.numbers docs/proposal.md` checks that every figure below appears
+> in one of them.
 
 ## Summary
 
@@ -22,10 +24,10 @@ bypass.
 
 | | |
 |---|---|
-| 6–11 min | warning before a wearing station blocks the line, fully instrumented |
-| 6.1 min | same warning with the failing station dark — reconstructed from its neighbours |
-| 11 min | hold before end-of-line inspection sees the first weak weld; 80 % precision, 99 % recall, 0 escaped |
-| 0.2 / 8 h | false bottleneck alerts on a healthy line over 40 simulated hours |
+| 7.9 min | warning before a wearing station blocks the line, fully instrumented |
+| 6.0 min | same warning with the failing station dark — reconstructed from its neighbours |
+| 12.8 min | hold before end-of-line inspection sees the first weak weld; 81 % precision, 99 % recall |
+| 0.30 / 8 h | false bottleneck alerts on a healthy line over 160 simulated hours |
 | 0 writes | to the plant: read-only, proven against a third-party PLC simulator |
 
 ## The problem
@@ -64,7 +66,7 @@ sensor layer passes.
   instant is when the dark station released it — exact samples precisely when the dark station is the
   bottleneck. Trend fit with standard-error and persistence guards + forward buffer simulation → "B2
   blocks in ~7 min, confidence 70 %, 100 % inferred". Naïve trend test: 49 false alarms/shift; with
-  guards: 0.2 per 8 h.
+  guards: 0.30 per 8 h.
 - **Quality.** EWMA/CUSUM on process parameters; a drift is a warning until a reading is out of spec,
   which opens a hold classifying each vehicle on its own reading from the station. Contribution analysis (singles and pairs, lift +
   Fisher exact) ranks hypotheses with evidence. Holds split sure / uncertain / already exited.
@@ -108,21 +110,27 @@ on lead and is always ignored by the floor within a week.
 5/5; without the pair search the two-condition cause is found 0/5; without the persistence rule
 false alarms go from 0.2 to 2.0 per 8 h.
 
-**Absolute performance**
+**Absolute performance** (20 seeds per scenario, `docs/benchmark.md`)
 
-| claim | result (5 seeds) |
+| claim | result |
 |---|---|
-| warns before the line blocks | 5/5, 7.0 min lead, ETA error 0.6 min |
-| …failing station dark | 5/5, 6.1 min, inferred cycle error 0.3 s |
-| …PLC link silent mid-fault | 5/5, 6.8 min |
-| moving constraint | 10/10, 0 false alarms |
-| another plant, unchanged code | 5/5, 10.6 min, 0 false alarms |
-| momentary bottleneck from partial data | 97–100 % agreement |
-| healthy line, 40 h | 0.2 alerts / 8 h, 0 holds |
-| silent drift contained | hold 11 min before first catch, 80 % precision, 99 % recall, 0 escaped |
-| two-condition cause | 5/5 pair ranked first |
-| calibration | 0.9–1.0 stated → 100 % hit; 0.5–0.7 → 40 % |
+| warns before the line blocks | 20/20, 7.9 min lead, ETA error 1.4 min |
+| …failing station dark | 20/20, 6.0 min, inferred cycle error 0.3 s |
+| …PLC link silent mid-fault | 20/20, 7.7 min |
+| moving constraint | 37/40 caught, 15 false alarms |
+| another plant, unchanged code | 20/20, 12.0 min, 10 false alarms |
+| momentary bottleneck from partial data | 96–99 % agreement |
+| healthy line, 160 h | 0.30 alerts / 8 h, 0 holds |
+| silent drift contained | hold 12.8 min before first catch, 81 % precision, 99 % recall, 1 escaped of 20 runs |
+| two-condition cause | 17/20 pair ranked first |
+| calibration | 0.9–1.0 stated → 97 % hit; 0.7–0.9 → 75 %; 0.5–0.7 → 44 % |
 | third-party equipment | 0 writes, dark station reconstructed, wear forecast |
+
+**Graceful degradation** (`docs/coverage.md`) — darkening a growing share of stations, the failing
+one first: the warning survives at 10, 20 and 30 % dark for about a minute of lead. Reconstruction
+error holds at 0.2 s even at 50 %, where the forecast has already stopped firing — the twin still
+knows what the dark stations are doing, it runs out of the measured samples the trend fit needs.
+The fix is one more timestamp source, which is a purchase order.
 
 Plus: live 3D control room with fault injection and a YAML line editor; persistence of every event the
 twin received, beliefs per minute, every human action, every AI report with the evidence hash; stored
@@ -166,6 +174,13 @@ VOI says what to measure next. OT security → read-only, on-prem, audited. Ungr
 evidence, grounding check, no LLM in the prediction path.
 
 ## What we do not claim
+
+**Our false-alarm budget holds on a healthy line and not yet on a faulting one.** At 20 seeds the
+healthy floor is 0.30 alerts per 8 h, inside the published budget. On the multi-fault scenarios it
+is not: `shifting` produces 2.4 and `plant_b` 1.3 per 8 h, and `shifting` misses 3 of 40 faults.
+Our 5-seed benchmark reported zero false alarms on both — that was noise, and re-running at 20
+seeds is what found it. Closing this is the top open engineering item; we would rather show you the
+number than the earlier one.
 
 The drift onset back-fill recovers no vehicles on our demo scenario — the cause station reports a
 reading for every vehicle, so the onset window never binds; we found this by building the ablation
