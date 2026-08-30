@@ -468,6 +468,73 @@ function vManager(p){
   return h;
 }
 
+// Maintenance: horizon is the week, and the only question is what needs
+// intervention and whether it can wait for the next scheduled window. So the
+// unit of the view is the asset, and every row carries the trend that dates it.
+const M_ORDER={schedule:0,watch:1,unknown:2,ok:3};
+function vMaintenance(p){
+  const mt=p.maintenance;
+  if(!mt)return `<div class="lp quiet">This twin is not reporting degradation trends yet.</div>`;
+  const takt=p.line.takt_s;
+  const assets=(mt.assets||[]).slice().sort((a,b)=>(M_ORDER[a.status]-M_ORDER[b.status])||((b.slope_s_per_min??-99)-(a.slope_s_per_min??-99)));
+  const due=mt.due||[], watch=mt.watch||[], drift=mt.param_drift||[], faults=mt.sensor_faults||[];
+  const soon=drift.filter(d=>d.outside_spec_now||d.min_to_limit!=null).map(d=>d.outside_spec_now?0:d.min_to_limit);
+  const first=soon.length?Math.min(...soon):null;
+  const cls=a=>a.status==="schedule"?"a-alert":a.status==="watch"?"a-over":a.status==="unknown"?"a-dark":(a.sensor_health!=="ok"?"a-sick":"a-ok");
+  let h=`<div class="vhead"><h3>Maintenance window</h3><span>line ${esc(p.line.id)} · ${esc(p.line.now)} · horizon: this week</span></div>`;
+  h+=`<div class="stats">
+    <div class="stat ${due.length?"bad":"good"}"><b>${due.length}</b><span>due now</span></div>
+    <div class="stat ${watch.length?"warn":""}"><b>${watch.length}</b><span>on watch</span></div>
+    <div class="stat ${drift.length?"warn":"good"}"><b>${drift.length}</b><span>params drifting</span></div>
+    <div class="stat ${first!=null?(first<=0?"bad":"warn"):"muted2"}"><b>${first==null?"—":(first<=0?"now":first)}</b><span>min to spec limit</span></div>
+    <div class="stat ${faults.length?"bad":"good"}"><b>${faults.length}</b><span>sensor faults</span></div></div>`;
+  if(due.length||first!=null){
+    const parts=[];
+    if(due.length)parts.push(`<b>${due.map(esc).join(", ")}</b> ${due.length>1?"are":"is"} at or trending past takt`);
+    if(first!=null)parts.push(first<=0?`a parameter is <b>already outside spec</b>`:`a parameter reaches its spec limit in <b>~${first} min</b>`);
+    if(!due.length&&first===0)parts.push(`no asset is over takt, so the line looks healthy from the floor`);
+    h+=`<div class="banner">Cannot wait: ${parts.join(", and ")}. Intervene before the projected crossing — after it, the line is making scrap or losing takt.</div>`;
+  } else if(watch.length){
+    h+=`<div class="banner">Nothing due. <b>${watch.map(esc).join(", ")}</b> ${watch.length>1?"are":"is"} trending up but below the t≥${mt.trend_threshold_tstat} evidence bar — this fits the next scheduled window.</div>`;
+  } else {
+    h+=`<div class="banner">Nothing due this week. No asset is trending up with enough evidence (t≥${mt.trend_threshold_tstat}) and no parameter is heading for a limit.</div>`;
+  }
+  h+=`<h4>Assets</h4><div class="andons">`+assets.map(a=>`<div class="andon ${cls(a)}" title="${esc(a.id)} ${esc(a.type)} · ${esc(a.zone)} · ${esc(a.sensors)}">
+    <b>${esc(a.id)}</b><span>${a.slope_s_per_min==null?"—":(a.slope_s_per_min>=0?"+":"")+a.slope_s_per_min.toFixed(2)+"s/m"}</span><i>${esc(a.status)}</i></div>`).join("")+`</div>`;
+  h+=`<h4>Degradation trend <span class="muted">cycle fitted over recent history, ◐ inferred</span></h4>
+    <table class="tbl"><tr><th>asset</th><th>type</th><th>cycle</th><th>trend</th><th>t</th><th>to takt</th><th>status</th></tr>`
+    +assets.map(a=>{
+      const st=a.status;
+      const eta=a.min_to_takt==null?(st==="unknown"?"no history":"—"):(a.min_to_takt<=0?"over now":`~${a.min_to_takt} min`);
+      return `<tr class="${st==="schedule"?"err":st==="ok"?"ok":""}"><td>${esc(a.id)} <span class="muted">${esc(a.zone)}</span></td><td>${esc(a.type)}</td>
+      <td>${a.effective_cycle_s==null?"—":`${MARK.inferred}${a.effective_cycle_s}s / ${takt}s`}</td>
+      <td>${a.slope_s_per_min==null?"—":(a.slope_s_per_min>=0?"+":"")+a.slope_s_per_min.toFixed(2)+" s/min"}</td>
+      <td>${a.tstat==null?"—":a.tstat}</td><td>${eta}</td><td>${esc(st)}</td></tr>`;
+    }).join("")+`</table>`;
+  if(drift.length){
+    h+=`<h4>Process parameters heading for a limit</h4>`+drift.map(d=>`<div class="lp drift"><b>${esc(d.station)}.${esc(d.param)}</b><span>drifting ${esc(d.direction)} since ~${esc(d.onset)}</span>
+      <div>Mean ${MARK.measured} ${d.mean_now} ${esc(d.unit)} against spec ${d.lsl}–${d.usl}. ${d.outside_spec_now?`Already outside the limit — this is a repair now, not a scheduled job${d.min_to_limit==null?"":` (the crossing was projected ~${d.min_to_limit} min out when the drift was first flagged)`}.`:(d.min_to_limit==null?"No crossing projected at the present rate — keep it on the watch list.":(d.min_to_limit<=0?"At the limit: this is a repair, not a scheduled job.":`At the rate seen at onset it crosses in ~${d.min_to_limit} min — inside this shift, not this week.`))}</div></div>`).join("");
+  }
+  const mons=(mt.param_monitors||[]).slice().sort((a,b)=>a.margin_pct_of_spec-b.margin_pct_of_spec).slice(0,6);
+  if(mons.length){
+    h+=`<h4>Margin to spec <span class="muted">tightest first</span></h4><table class="tbl"><tr><th>parameter</th><th>mean now</th><th>spec</th><th>margin</th><th>ewma (sd)</th><th>cusum lo/hi</th></tr>`
+      +mons.map(m=>`<tr class="${m.drifting?"err":m.margin_pct_of_spec>25?"ok":""}"><td>${esc(m.station)}.${esc(m.param)}</td><td>${m.mean_now} ${esc(m.unit)}</td><td>${m.lsl}–${m.usl}</td>
+        <td>${m.margin_pct_of_spec}%</td><td>${m.ewma_sd>=0?"+":""}${m.ewma_sd}</td><td>${m.cusum_lo}/${m.cusum_hi}</td></tr>`).join("")+`</table>`;
+  }
+  if(faults.length){
+    h+=`<h4>Sensor health</h4>`+faults.map(f=>`<div class="lp raised"><b>${esc(f.station)}</b><span>${esc(f.sensors)}</span><div>Reporting <b>${esc(f.health)}</b> — the instrument is a maintenance job of its own, and until it is fixed this asset's trend is reconstructed, not measured.</div></div>`).join("");
+  }
+  const blind=mt.blind||[], untrended=mt.untrended||[], unrep=mt.unreported_params||[];
+  if(blind.length||untrended.length||unrep.length){
+    h+=`<h4>What the twin cannot see</h4><div class="lp grouped"><div>`
+      +[blind.length?`${blind.map(b=>esc(b.station)).join(", ")} report nothing; their wear is reconstructed from neighbours and marked ◐.`:"",
+        untrended.length?`${untrended.map(esc).join(", ")} have no usable cycle history yet — absence of a trend is not evidence of health.`:"",
+        unrep.length?`${unrep.map(esc).join(", ")} are never reported, so no drift toward a limit can be seen there at all.`:""].filter(Boolean).join("<br>")
+      +`</div></div>`;
+  }
+  return h;
+}
+
 function livePanel(){
   // Active = raised and not since cleared. The event stream is the same one
   // the store persists, so this panel and the audit trail cannot disagree.
@@ -591,7 +658,7 @@ async function renderPane(){
     <h3>AI reports</h3><div class="events">${(au.reports||[]).map(r=>`<div class="${r.grounded?'cleared':'raised'}">#${r.id} ${r.persona} · ${r.provider}/${r.model} · evidence ${r.evidence_sha256.slice(0,10)}… · ${r.grounded?"grounded":"UNGROUNDED: "+r.unsupported.join(", ")} · $${(r.cost_usd||0).toFixed(4)}</div>`).join("")||"<div>none yet</div>"}</div>`;
     const mk=(id,persona)=>{$(id).onclick=async()=>{$("rep_out").innerHTML="<pre>working…</pre>";const r=await api(`/api/report/${persona}`,{});$("rep_out").innerHTML=r.error?`<div class="err">${r.error}</div>`:`<p>#${r.report_id} · ${r.provider} · evidence sha ${(r.evidence_sha256||"").slice(0,12)}… · ${r.grounded?"every number traced to the evidence pack":"unsupported numbers: "+r.unsupported.join(", ")}</p><pre>${r.text.replace(/</g,"&lt;")}</pre>`;};};
     mk("rep_sup","supervisor");mk("rep_q","quality");mk("rep_m","manager");return;}
-  const VIEWS={supervisor:vSupervisor,quality:vQuality,manager:vManager,leadership:vExec};
+  const VIEWS={supervisor:vSupervisor,quality:vQuality,maintenance:vMaintenance,manager:vManager,leadership:vExec};
   if(VIEWS[p]){
     el.innerHTML=`<div class="pv"><div class="lp quiet">Reading the twin…</div></div>`;
     const pack=await api2("/api/pack");

@@ -9,6 +9,13 @@ source.
     python -m loom.numbers docs/proposal.md          # exits non-zero on a miss
     python -m loom.numbers --list                    # what the runs support
 
+**What this does not catch.** It checks *presence*, not *correspondence*: a figure that appears
+somewhere in a generated document passes, even if the prose has attached it to the wrong row. That
+is exactly how a stale calibration table survived a re-run — the new percentages were all present,
+just paired with the wrong confidence bins. Presence is a cheap, mechanical guard against the
+common failure (a number nothing produced); correspondence still needs a person to read the table
+next to the claim.
+
 Rationale: the benchmark numbers were hand-copied into three documents once and
 were stale within two commits. A claim nobody can trace is worth nothing to a
 panel, and we are in no position to demand grounding from a language model and

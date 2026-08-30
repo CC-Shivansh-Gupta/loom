@@ -12,7 +12,8 @@ Four layers, one event schema, a hard wall between truth and belief.
 
 The line is data (`configs/*.yaml`, ISA-95-shaped, with `extends:` for scenarios).
 See `docs/research.md` for landscape and differentiators, `docs/forecaster_tuning.md` for
-how the alert thresholds were chosen.
+how the alert thresholds were chosen, `docs/proposal.md` for the business proposal and
+`docs/deck.html` for the pitch deck.
 
 ```
 make test

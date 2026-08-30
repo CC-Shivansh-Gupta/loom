@@ -297,7 +297,7 @@ Telemetry is kept for every LLM call (tokens, latency, cost) so the economics ar
 | Momentary bottleneck from partial data vs plant truth | 96–99 % agreement during faults |
 | Silent weld drift | hold 12.8 min before the first end-of-line catch, precision 81 %, recall 99 % |
 | Two-condition intermittent defect | true pair ranked first in 17/20 runs |
-| Confidence means something | stated 0.9–1.0 → 97 % hit rate; 0.7–0.9 → 75 %; 0.5–0.7 → 44 % |
+| Confidence means something | stated 0.9–1.0 → 100 % hit rate; 0.7–0.9 → 97 %; 0.5–0.7 → 59 % |
 
 Known limits, stated rather than hidden: (0) `shifting` still **misses 3 of 40 faults**, and the
 healthy-line floor of 0.30 per 8 h sits slightly above the 0.2 budget rather than under it. (1) a defect with no upstream signal is only learnable from

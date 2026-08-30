@@ -64,6 +64,94 @@ def pack(twin: Twin, coverage: dict[str, str] | None = None,
         "unreported_params": [f"{s.id}.{p.name}" for s in cfg.stations for p in s.params
                               if s.id not in q.reports],
     }
+    # Maintenance horizon: per-asset degradation, so the week-ahead view and
+    # the text renderer cannot disagree about which station is wearing.
+    fc = twin.forecaster
+    assets = []
+    for s in cfg.stations:
+        b = twin.stations[s.id]
+        fit = fc.fit(s.id, twin.t)
+        row: dict[str, Any] = {
+            "id": s.id, "zone": s.zone, "type": s.type.name, "sensors": s.sensors.name,
+            "sensor_health": b.health, "capacity": s.capacity, "takt_s": cfg.takt_s,
+            "nominal_cycle_s": s.cycle_s,
+        }
+        if fit is None:
+            row.update({"status": "unknown", "samples": 0, "cycle_now_s": None,
+                        "effective_cycle_s": None, "slope_s_per_min": None, "tstat": None,
+                        "min_to_takt": None, "over_takt": None,
+                        "why": "no usable cycle history — nothing to trend"})
+        else:
+            eff = fit.c_now / s.capacity
+            over = eff > cfg.takt_s
+            trending = fit.slope > 0 and fit.tstat >= fc.min_tstat
+            if over:
+                to_takt: float | None = 0.0
+            elif fit.slope > 0 and fit.tstat >= 2.0:
+                to_takt = round((cfg.takt_s * s.capacity - fit.c_now) / fit.slope / 60)
+            else:
+                to_takt = None
+            row.update({
+                "status": "schedule" if (over or trending) else (
+                    "watch" if fit.slope > 0 and fit.tstat >= 2.0 else "ok"),
+                "samples": fit.n,
+                "cycle_now_s": round(fit.c_now, 1),
+                "effective_cycle_s": round(eff, 1),
+                "slope_s_per_min": round(fit.slope * 60, 2),
+                "tstat": round(fit.tstat, 1),
+                "min_to_takt": to_takt,
+                "over_takt": over,
+                "source": "inferred",
+            })
+        assets.append(row)
+    param_drift = []
+    for (sid, pname), m in q.monitors.items():
+        a = m.active
+        if a is None:
+            continue
+        param_drift.append({
+            "station": sid, "param": pname, "direction": a.direction,
+            "mean_now": round(m.mean_now(), 3), "unit": m.spec.unit,
+            "lsl": m.spec.lsl, "usl": m.spec.usl,
+            "onset": _hm(a.onset_t),
+            "min_to_limit": None if a.t_to_limit_s is None else round(a.t_to_limit_s / 60),
+            # The projection is made once, at onset. Whether the mean is outside
+            # the limit *now* is a separate, live fact -- and the one that decides
+            # whether this is a scheduled job or a repair.
+            "outside_spec_now": bool(m.mean_now() < m.spec.lsl if a.direction == "low"
+                                     else m.mean_now() > m.spec.usl),
+            "ewma_sd": round(m.ewma, 2), "cusum_lo": round(m.c_lo, 1), "cusum_hi": round(m.c_hi, 1),
+        })
+    param_monitors = []
+    for (sid, pname), m in q.monitors.items():
+        if sid not in q.reports or m.n == 0:
+            continue
+        mean = m.mean_now()
+        span = (m.spec.usl - m.spec.lsl) or 1.0
+        margin = min(mean - m.spec.lsl, m.spec.usl - mean)
+        param_monitors.append({
+            "station": sid, "param": pname, "mean_now": round(mean, 3), "unit": m.spec.unit,
+            "lsl": m.spec.lsl, "usl": m.spec.usl, "n": m.n,
+            "ewma_sd": round(m.ewma, 2), "cusum_lo": round(m.c_lo, 1), "cusum_hi": round(m.c_hi, 1),
+            "margin_to_limit": round(margin, 3),
+            "margin_pct_of_spec": round(100 * margin / span, 1),
+            "drifting": m.active is not None,
+        })
+    maintenance = {
+        "trend_threshold_tstat": fc.min_tstat,
+        "assets": assets,
+        "param_drift": param_drift,
+        "param_monitors": param_monitors,
+        "due": [a["id"] for a in assets if a["status"] == "schedule"],
+        "watch": [a["id"] for a in assets if a["status"] == "watch"],
+        "sensor_faults": [{"station": a["id"], "health": a["sensor_health"], "sensors": a["sensors"]}
+                          for a in assets if a["sensor_health"] != "ok"],
+        "blind": [{"station": a["id"], "sensors": a["sensors"],
+                   "why": "reports nothing; trend reconstructed from neighbours"}
+                  for a in assets if a["sensors"] == "dark"],
+        "untrended": [a["id"] for a in assets if a["status"] == "unknown"],
+        "unreported_params": quality["unreported_params"],
+    }
     out: dict[str, Any] = {
         "line": {"id": cfg.name, "plant": cfg.plant.get("name", cfg.name), "takt_s": cfg.takt_s,
                  "now": _hm(twin.t), "hours_run": round(hours, 2), "stations": len(cfg.stations)},
@@ -73,6 +161,7 @@ def pack(twin: Twin, coverage: dict[str, str] | None = None,
         "stations": stations,
         "alerts": alerts,
         "quality": quality,
+        "maintenance": maintenance,
         "provenance_legend": {"measured": "read from a sensor", "inferred": "reconstructed from neighbours",
                               "simulated": "forecast from believed state"},
     }

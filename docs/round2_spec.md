@@ -288,7 +288,8 @@ retrofits off ten minutes of history produces a table of zeroes in a confident o
 | **E6 · multi-cause discriminating sample** | the designed fix for 16 % precision; the scenario currently ends in a bad hold rather than a request to sample |
 | **E6a · the back-fill claim** | needs a sparse-reading scenario, or the mechanism goes |
 | **Maintenance view** | still text; the only persona view that is |
-| **Deck and video** | the two named deliverables that do not exist. Story mode is the video's spine |
+| **Deck** | **done** — `docs/deck.html`, 11 slides, every figure from a generated evidence document |
+| **Video** | not started. Story mode is its spine: ten scripted scenes, re-recordable after any code change |
 
 ## Demo scene order (the spine of deck and video)
 
