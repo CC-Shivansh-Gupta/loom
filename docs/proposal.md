@@ -66,7 +66,7 @@ sensor layer passes.
   blocks in ~7 min, confidence 70 %, 100 % inferred". Naïve trend test: 49 false alarms/shift; with
   guards: 0.2 per 8 h.
 - **Quality.** EWMA/CUSUM on process parameters; a drift is a warning until a reading is out of spec,
-  which opens a hold back-filled from the onset. Contribution analysis (singles and pairs, lift +
+  which opens a hold classifying each vehicle on its own reading from the station. Contribution analysis (singles and pairs, lift +
   Fisher exact) ranks hypotheses with evidence. Holds split sure / uncertain / already exited.
 - **Beyond serial.** Parallel stations, rework loops (a quality problem becoming a flow problem — the
   inspection station becomes the bottleneck and the forecaster names it), shift calendars with breaks
@@ -90,6 +90,25 @@ hypotheses for the simulator to test, and drives the improvement loop through a 
 | predicting, scoring, deciding a hold, changing a live threshold | **never** | |
 
 ## Evidence
+
+**Against the alternatives** (`docs/baselines.md`) — each comparator sees the same sensor-filtered
+event stream the twin saw, so the difference is the mechanism, not the data.
+
+| method | alarms / 8 h, healthy line | lead on an instrumented ramp | lead with the station dark | escapes on the drift scenario |
+|---|---|---|---|---|
+| no twin | 0 | 0 — you find out when it blocks | 0 | 63 |
+| threshold alarm | 145 | 13.2 min | never warns | — |
+| active-period detection | 45 | 5.9 min | 5.9 min | — |
+| **Loom** | **0.3** | **7.3 min** | **5.8 min** | **0** |
+
+Lead time is only meaningful next to the alarm rate that bought it: a trigger-happy rule always wins
+on lead and is always ignored by the floor within a week.
+
+**What each mechanism buys** (`docs/ablation.md`) — without inferred samples the dark ramp is missed
+5/5; without the pair search the two-condition cause is found 0/5; without the persistence rule
+false alarms go from 0.2 to 2.0 per 8 h.
+
+**Absolute performance**
 
 | claim | result (5 seeds) |
 |---|---|
@@ -148,7 +167,9 @@ evidence, grounding check, no LLM in the prediction path.
 
 ## What we do not claim
 
-Rework breaks FIFO (inference exact only between rework points); adjacent finish-only stations are
+The drift onset back-fill recovers no vehicles on our demo scenario — the cause station reports a
+reading for every vehicle, so the onset window never binds; we found this by building the ablation
+table and we have not yet built the sparse-reading scenario where it would matter. Rework breaks FIFO (inference exact only between rework points); adjacent finish-only stations are
 inseparable; the demo line sits at the false-alarm budget; the Factory I/O run used a stand-in
 controller; process parameters are proven on the simulated plant only.
 

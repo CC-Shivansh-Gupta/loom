@@ -203,6 +203,14 @@ class Hold:
 class QualityTwin:
     ONSET_MARGIN_TAKTS = 3
     MIN_FAILS = 3
+    # Ablation knob (docs/ablation.md): with this off a hold starts at the
+    # first out-of-spec reading instead of being back-filled to the
+    # estimated drift onset -- i.e. every vehicle built during the silent
+    # part of the drift is missed.
+    backfill = True
+    # Ablation knob: 0 disables the pair search in contribution analysis,
+    # leaving single-condition hypotheses only.
+    MAX_PAIRS = 5
 
     def __init__(self, cfg: LineCfg, twin: "Twin") -> None:
         self.cfg = cfg
@@ -295,15 +303,16 @@ class QualityTwin:
         key = (a.station, a.param)
         spec = self.specs[key]
         margin = self.ONSET_MARGIN_TAKTS * self.cfg.takt_s
-        hold = Hold(len(self.holds) + 1, t, "drift", a.station, a.param, [], [], [], onset_t=a.onset_t)
+        onset = a.onset_t if self.backfill else t
+        hold = Hold(len(self.holds) + 1, t, "drift", a.station, a.param, [], [], [], onset_t=onset)
         for vid, t0, exact in sorted(self._started_at(a.station), key=lambda r: r[1]):
-            if t0 < a.onset_t - margin or vid in self._held:
+            if t0 < onset - margin or vid in self._held:
                 continue
             x = self.params.get(vid, {}).get(key)
             cls = self._classify(x, spec, a.direction)
             if cls is None:
                 continue
-            if cls == "sure" and (t0 < a.onset_t or not exact):
+            if cls == "sure" and (t0 < onset or not exact):
                 cls = "uncertain"
             (hold.sure if cls == "sure" else hold.uncertain).append(vid)
             self._held.add(vid)
@@ -379,7 +388,8 @@ class QualityTwin:
         return None if unknown else True
 
     # -- contribution analysis -------------------------------------------
-    def contribution(self, inspect_station: str, max_pairs: int = 5) -> list[Hypothesis]:
+    def contribution(self, inspect_station: str, max_pairs: int | None = None) -> list[Hypothesis]:
+        max_pairs = self.MAX_PAIRS if max_pairs is None else max_pairs
         insp_i = self.cfg.index(inspect_station)
         bad, good = [], []
         for vid, res in self.inspected.items():

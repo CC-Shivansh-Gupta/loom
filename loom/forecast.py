@@ -77,7 +77,8 @@ class Forecaster:
     # 56->80s ramp, with the twin's RAISE_AFTER=3 persistence rule.
     def __init__(self, takt_s: float, *, window: int = 20, min_samples: int = 8,
                  min_tstat: float = 4.0, min_over_z: float = 2.0,
-                 horizon_s: float = 1800.0, step_s: float = 5.0) -> None:
+                 horizon_s: float = 1800.0, step_s: float = 5.0,
+                 use_inferred: bool = True) -> None:
         self.takt = takt_s
         self.window = window
         self.min_samples = min_samples
@@ -85,9 +86,14 @@ class Forecaster:
         self.min_over_z = min_over_z
         self.horizon = horizon_s
         self.step = step_s
+        # Ablation knob (docs/ablation.md): with this off the forecaster sees
+        # only measured cycles, i.e. a dark station contributes nothing.
+        self.use_inferred = use_inferred
         self.samples: dict[str, deque[tuple[float, float, str]]] = {}
 
     def observe(self, station: str, t: float, cycle_s: float, source: str = "measured") -> None:
+        if source != "measured" and not self.use_inferred:
+            return
         self.samples.setdefault(station, deque(maxlen=self.window)).append((t, cycle_s, source))
 
     def fit(self, station: str, t: float) -> Fit | None:
@@ -135,7 +141,10 @@ class Forecaster:
             return None                             # never fills within horizon
 
         if over:
-            conf = min(1.0, fit.over_z / (2 * self.min_over_z))
+            # min_over_z = 0 is the "no standard-error test" ablation: the
+            # test degenerates to a raw over-takt comparison and there is no
+            # scale left to express confidence on.
+            conf = 1.0 if self.min_over_z <= 0 else min(1.0, fit.over_z / (2 * self.min_over_z))
             basis = "over_takt"
         else:
             conf = min(1.0, fit.tstat / (2 * self.min_tstat))

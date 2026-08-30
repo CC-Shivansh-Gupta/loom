@@ -65,8 +65,41 @@ Sources in `research.md`. The numbers that frame the proposal:
 
 ## 3. Did we solve it effectively?
 
-The strongest evidence is that the benchmark is against ground truth the twin never saw, over seeds,
-with the failures stated (`benchmark.md`, `solution_design.md` §6b):
+Three kinds of evidence, in ascending order of how hard they are to argue with. All against ground
+truth the twin never saw, over seeds, with the failures stated.
+
+**(a) Against the alternatives** (`docs/baselines.md`). Absolute numbers invite "compared to what?".
+Every comparator below sees the same sensor-filtered event stream the twin saw, so the difference is
+the mechanism, not the data.
+
+| method | alarms / 8 h on a healthy line | verdict |
+|---|---|---|
+| threshold alarm (cycle > takt x 1.05) | 145 | an alarm every three minutes is an alarm nobody reads |
+| active-period detection (Roser), same persistence rule | 45 | fine as a dashboard signal, unusable as an alarm |
+| **Loom** | **0.3** | inside the published budget |
+
+Read lead time only next to that column. A threshold alarm gets *more* lead than Loom on an
+instrumented station (13.2 min vs 7.3) — because it fires 145 times a shift. On the dark station it
+never warns at all, because a threshold rule has nothing to threshold. And for containment: 63
+defective vehicles escape with end-of-line inspection alone; a blanket hold stops 90 vehicles
+starting at minute 54; Loom holds 76 starting at minute 42.
+
+**(b) What each mechanism buys** (`docs/ablation.md`). One knob off per row, everything else fixed:
+
+| mechanism removed | false alarms / 8 h | dark ramp caught | 2-condition cause found |
+|---|---|---|---|
+| **full system** | **0.2** | **5/5** | **5/5** |
+| no persistence rule | 2.0 | 5/5 | 5/5 |
+| no standard-error test | 0.4 | 5/5 | 5/5 |
+| no inferred samples | 0.2 | **0/5** | 5/5 |
+| no pair search | 0.2 | 5/5 | **0/5** |
+| no drift back-fill | 0.2 | 5/5 | 5/5 |
+
+The last row is a finding against ourselves: the onset back-fill recovers zero vehicles on the demo
+scenario, because B2 reports a reading for every vehicle and hold membership is decided per reading.
+Either a scenario exercises it or the claim leaves the proposal (spec item E6a).
+
+**(c) Absolute performance** (`benchmark.md`, `solution_design.md` §6b):
 
 | claim | result |
 |---|---|
