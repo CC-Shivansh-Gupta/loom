@@ -185,8 +185,9 @@ fallback and the control arm.
   against spec limits, fault injection, YAML line editor, six persona tabs, an **AI tab** with all
   four AI features live, scorecard, recording to a shareable replay page.
 - **Floor, Quality and Mgr are designed views, not text dumps**: stat tiles, an andon grid coloured
-  by state, ranked-hypothesis and prediction tables, a coverage map, and the retrofit roadmap —
-  "instrument C06 next, $50, +15.2 min of warning". All three render from `/api/pack`, the same
+  by state, ranked-hypothesis and prediction tables, a coverage map, and the retrofit roadmap,
+  which names the next station to instrument, what the kit costs and how much extra warning the
+  twin measured it would have bought. All three render from `/api/pack`, the same
   evidence pack the AI layer is handed, so a briefing and the screen a supervisor is looking at
   cannot disagree.
 - The default panel reports the line's condition — **current constraint** (active-period) and

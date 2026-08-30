@@ -41,7 +41,6 @@ python -m loom.run configs/ramp_b3_dark.yaml --hours 2   # B3 dark: what step 3 
 
 Views: `--view operator:<station>`, `supervisor`, `quality`, `maintenance`, `manager`, `leadership` (ROI with stated assumptions; **Exec** tab in the control room).
 
-Views: `--view operator:<station>`, `supervisor`, `quality`, `maintenance`, `manager`.
 
 Benchmark over many seeds (every number against ground truth the twin never saw):
 
@@ -87,7 +86,18 @@ a WebSocket and renders the line in 3D (Three.js). Nothing is precomputed.
   parameter out of spec. The plant changes at once; Loom only sees what the sensors pass.
 - **Line** — edit the YAML (stations, zones, buffers, sensors, variants, scheduled faults) and apply;
   the plant and twin rebuild from zero. Any file in `configs/` loads from the picker.
-- **Floor / Quality / Maint. / Mgr / Log** — the persona views and the event log, live.
+- **Floor / Quality / Mgr / Exec** — designed persona views, not text dumps: stat tiles, an andon
+  grid coloured by state, drift and hold cards, ranked hypotheses, the prediction ledger scored
+  against what happened, a coverage map, the retrofit roadmap, and the investment case with every
+  input printed and a sensitivity at a tenth of the biggest assumption. All render from
+  `/api/pack` — the same evidence pack the AI layer is handed — so a briefing and the screen a
+  supervisor is looking at cannot disagree. **Maint.** and **Log** are the remaining text views.
+- **AI** — briefings, what-if (the model proposes from a menu, the simulator ranks), the gated
+  improvement loop showing its refusals, onboarding from a sentence, and a red-team panel where the
+  grounding check catches fabricated numbers on screen.
+- **▶ Story** — ten scripted scenes with captions, driving the same public API a person would
+  click: healthy line, tool wear, the same fault with the station dark, the silent weld drift, the
+  AI layer. It is the video's spine and the failure plan if a live demo misbehaves.
 - The scorecard strip fills in as outcomes happen: warning lead once the line actually blocks, false
   alarms, holds with how many held vehicles are truly defective.
 - **Store** — everything persists to SQLite (`web/loom.db`): every event the twin received, its

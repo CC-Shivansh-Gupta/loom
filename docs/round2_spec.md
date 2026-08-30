@@ -25,13 +25,13 @@ Priority: **P0** blocks submission · **P1** separates a good entry from a winni
 | A4 | LLM eval suite (groundedness, abstention, persona fit) | P1 | `loom/aieval.py` | **done** → `docs/ai_eval.md` |
 | A5 | Model tiering and measured cost per insight | P1 | `loom/llm.py` | — |
 | A6 | Operator notes treated as data, not instructions | P2 | `loom/evidence.py` | — |
-| U1 | Exec view never renders $0 | P0 | `loom/views.py`, `loom/bench.py` | **done** — falls back to `benchmark.json` and labels the basis; adds a 1/10th sensitivity line |
+| U1 | Exec view never renders $0, and is a designed view | P0 | `loom/views.py`, `loom/bench.py`, `web/app.html` | **done** — falls back to `benchmark.json` and labels the basis; adds a 1/10th sensitivity line |
 | U2 | Camera fit; default panel shows live alerts | P0 | `web/app.html` | **done** — and it exposed a real UX confusion, see U2a |
 | U3 | Supervisor, quality and manager views as designed UI, not `<pre>` | P1 | `web/app.html`, `loom/live.py` | **done** — render from `/api/pack`, the same evidence pack the AI layer gets |
-| U4 | Story mode — scripted demo scenes with captions | P1 | `loom/live.py`, `web/app.html` | — |
+| U4 | Story mode — scripted demo scenes with captions | P1 | `web/app.html` | **done** — 10 scenes, drives the same public API a person would click |
 | U5 | VOI as a clickable retrofit roadmap | P1 | `web/app.html`, `loom/live.py` | **done** — ranked, priced, in the manager view |
-| M1 | Complete the competitive landscape | P0 | `docs/research.md`, `proposal.md` | — |
-| M2 | Positioning map, cost wedge, buyer and budget, why-now | P1 | `docs/proposal.md` | — |
+| M1 | Complete the competitive landscape | P0 | `docs/research.md`, `proposal.md` | **done** — Augury/Seebo, Sight Machine, Braincube, Cognite, ThingWorx, Azure DT, TwinMaker, Opcenter, FactoryTalk |
+| M2 | Positioning map, cost wedge, buyer and budget, why-now | P1 | `docs/proposal.md`, `research.md` | **done** — plus build-vs-buy and defensibility |
 
 ---
 
@@ -276,6 +276,19 @@ retrofits off ten minutes of history produces a table of zeroes in a confident o
   build-vs-buy and defensibility answers.
 
 ---
+
+## What is left
+
+| item | why it is still open |
+|---|---|
+| **A1 · Claude wired** | needs an `ANTHROPIC_API_KEY`. Everything is built behind the provider boundary, so it is one environment variable; `aieval` then rescores model output with no change to any file |
+| **A5 · model tiering / measured cost** | blocked on A1 |
+| **A6 · operator notes as data** | small; a test that plants an instruction-shaped note and asserts the report ignores it |
+| **E5 · restore the tuning sweep** | `scratch/sweep.py` is still out of the repo, so `forecaster_tuning.md` cannot be regenerated |
+| **E6 · multi-cause discriminating sample** | the designed fix for 16 % precision; the scenario currently ends in a bad hold rather than a request to sample |
+| **E6a · the back-fill claim** | needs a sparse-reading scenario, or the mechanism goes |
+| **Maintenance view** | still text; the only persona view that is |
+| **Deck and video** | the two named deliverables that do not exist. Story mode is the video's spine |
 
 ## Demo scene order (the spine of deck and video)
 

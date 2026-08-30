@@ -165,6 +165,8 @@ class LiveSim:
             p["momentary_bottleneck"] = None if bn is None else {
                 "station": bn[0], "active_min": round(bn[1] / 60, 1), "source": bn[2]}
             p["economics"] = self.economics_summary()
+        p["roi"] = views.roi(self.twin, sc, cont, self.sensors.coverage(),
+                             self.voi_rank() if with_voi else None)
         return p
 
     VOI_MIN_HISTORY_S = 1200.0   # a retrofit cannot be priced from ten minutes of line

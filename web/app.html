@@ -66,6 +66,10 @@ textarea.cfg{width:100%;height:52vh;font-family:var(--mono);font-size:11.5px;lin
 .lp.hold{border-left-color:#B79BE8} .lp.grouped{border-left-color:#2A3338}
 .lp.quiet{border-left-color:#5FD8A4;color:var(--muted)}
 .lp.cons{border-left-color:#B79BE8}
+#caption{position:absolute;left:24px;right:24px;bottom:96px;max-width:900px;margin:0 auto;background:rgba(12,16,18,.94);border-left:3px solid #B79BE8;padding:14px 18px;font-size:15px;line-height:1.55;opacity:0;transform:translateY(6px);transition:opacity .35s,transform .35s;pointer-events:none;z-index:6}
+#caption.show{opacity:1;transform:none}
+#caption b{font-family:var(--mono);font-size:11px;color:var(--muted);margin-right:10px}
+#story.on{color:#B79BE8;border-color:#B79BE8}
 /* persona views: one twin, six lenses. Layout carries the horizon. */
 .pv h4{font-family:var(--sans,inherit);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:16px 0 6px;font-weight:600}
 .pv h4 .muted{text-transform:none;letter-spacing:0;font-weight:400}
@@ -103,7 +107,7 @@ textarea.cfg{width:100%;height:52vh;font-family:var(--mono);font-size:11.5px;lin
   <select id="scenario" aria-label="Line configuration"></select>
   <button class="play" id="play">Play</button>
   <button id="reset">Reset</button>
-  <button id="rec" title="Record this run as a self-contained replay page">● Record</button>
+  <button id="story">▶ Story</button><button id="rec" title="Record this run as a self-contained replay page">● Record</button>
   <div class="speed" id="speed"><button data-s="10">10×</button><button data-s="30" class="on">30×</button><button data-s="120">120×</button><button data-s="300">300×</button></div>
   <span class="status"><i id="dot"></i><span id="conn">connecting</span></span>
   <div class="legend"><span>measured</span><span class="inf">inferred</span><span class="sim">simulated</span></div>
@@ -112,6 +116,7 @@ textarea.cfg{width:100%;height:52vh;font-family:var(--mono);font-size:11.5px;lin
   <canvas id="gl"></canvas>
   <div class="hud"><b id="clock">00:00</b><span id="hudline"></span>
     <div class="lane"><i></i>plant — what is actually happening<br><i class="b"></i>Loom — what it can see, infer and forecast</div></div>
+  <div id="caption"></div>
   <div class="toast" id="toast"></div>
   <div class="stations" id="strip"></div>
 </section>
@@ -360,6 +365,70 @@ function leadGain(s){
   if(s<=0)return " · no extra warning yet";
   return s<60?` · +${s.toFixed(0)}s of warning`:` · +${(s/60).toFixed(1)} min of warning`;
 }
+
+function money(x){return "$"+Math.round(x).toLocaleString();}
+function vExec(p){
+  const r=p.roi||{}; if(!r.lines)return `<div class="lp quiet">No investment case yet.</div>`;
+  const sv=r.sensitivity||{};
+  let h=`<div class="vhead"><h3>Investment case</h3><span>line ${esc(p.line.id)} · ${esc(p.line.now)} · horizon: quarter</span></div>`;
+  h+=`<div class="banner">Basis: ${esc(r.basis)}${r.lead_from_this_line?"":" — this line has not faulted yet, so the warning figure is ours, not theirs. After two weeks of shadow mode it is replaced by the plant's own."}</div>`;
+  h+=`<div class="stats">
+    <div class="stat good"><b>${money(r.total)}</b><span>annual value</span></div>
+    <div class="stat"><b>${r.lead_min==null?"—":r.lead_min.toFixed(1)}</b><span>min warning</span></div>
+    <div class="stat ${r.false_alarms?"bad":"good"}"><b>${r.false_alarms}</b><span>false alarms</span></div>
+    <div class="stat"><b>${r.payback_months==null?"—":r.payback_months.toFixed(1)}</b><span>months to payback</span></div></div>`;
+  h+=`<h4>Where the value comes from <span class="muted">every input printed</span></h4><table class="tbl"><tr><th>line</th><th>arithmetic</th><th>per year</th></tr>`
+    +r.lines.map(l=>`<tr><td>${esc(l.name)}</td><td>${esc(l.formula)}</td><td>${money(l.value)}</td></tr>`).join("")
+    +`<tr class="ok"><td><b>total</b></td><td></td><td><b>${money(r.total)}</b></td></tr>`
+    +`<tr><td>cost</td><td>licence + retrofit of ${r.retrofit_stations} station(s)</td><td>${money(r.licence)}/yr + ${money(r.capex)} once</td></tr></table>`;
+  h+=`<h4>If you don't believe the biggest assumption</h4>
+    <div class="lp cons"><div>The whole case rests on <b>${money(sv.downtime_cost_per_min)}/min</b> of downtime. At a tenth of it the value is <b>${money(sv.at_one_tenth_total)}</b>/yr and payback is <b>${sv.at_one_tenth_payback_months==null?"never":sv.at_one_tenth_payback_months.toFixed(1)+" months"}</b>. The claim is not the number — it is that after two weeks of shadow mode the plant has its own number in place of ours.</div></div>`;
+  h+=`<h4>Rollout</h4><div class="lp quiet"><div>Shadow 2 weeks → advisory → reversible automatic. The gate at each step is the trust ledger, not a date. Nothing that touches the physical line is ever automatic.</div></div>`;
+  return h;
+}
+
+// ---------- story mode ----------
+// A scripted run of the five demo scenes. It drives the same public API a
+// person would click, so it is a rehearsal of the real demo rather than a
+// separate code path -- and it is the failure plan if the live demo misbehaves.
+const STORY=[
+ {config:"healthy.yaml", speed:120, caption:"A healthy line. 12 stations, real cycle noise, two model variants. Loom raises nothing — and that is the hard part: the published false-alarm floor is 0.30 per 8 h."},
+ {at:8, tab:"station", caption:"Every value carries its provenance: ● measured, ◐ inferred, ○ simulated. Nobody else shows an operator whether they are reading a measurement or a guess."},
+ {config:"ramp_b3.yaml", speed:120, caption:"Now B3 starts wearing — 56 s drifting to 78 s over 20 minutes. Watch the front lane (the plant) and the lane behind it (what Loom believes)."},
+ {at:45, tab:"station", caption:"Loom warns before the block: 'B2 blocks in ~7 min'. The forecaster fits the measured cycles, then simulates the buffer forward. The ETA is ○ simulated and says so."},
+ {at:58, tab:"manager", caption:"And it scores itself. Warned at 43 min, blocked at 50 — that lead time goes in the ledger whether it flatters us or not."},
+ {config:"ramp_b3_dark.yaml", speed:120, caption:"THE SAME FAULT, WITH B3 DARK. B3 now reports nothing at all. A threshold alarm has nothing to threshold and never fires."},
+ {at:50, tab:"station", caption:"Loom still warns — 6.0 min of lead, reconstructed from B2 and B4 alone. This is the whole thesis: the plant everybody actually has is partly blind."},
+ {config:"weld_drift_b2.yaml", speed:120, caption:"A different failure: B2's weld current sags out of spec. No cycle-time symptom at all — the line looks perfectly healthy."},
+ {at:45, tab:"quality", caption:"CUSUM catches it at source and opens a targeted hold — 12.8 minutes before end-of-line inspection sees the first weak weld. 77 vehicles held instead of a blanket 90."},
+ {at:60, tab:"ai", caption:"The AI layer writes the briefings from that evidence and nothing else — and the grounding check catches it if it ever reaches for a number the evidence does not contain."},
+];
+let storyIx=-1, storyT0=null;
+function storyStop(msg){
+  storyIx=-1; $("story").classList.remove("on"); $("story").textContent="▶ Story";
+  const c=$("caption"); if(c)c.classList.remove("show");
+  if(msg)toast({t:0,kind:"inject",text:msg});
+}
+async function storyStep(){
+  if(storyIx<0)return;
+  const sc=STORY[storyIx];
+  if(!sc){storyStop("Story complete");return;}
+  // Go through afterLoad, not just the API: otherwise the scene, the strip
+  // and the scenario picker all keep describing the previous line.
+  if(sc.config){const r=await api("/api/load",{name:sc.config}); if(r.meta)afterLoad(r.meta);}
+  if(sc.speed)await api("/api/control",{speed:sc.speed,playing:true});
+  if(sc.tab){S.pane=sc.tab;setTab();renderPane();}
+  const c=$("caption"); c.innerHTML=`<b>${storyIx+1}/${STORY.length}</b> ${esc(sc.caption)}`; c.classList.add("show");
+  storyIx++;
+  const next=STORY[storyIx];
+  if(!next)return void setTimeout(()=>storyStop("Story complete"),9000);
+  if(next.at==null)return void setTimeout(storyStep,9000);
+  storyT0=next.at*60;
+  const wait=()=>{ if(storyIx<0)return;
+    if(S.frame&&S.frame.t>=storyT0)storyStep(); else setTimeout(wait,300); };
+  setTimeout(wait,600);
+}
+
 function voiRows(ns){
   if(!ns.length)return `<div class="lp quiet">Every station already reports — nothing to buy.</div>`;
   if(ns.every(r=>!r.extra_samples_per_h))
@@ -522,7 +591,7 @@ async function renderPane(){
     <h3>AI reports</h3><div class="events">${(au.reports||[]).map(r=>`<div class="${r.grounded?'cleared':'raised'}">#${r.id} ${r.persona} · ${r.provider}/${r.model} · evidence ${r.evidence_sha256.slice(0,10)}… · ${r.grounded?"grounded":"UNGROUNDED: "+r.unsupported.join(", ")} · $${(r.cost_usd||0).toFixed(4)}</div>`).join("")||"<div>none yet</div>"}</div>`;
     const mk=(id,persona)=>{$(id).onclick=async()=>{$("rep_out").innerHTML="<pre>working…</pre>";const r=await api(`/api/report/${persona}`,{});$("rep_out").innerHTML=r.error?`<div class="err">${r.error}</div>`:`<p>#${r.report_id} · ${r.provider} · evidence sha ${(r.evidence_sha256||"").slice(0,12)}… · ${r.grounded?"every number traced to the evidence pack":"unsupported numbers: "+r.unsupported.join(", ")}</p><pre>${r.text.replace(/</g,"&lt;")}</pre>`;};};
     mk("rep_sup","supervisor");mk("rep_q","quality");mk("rep_m","manager");return;}
-  const VIEWS={supervisor:vSupervisor,quality:vQuality,manager:vManager};
+  const VIEWS={supervisor:vSupervisor,quality:vQuality,manager:vManager,leadership:vExec};
   if(VIEWS[p]){
     el.innerHTML=`<div class="pv"><div class="lp quiet">Reading the twin…</div></div>`;
     const pack=await api2("/api/pack");
@@ -548,6 +617,7 @@ api("/api/meta").then(meta=>{const sel=$("scenario");meta.scenarios.forEach(n=>{
 $("scenario").addEventListener("change",async()=>{const r=await api("/api/load",{name:$("scenario").value});if(r.meta)afterLoad(r.meta);});
 $("play").addEventListener("click",()=>api("/api/control",{playing:!(S.frame&&S.frame.playing)}));
 $("reset").addEventListener("click",async()=>{await api("/api/control",{reset:true});S.events=[];S.history=[];refreshScore();});
+$("story").addEventListener("click",()=>{ if(storyIx>=0){storyStop("Story stopped");return;} storyIx=0; $("story").classList.add("on"); $("story").textContent="■ Stop story"; storyStep(); });
 $("rec").addEventListener("click",async()=>{const on=!(S.frame&&S.frame.recording);const r=await api("/api/record",{on});if(r.error){alert(r.error);return;}
   if(!on){const el=$("toast");const d=document.createElement("div");d.className="rec";d.innerHTML=`Recorded ${r.minutes} min (${r.frames} frames) — <a href="${r.html}" target="_blank">open replay page</a> · <a href="${r.json}" download>data</a>`;el.appendChild(d);requestAnimationFrame(()=>d.classList.add("show"));setTimeout(()=>{d.classList.remove("show");setTimeout(()=>d.remove(),400)},30000);}});
 [...$("speed").children].forEach(b=>b.addEventListener("click",()=>api("/api/control",{speed:+b.dataset.s})));

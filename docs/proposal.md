@@ -52,8 +52,38 @@ person deciding — hold or ship, floater or wait — is working blind under tim
 | Industrial metaverse (2026) | Siemens Digital Twin Composer / NVIDIA Omniverse, Industrial Copilot | physics-accurate, agents | fully modelled, fully instrumented, GPU on-prem |
 | Academic detection | active-period, turning-point… | rigorous on complete logs | prediction and incomplete data are the open problems |
 
-**Gap:** nothing is built for a line that is partly blind. Loom sits between the tiers: live,
-configured rather than modelled, honest about coverage, self-scoring.
+Also on the board, and closer than the tiers above: **Augury Process Health (ex-Seebo)** does AI
+root-cause on multi-causal quality problems — but for continuous and batch process lines with dense
+historian coverage, with no flow model of a discrete serial line and no answer for a station that
+reports nothing. **Sight Machine, Braincube, Cognite, PTC ThingWorx, Azure Digital Twins, AWS IoT
+TwinMaker** are substrates: you bring the model, the analytics and the integrator. **Siemens
+Opcenter, Rockwell FactoryTalk/Plex** are systems of record, and changing them is exactly the
+live-production risk the brief warns about.
+
+**Gap:** two axes decide this purchase — how much sensor coverage a tool requires, and whether it
+predicts or only reports. Everything that predicts assumes it can see the line; everything that
+tolerates a partly blind line only reports what already happened. That quadrant is empty, and it is
+where the brief's plant lives.
+
+**What it costs to be in the other quadrants.** Real-time OEE is priced per monitored point, and
+the sensor is the cost — which is a problem when the constraint moves. Offline DES is seat licences
+plus a simulation engineer to keep the model true. An industrial-metaverse twin is a capital
+project. Loom is **$60k/line/yr plus ~$500 a station, and only for the stations the twin asks for**.
+
+**Who signs.** The plant manager or head of manufacturing engineering, from **OT operating budget
+rather than capital** — which is precisely why a read-only tap clears where a retrofit waits for a
+window. Also on the paper: IT/OT security, where read-only, on-prem and no PLC writes is the whole
+answer; and in Europe a works council, because anything that times operators is a consultation
+item. Loom times *stations*, and we say so first.
+
+**Why now.** Downtime per automotive hour has roughly doubled since 2019. Siemens on Omniverse has
+raised both the ceiling and the price of entry, which widens the brownfield middle rather than
+narrowing it. And 64 % of twin projects are still in pilot: the market has proved it wants a twin
+and proved it cannot afford the greenfield one.
+
+**Why not build it.** A Tier-1 could build the simulator in a quarter. What they will not build is
+the evaluator, the published false-alarm budget and the calibration discipline — those only pay off
+if you are willing to publish your own error rate, and an internal tool is never asked to.
 
 ## How Loom works
 

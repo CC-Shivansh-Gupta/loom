@@ -10,7 +10,54 @@ Compiled 2026-08-29. Sources at the end.
 | Real-time OEE / line analytics | Vorne XL, MachineMetrics, Fabrico | Takt vs actual pace, downtime Pareto, micro-stop pattern mining | Need a sensor at every monitored point — "you need to wire sensors to the bottleneck; moving them is a hassle if the constraint shifts"; reactive, no prediction; siloed (MachineMetrics misses non-machine bottlenecks) |
 | Manual-process capture | Tulip | Operator app interactions replace sensors on manual stations; step-level cycle times | Requires operator engagement; no line-flow model |
 | Academic bottleneck detection | utilisation, active-period (Roser 2001), turning-point, queue-length, arrow, bottleneck-walk, data-driven shifting-bottleneck from MES logs | Rigorous *detection* of the momentary bottleneck from complete state logs | The 2023 systematic review lists prediction and operation with incomplete data as open problems |
-| Soft / virtual sensors | process industry, buildings, nuclear | Infer an unmeasured quantity from neighbouring measurements inside a model | Almost never applied to discrete assembly *flow state* |
+| **AI process/quality optimisation** | **Augury Process Health (ex-Seebo)**, Braincube, Sight Machine | **Closest competitor.** Multi-causal root cause on process and quality data, AI agents, simulation; Augury reports RCA in hours not weeks | Built for continuous/batch process lines with dense historian coverage. Assumes the signal exists somewhere in the data; has no flow model of a discrete serial line and no answer for a station that reports nothing |
+| IoT/twin platforms | PTC ThingWorx, Azure Digital Twins, AWS IoT TwinMaker, Cognite Data Fusion | Modelling substrate, connectors, scale | A toolkit, not an answer: you bring the model, the analytics and the integrator. Time-to-value is a project, not a config file |
+| MES / plant IT | Siemens Opcenter, Rockwell FactoryTalk & Plex | Execution, scheduling, genealogy of record | Systems of record, not of prediction; changing them is exactly the live-production risk the brief warns about |
+| Soft / virtual sensors | process industry, buildings, nuclear; JIM 2025 virtual-sensor twin connection models | Infer an unmeasured quantity from neighbouring measurements inside a model | Almost never applied to discrete assembly *flow state* |
+
+**The map that matters.** Two axes decide this purchase, and neither is "how good is the AI":
+
+```
+                    prescriptive │                    Augury/Seebo ·
+                                 │   ┌─────────┐      Siemens+NVIDIA
+   what it does                  │   │  LOOM   │
+   with the data      predictive │   └─────────┘      offline DES
+                                 │
+                       reactive  │                    OEE tools · MES
+                                 └───────────────────────────────────
+                                   partial            total
+                                        sensor coverage required
+```
+
+The upper-left quadrant is empty. Everything that predicts assumes it can see the line; everything
+that tolerates a partly blind line only reports what already happened.
+
+**Cost wedge** (list/typical, for the proposal's TCO table):
+
+| | what you buy | order of magnitude |
+|---|---|---|
+| Real-time OEE (Vorne XL, MachineMetrics) | a device + sensors per monitored point, per line | ~$1–2 k/monitored station hardware + subscription; the sensor is the cost and it moves when the constraint moves |
+| Offline DES (Plant Simulation, FlexSim) | seat licences + a simulation engineer to build and maintain the model | five figures per seat per year, plus a person |
+| Industrial-metaverse twin (Siemens/NVIDIA) | physics-accurate model, on-prem GPU | capital project |
+| **Loom** | software beside the line, read-only; retrofits only where VOI says they pay | **$60 k/line/yr + ~$500/station, and only for the stations the twin asks for** |
+
+**Buyer and budget.** Signs: the plant manager or head of manufacturing engineering, from **OT
+operating budget**, not capital — which is precisely why a read-only $60 k/yr tap clears where a
+capital retrofit waits for a window. Also on the paper: IT/OT security (read-only, on-prem, no PLC
+writes is the whole answer), and in Europe a works council, because anything that times operators
+is a consultation item — Loom times *stations*, and that distinction should be made explicitly.
+
+**Why now (2026).** Downtime per automotive hour has roughly doubled since 2019; Siemens on
+Omniverse has raised both the ceiling and the price of entry, which widens the brownfield middle
+rather than narrowing it; agentic AI is entering operational decision loops, and the same sources
+insist on guardrails and traceability; and 64 % of twin projects are still stuck in pilot. The
+market has proved it wants a twin and proved it cannot afford the greenfield one.
+
+**Build vs buy.** A Tier-1 could build the simulator in a quarter. What they will not build is the
+evaluator, the published false-alarm budget and the calibration discipline — because those only pay
+off if you are willing to publish your own error rate, and internal tools are never asked to. What
+compounds for us: per-station calibration history, the trust ledger across sites, and the
+station-type config library that makes the next line a file.
 
 **Positioning:** Loom sits between the offline DES tools (predictive, but offline and expert-built) and the OEE tools (live, but sensor-hungry and reactive): a live, config-built DES that runs forward from *believed* state, on lines where a third of stations may be dark.
 
