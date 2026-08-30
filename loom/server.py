@@ -152,6 +152,21 @@ async def report(persona: str):
         return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
 
 
+@app.get("/api/pack")
+async def pack() -> dict:
+    return await asyncio.get_event_loop().run_in_executor(None, sim.pack)
+
+
+@app.get("/api/voi")
+async def voi_rank() -> dict:
+    fn = lambda: {"next_sensor": [
+        {"station": r["station"], "from": r["from"], "to": r["to"],
+         "extra_samples_per_h": round(r["d_samples_per_h"], 1),
+         "extra_lead_s": None if r["d_lead_s"] is None else round(r["d_lead_s"], 1),
+         "cost_usd": r["cost"]} for r in sim.voi_rank()[:5]]}
+    return await asyncio.get_event_loop().run_in_executor(None, fn)
+
+
 @app.post("/api/whatif")
 async def whatif(body: dict) -> dict:
     fn = lambda: sim.whatif(body.get("station") or None, float(body.get("horizon_min", 30)))

@@ -6,6 +6,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import threading
+import time
 from pathlib import Path
 
 import yaml
@@ -32,7 +33,17 @@ class LiveSim:
         self.speed = 30.0
         self.playing = False
         self.store = store
+        self._ledger = None
+        self._voi = None
         self.load_named(config)
+        # The ledger is an aggregate over the whole run, so its cost grows with
+        # the run. Computing it on the request path meant the first person to
+        # open a persona view after an hour of fast-forward waited 40 s. A
+        # daemon keeps it warm instead: views read whatever is current and
+        # never block, at the cost of up to LEDGER_CACHE_S of staleness in a
+        # number whose horizon is a shift.
+        self._warm = threading.Thread(target=self._keep_warm, daemon=True)
+        self._warm.start()
 
     # -- lifecycle --------------------------------------------------------
     def load_named(self, name: str) -> None:
@@ -44,6 +55,8 @@ class LiveSim:
         tmp.write_text(text)
         cfg = load_line(tmp)                      # raises ValueError on a bad config
         with self.lock:
+            self._ledger = None
+            self._voi = None
             self.yaml_text = text
             self.source = source
             self.cfg = cfg
@@ -74,10 +87,10 @@ class LiveSim:
         """AI report grounded on a stored, content-hashed evidence pack."""
         from . import evidence, llm, narrate
         prov = provider or llm.get_provider()
+        sc, cont = self.scorecards()
+        vr = self.voi_rank()
         with self.lock:
-            sc = bottleneck_scorecard(self.plant, self.twin)
-            cont = containment_scorecard(self.plant, self.twin)
-            pack = evidence.pack(self.twin, self.sensors.coverage(), sc, cont, voi.rank(self.cfg, self.plant, self.twin))
+            pack = evidence.pack(self.twin, self.sensors.coverage(), sc, cont, vr)
             pack["ai_telemetry"] = llm.telemetry_summary()
             t = self.plant.t
         n_before = len(llm.TELEMETRY)
@@ -94,6 +107,97 @@ class LiveSim:
             self.store.audit("report", {"persona": persona, "report_id": res["report_id"],
                                         "grounded": res["grounded"]}, actor="loom", t=t)
         return out
+
+    # Both TTLs are in **wall** seconds, not line time. Line time was the
+    # obvious choice and the wrong one: at 300x a 60 s line-time cache expires
+    # every 0.2 s of real time, so it never warms and every request pays the
+    # full cost. What we are protecting is the responsiveness of a screen,
+    # which is a wall-clock property.
+    VOI_CACHE_S = 30.0           # value-of-information re-runs the twin per dark station
+    LEDGER_CACHE_S = 15.0        # scorecards walk every event and every vehicle
+
+    def _keep_warm(self) -> None:
+        while True:
+            try:
+                if self.playing or self._ledger is None:
+                    self._refresh_ledger()
+                    self.voi_rank()               # keep the retrofit ranking warm too
+            except Exception:
+                pass                              # a warm cache is best-effort
+            time.sleep(self.LEDGER_CACHE_S)
+
+    def _refresh_ledger(self) -> None:
+        with self.lock:
+            out = (bottleneck_scorecard(self.plant, self.twin),
+                   containment_scorecard(self.plant, self.twin))
+        self._ledger = (time.monotonic(), out)
+
+    def scorecards(self, fresh: bool = False) -> tuple[dict, list]:
+        """Bottleneck and containment scorecards, cached.
+
+        These are evaluator functions: they walk every plant event and every
+        vehicle built, so their cost grows with the length of the run. That is
+        fine once at the end of a benchmark and wrong on the path that paints a
+        screen -- recomputing them per render froze the persona views after a
+        few simulated hours on the 30-station line. The ledger is a slow-moving
+        aggregate, so a short cache costs nothing a user can perceive."""
+        cached = self._ledger
+        if cached is not None and not fresh:
+            return cached[1]                      # possibly a few seconds stale
+        self._refresh_ledger()
+        return self._ledger[1]
+
+    def pack(self, with_voi: bool = False) -> dict:
+        """The twin's state as structured JSON — the same evidence pack the AI
+        layer is given. The persona views render from this, so a briefing and
+        the screen a supervisor is looking at cannot disagree.
+
+        VOI is excluded by default and served separately. It re-runs the twin
+        once per dark station with that station's profile flipped, which on the
+        30-station plant costs ~40 s — fine as an answer to "what should I buy
+        next", unacceptable in the path that paints a supervisor's screen."""
+        from . import evidence
+        sc, cont = self.scorecards()
+        vr = self.voi_rank() if with_voi else None
+        with self.lock:
+            p = evidence.pack(self.twin, self.sensors.coverage(), sc, cont, vr)
+            bn = self.twin.bottleneck_now()
+            p["momentary_bottleneck"] = None if bn is None else {
+                "station": bn[0], "active_min": round(bn[1] / 60, 1), "source": bn[2]}
+            p["economics"] = self.economics_summary()
+        return p
+
+    VOI_MIN_HISTORY_S = 1200.0   # a retrofit cannot be priced from ten minutes of line
+
+    def voi_rank(self) -> list[dict]:
+        """Cached: the ranking only moves as the twin accumulates history.
+
+        Returns nothing until the twin has seen enough of the line to measure a
+        difference. Ranking retrofits off ten minutes of history produces a
+        table of zeroes in a confident order, which is worse than saying so."""
+        if self.plant.t < self.VOI_MIN_HISTORY_S:
+            return []
+        cached = getattr(self, "_voi", None)
+        if cached is not None and time.monotonic() - cached[0] < self.VOI_CACHE_S:
+            return cached[1]
+        with self.lock:
+            cfg, plant, twin = self.cfg, self.plant, self.twin
+        rank = voi.rank(cfg, plant, twin)
+        self._voi = (time.monotonic(), rank)
+        return rank
+
+    def economics_summary(self) -> dict:
+        """The Exec view's arithmetic, as data rather than a rendered string."""
+        e = self.cfg.economics
+        return {"downtime_cost_per_min": e.downtime_cost_per_min,
+                "bottleneck_events_per_week": e.bottleneck_events_per_week,
+                "prevented_share": e.prevented_share,
+                "hold_cost_per_vehicle": e.hold_cost_per_vehicle,
+                "escape_cost_per_defect": e.escape_cost_per_defect,
+                "quality_events_per_month": e.quality_events_per_month,
+                "sensor_cost_per_station": e.sensor_cost_per_station,
+                "licence_per_line_per_year": e.licence_per_line_per_year,
+                "weeks_per_year": e.weeks_per_year}
 
     # -- AI layer, live -----------------------------------------------------
     # The control room is where a judge looks for the AI, so all four
@@ -427,6 +531,11 @@ class LiveSim:
             }
 
     def view(self, role: str) -> str:
+        # Computed outside the lock and cached: the manager and leadership
+        # views need the ledger, and the leadership view needs the VOI
+        # ranking, which re-runs the twin once per dark station.
+        sc, cont = self.scorecards(fresh=True)
+        vr = self.voi_rank() if role in ("manager", "leadership") else None
         with self.lock:
             if role == "supervisor":
                 return views.supervisor(self.twin)
@@ -435,19 +544,16 @@ class LiveSim:
             if role == "maintenance":
                 return views.maintenance(self.twin)
             if role == "manager":
-                sc = bottleneck_scorecard(self.plant, self.twin)
-                return views.manager(self.twin, sc, self.sensors.coverage())
+                return views.manager(self.twin, sc, self.sensors.coverage(), voi_rank=vr)
             if role == "leadership":
-                sc = bottleneck_scorecard(self.plant, self.twin)
-                cont = containment_scorecard(self.plant, self.twin)
-                return views.leadership(self.twin, sc, cont, self.sensors.coverage(),
-                                        voi.rank(self.cfg, self.plant, self.twin))
+                return views.leadership(self.twin, sc, cont, self.sensors.coverage(), vr)
             raise ValueError(role)
 
     def scorecard(self) -> dict:
+        # The strip is small and is read by tests as the truth of the run, so
+        # it recomputes. The persona views go through the warm cache instead.
+        sc, cont = self.scorecards(fresh=True)
         with self.lock:
-            sc = bottleneck_scorecard(self.plant, self.twin)
-            cont = containment_scorecard(self.plant, self.twin)
             return {
                 "bottleneck": [{"station": s.station, "lead_min": None if s.lead_s is None else round(s.lead_s / 60, 1),
                                 "eta_err_min": None if s.eta_error_s is None else round(s.eta_error_s / 60, 1),

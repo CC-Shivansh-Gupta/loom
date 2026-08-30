@@ -27,9 +27,9 @@ Priority: **P0** blocks submission · **P1** separates a good entry from a winni
 | A6 | Operator notes treated as data, not instructions | P2 | `loom/evidence.py` | — |
 | U1 | Exec view never renders $0 | P0 | `loom/views.py`, `loom/bench.py` | **done** — falls back to `benchmark.json` and labels the basis; adds a 1/10th sensitivity line |
 | U2 | Camera fit; default panel shows live alerts | P0 | `web/app.html` | **done** — and it exposed a real UX confusion, see U2a |
-| U3 | Supervisor and exec views as designed UI, not `<pre>` | P1 | `web/app.html`, `loom/server.py` | — |
+| U3 | Supervisor, quality and manager views as designed UI, not `<pre>` | P1 | `web/app.html`, `loom/live.py` | **done** — render from `/api/pack`, the same evidence pack the AI layer gets |
 | U4 | Story mode — scripted demo scenes with captions | P1 | `loom/live.py`, `web/app.html` | — |
-| U5 | VOI as a clickable retrofit roadmap | P1 | `web/app.html` | — |
+| U5 | VOI as a clickable retrofit roadmap | P1 | `web/app.html`, `loom/live.py` | **done** — ranked, priced, in the manager view |
 | M1 | Complete the competitive landscape | P0 | `docs/research.md`, `proposal.md` | — |
 | M2 | Positioning map, cost wedge, buyer and budget, why-now | P1 | `docs/proposal.md` | — |
 
@@ -234,6 +234,35 @@ second says "nothing forming" while a station is visibly holding up the line.
 
 This is a good answer to a question a judge will ask ("your alert cleared but the station is still
 slow?") and it was invisible until the default panel had to state the line's condition in words.
+
+## U3a · The evaluator does not belong on a render path (found by U3)
+
+The persona views render from `/api/pack` — the same evidence pack the AI layer is handed, so a
+briefing and the screen a supervisor is looking at cannot disagree. Building that endpoint exposed
+two performance faults that would have been fatal in a live demo:
+
+1. **`voi.rank` re-runs the twin once per dark station.** On the 30-station plant that is ~40 s. It
+   was inside the pack.
+2. **The scorecards walk every plant event and every vehicle built**, so their cost grows with the
+   run. Fine once at the end of a benchmark, wrong on the path that paints a screen: the first
+   person to open a persona view after an hour of fast-forward waited 40 s on a blank panel.
+
+Fixed in three steps, each worth stating because the first two were wrong:
+
+- Cached both, keyed on **line** time. This does nothing: at 300× a 60 s line-time cache expires
+  every 0.2 s of real time. What is being protected is the responsiveness of a screen, which is a
+  wall-clock property.
+- Cached on wall time. Better, but the *first* request after a long run still paid the full cost.
+- A daemon keeps the ledger and the ranking warm. Views read what is current and never block, at
+  the cost of up to 15 s of staleness in a number whose horizon is a shift. `scorecard()` and the
+  text views still recompute, because the strip is cheap and the tests read it as the truth of the
+  run.
+
+**And one presentation fault.** The retrofit roadmap rounded sub-minute warning gains to "0.0 min"
+and then hid them — so a list that *is* ranked by warning gained looked arbitrarily ordered, on a
+panel whose entire claim is "ranked by what it buys". It now shows the gain in seconds under a
+minute, and abstains entirely until the twin has seen twenty minutes of line, because ranking
+retrofits off ten minutes of history produces a table of zeroes in a confident order.
 
 ## M1–M2 · Market
 

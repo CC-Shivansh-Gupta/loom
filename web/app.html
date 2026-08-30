@@ -66,6 +66,30 @@ textarea.cfg{width:100%;height:52vh;font-family:var(--mono);font-size:11.5px;lin
 .lp.hold{border-left-color:#B79BE8} .lp.grouped{border-left-color:#2A3338}
 .lp.quiet{border-left-color:#5FD8A4;color:var(--muted)}
 .lp.cons{border-left-color:#B79BE8}
+/* persona views: one twin, six lenses. Layout carries the horizon. */
+.pv h4{font-family:var(--sans,inherit);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:16px 0 6px;font-weight:600}
+.pv h4 .muted{text-transform:none;letter-spacing:0;font-weight:400}
+.vhead{display:flex;flex-direction:column;gap:2px;margin-bottom:10px}
+.vhead h3{margin:0}
+.vhead span{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.stats{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.stat{flex:1 1 88px;background:#151C21;border:1px solid #222C33;border-radius:3px;padding:8px 10px;display:flex;flex-direction:column;gap:2px}
+.stat b{font-family:var(--sans,inherit);font-size:20px;line-height:1;font-variant-numeric:tabular-nums}
+.stat span{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.stat.good b{color:#5FD8A4} .stat.bad b{color:#F2A08F} .stat.warn b{color:#E8C07A} .stat.muted2 b{color:var(--muted)}
+.banner{background:#1B1830;border-left:2px solid #B79BE8;padding:8px 10px;font-size:12px;margin:8px 0}
+.andons{display:flex;flex-wrap:wrap;gap:4px}
+.andon{flex:0 0 auto;min-width:62px;background:#151C21;border:1px solid #222C33;border-top:2px solid #3A4750;border-radius:2px;padding:5px 7px;display:flex;flex-direction:column;gap:1px}
+.andon b{font-size:11px} .andon span{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.andon i{font-style:normal;font-size:9px;color:var(--muted)}
+.andon.a-ok{border-top-color:#3E8F6B} .andon.a-over{border-top-color:#E8C07A}
+.andon.a-alert{border-top-color:#F2A08F;background:#231A19} .andon.a-sick{border-top-color:#B79BE8}
+.andon.a-dark{border-top-color:#39434A;color:var(--muted)} .andon.a-part{border-top-color:#5A7C8F}
+.voi{display:flex;flex-direction:column;gap:4px}
+.voirow{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;background:#151C21;border:1px solid #222C33;border-radius:3px;padding:8px 10px}
+.voirow>div:nth-child(2){font-size:12px}
+.voin{font-family:var(--mono);font-size:11px;color:var(--muted);border:1px solid #2A3338;border-radius:2px;padding:2px 6px}
+.voic{font-family:var(--mono);font-size:12px;color:#5FD8A4}
 .muted{color:var(--muted);font-size:11px}
 .tbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;margin:6px 0}
 .tbl th{text-align:left;color:var(--muted);font-weight:400;border-bottom:1px solid #2A3338;padding:4px 6px}
@@ -105,6 +129,7 @@ textarea.cfg{width:100%;height:52vh;font-family:var(--mono);font-size:11.5px;lin
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 const $=id=>document.getElementById(id);
+const api2=u=>fetch(u).then(r=>r.json());
 const esc=x=>String(x==null?"":x).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 const fmt=t=>`${String(Math.floor(t/3600)).padStart(2,"0")}:${String(Math.floor(t%3600/60)).padStart(2,"0")}`;
 const SRC=["measured","inferred","simulated"], STATE=["idle","busy","blocked"], HEALTH=["ok","silent","inconsistent"];
@@ -255,6 +280,125 @@ function spark(canvas,series,opts){const w=canvas.clientWidth,h=70;if(canvas.wid
   series.forEach(s=>{g.strokeStyle=s.color;g.lineWidth=s.width||1.5;g.setLineDash(s.dash||[]);g.beginPath();s.pts.forEach((p,k)=>{k?g.lineTo(X(k),Y(p[1])):g.moveTo(X(k),Y(p[1]));});g.stroke();g.setLineDash([]);
     if(s.dots){g.fillStyle=s.color;s.pts.forEach((p,k)=>{g.beginPath();g.arc(X(k),Y(p[1]),2,0,7);g.fill();});}});
   g.fillStyle="#8C97A3";g.font="10px IBM Plex Mono";g.fillText(hi.toFixed(1),w-38,10);g.fillText(lo.toFixed(1),w-38,h-2);}
+
+// ---------- persona views ----------
+// Six roles, one twin. They differ in horizon, aggregation and which
+// provenance marks are surfaced -- not in the underlying numbers, which all
+// come from the same evidence pack the AI layer is handed. That is the point:
+// a briefing and the screen a supervisor is looking at cannot disagree.
+const PROV={measured:"m",inferred:"i",simulated:"s"};
+const prov=k=>k?`<span class="pill ${PROV[k]||""}">${SRC[k]||k}</span>`:"";
+const pct=x=>x==null?"—":`${Math.round(x*100)}%`;
+
+function andon(st,takt){
+  // Colour is state, not decoration: over takt is the thing a supervisor scans for.
+  const c=st.cycle_s, over=c!=null&&c>takt*1.02;
+  const cls=st.active_alert?"a-alert":(over?"a-over":(st.sensor_health!=="ok"?"a-sick":"a-ok"));
+  return `<div class="andon ${cls}" title="${esc(st.id)} ${esc(st.zone)} · ${esc(st.sensors)}">
+    <b>${esc(st.id)}</b>
+    <span>${c==null?"—":c.toFixed(1)+"s"}</span>
+    <i>${MARK[st.cycle_source]||""}</i>
+  </div>`;
+}
+const MARK={measured:"●",inferred:"◐",simulated:"○"};
+
+function vSupervisor(p){
+  const takt=p.line.takt_s, o=p.output, bn=p.momentary_bottleneck;
+  const over=p.stations.filter(s=>s.cycle_s!=null&&s.cycle_s>takt*1.02);
+  const alerts=p.stations.filter(s=>s.active_alert);
+  const dark=p.stations.filter(s=>s.sensors==="dark");
+  let h=`<div class="vhead"><h3>Shift handover</h3><span>line ${esc(p.line.id)} · ${esc(p.line.now)} · horizon: this shift</span></div>`;
+  h+=`<div class="stats">
+    <div class="stat"><b>${o.vehicles_out}</b><span>out</span></div>
+    <div class="stat"><b>${o.veh_per_h}</b><span>veh/h</span></div>
+    <div class="stat muted2"><b>${o.takt_ceiling_per_h}</b><span>takt ceiling</span></div>
+    <div class="stat ${alerts.length?"bad":"good"}"><b>${alerts.length}</b><span>open alerts</span></div>
+    <div class="stat ${o.vehicles_unplaced?"warn":""}"><b>${o.vehicles_unplaced}</b><span>can't place</span></div>
+  </div>`;
+  if(bn)h+=`<div class="banner">Pace is set by <b>${esc(bn.station)}</b> — longest active period ${bn.active_min} min ${prov(bn.source)}</div>`;
+  h+=`<h4>Andon</h4><div class="andons">${p.stations.map(s=>andon(s,takt)).join("")}</div>`;
+  h+=`<h4>Act now</h4>`;
+  if(alerts.length){
+    h+=alerts.map(s=>`<div class="lp raised"><b>${esc(s.id)}</b><span>conf ${pct(s.active_alert.confidence)}</span>
+      <div>Upstream blocks in ~${s.active_alert.eta_min} min. Cycle ${s.cycle_s}s vs takt ${takt}s${s.active_alert.inferred_share?` · ${pct(s.active_alert.inferred_share)} of the evidence inferred`:""}. Get a floater or rebalance before the ETA.</div></div>`).join("");
+  } else if(over.length){
+    h+=over.map(s=>`<div class="lp cons"><b>${esc(s.id)}</b><span>${s.cycle_s}s vs ${takt}s</span><div>Over takt but not forming a new block — the line has settled around it.</div></div>`).join("");
+  } else h+=`<div class="lp quiet">Nothing to act on.</div>`;
+  if(dark.length)h+=`<h4>Blind spots</h4><div class="lp grouped"><div>${dark.map(s=>esc(s.id)).join(", ")} report nothing; their state is reconstructed from neighbours and marked ◐.</div></div>`;
+  return h;
+}
+
+function vQuality(p){
+  const q=p.quality||{}, fpy=q.first_pass_yield||{};
+  let h=`<div class="vhead"><h3>Containment memo</h3><span>line ${esc(p.line.id)} · ${esc(p.line.now)} · horizon: today</span></div>`;
+  const ys=Object.entries(fpy).filter(([,v])=>v.n);
+  h+=`<div class="stats">${ys.map(([k,v])=>`<div class="stat ${v.pct<95?"warn":"good"}"><b>${v.pct}%</b><span>${esc(k)} first-pass</span></div>`).join("")||`<div class="stat muted2"><b>—</b><span>no inspection yet</span></div>`}
+    <div class="stat ${(q.holds||[]).length?"warn":""}"><b>${(q.holds||[]).length}</b><span>holds</span></div>
+    <div class="stat ${(q.drift_alerts||[]).length?"warn":""}"><b>${(q.drift_alerts||[]).length}</b><span>drifts</span></div></div>`;
+  if((q.drift_alerts||[]).length){
+    h+=`<h4>Drift at source</h4>`+q.drift_alerts.map(d=>`<div class="lp drift"><b>${esc(d.station)}.${esc(d.param)}</b><span>${esc(d.t)}</span>
+      <div>${esc(d.direction)}, mean ${d.mean_now}, onset ~${esc(d.onset)}. ${d.min_to_limit==null?"No crossing projected.":(d.min_to_limit===0?"Already out of spec.":`Spec limit in ~${d.min_to_limit} min.`)}</div></div>`).join("");
+  }
+  if((q.holds||[]).length){
+    h+=`<h4>Holds</h4>`+q.holds.map(x=>`<div class="lp hold"><b>Hold #${x.id}</b><span>${esc(x.t)} · ${esc(x.reason)}</span>
+      <div>${x.sure.length} sure, ${x.uncertain.length} uncertain, ${x.already_exited.length} already left the line. Uncertain = built inside the onset margin, or the deciding parameter is not reported there — inspect those first.</div></div>`).join("");
+  }
+  if((q.hypotheses||[]).length){
+    h+=`<h4>Ranked hypotheses <span class="muted">evidence, not verdicts</span></h4><table class="tbl"><tr><th>condition</th><th>lift</th><th>defective under</th><th>vs otherwise</th><th>p</th></tr>`
+      +q.hypotheses.map(x=>`<tr><td>${x.conditions.map(esc).join(" AND ")}</td><td>${x.lift}x</td><td>${x.defective_under[0]}/${x.defective_under[1]}</td><td>${x.defective_otherwise[0]}/${x.defective_otherwise[1]}</td><td>${x.p_value}</td></tr>`).join("")+`</table>`;
+  }
+  if((q.unreported_params||[]).length)h+=`<h4>Not reported to the twin</h4><div class="lp grouped"><div>${q.unreported_params.map(esc).join(", ")} — these cannot be used to decide a hold.</div></div>`;
+  if(!(q.drift_alerts||[]).length&&!(q.holds||[]).length&&!(q.hypotheses||[]).length)h+=`<div class="lp quiet">Nothing pending.</div>`;
+  return h;
+}
+
+// Sub-minute gains were being rounded to "0.0 min" and then hidden, which made
+// a list that IS ranked by warning gained look arbitrarily ordered. Show the
+// quantity the ranking uses, in the unit it is meaningful in.
+function leadGain(s){
+  if(s==null)return "";
+  if(s<=0)return " · no extra warning yet";
+  return s<60?` · +${s.toFixed(0)}s of warning`:` · +${(s/60).toFixed(1)} min of warning`;
+}
+function voiRows(ns){
+  if(!ns.length)return `<div class="lp quiet">Every station already reports — nothing to buy.</div>`;
+  if(ns.every(r=>!r.extra_samples_per_h))
+    return `<div class="lp quiet">Not enough history yet to price a retrofit. The ranking is measured by re-running the twin over what it has actually seen, so it needs a shift's worth of it — leave the line running.</div>`;
+  return `<div class="voi">`+ns.map((r,k)=>`<div class="voirow"><div class="voin">${k+1}</div><div><b>${esc(r.station)}</b> <span class="muted">${esc(r.from)} → ${esc(r.to)}</span><div class="muted">+${r.extra_samples_per_h} measured cycles/h${leadGain(r.extra_lead_s)}</div></div><div class="voic">$${r.cost_usd.toLocaleString()}</div></div>`).join("")
+    +`</div><p class="muted">Measured by re-running the twin over recent history with that station's profile flipped. Fits a scheduled maintenance window: a profile change is a config diff, not a line stop.</p>`;
+}
+
+function vManager(p){
+  const L=p.ledger||{}, cov=p.coverage||{}, ns=p.next_sensor||[];
+  const n=Object.keys(cov).length;
+  const full=Object.values(cov).filter(v=>v==="plc_full").length;
+  const darkN=Object.values(cov).filter(v=>v==="dark").length;
+  const leads=(L.bottleneck||[]).filter(b=>b.lead_min!=null);
+  const mean=leads.length?(leads.reduce((a,b)=>a+b.lead_min,0)/leads.length).toFixed(1):null;
+  let h=`<div class="vhead"><h3>Trust ledger</h3><span>line ${esc(p.line.id)} · ${esc(p.line.now)} · horizon: week</span></div>`;
+  h+=`<div class="stats">
+    <div class="stat ${mean?"good":"muted2"}"><b>${mean??"—"}</b><span>min mean warning</span></div>
+    <div class="stat ${L.false_alarms?"bad":"good"}"><b>${L.false_alarms??0}</b><span>false alarms</span></div>
+    <div class="stat"><b>${L.alerts_raised??0}</b><span>alerts raised</span></div>
+    <div class="stat"><b>${full}/${n}</b><span>fully instrumented</span></div>
+    <div class="stat ${darkN?"warn":""}"><b>${darkN}</b><span>dark</span></div></div>`;
+  if((L.bottleneck||[]).length){
+    h+=`<h4>Every prediction, scored against what happened</h4><table class="tbl"><tr><th>station</th><th>warned</th><th>blocked</th><th>lead</th><th>ETA error</th><th>confidence</th></tr>`
+      +L.bottleneck.map(b=>`<tr class="${b.lead_min>0?"ok":"err"}"><td>${esc(b.station)}</td><td>${esc(b.warned_at??"never")}</td><td>${esc(b.blocked_at??"—")}</td><td>${b.lead_min==null?"—":b.lead_min+" min"}</td><td>${b.eta_error_min==null?"—":b.eta_error_min+" min"}</td><td>${pct(b.confidence)}</td></tr>`).join("")+`</table>`;
+  }
+  if((L.containment||[]).length){
+    h+=`<h4>Containment</h4><table class="tbl"><tr><th>defect</th><th>held</th><th>vs blanket</th><th>precision</th><th>recall</th><th>escaped</th></tr>`
+      +L.containment.map(c=>`<tr><td>${esc(c.defect)} @ ${esc(c.cause_station)}</td><td>${c.hold_size}</td><td>${c.blanket_hold_size}</td><td>${pct(c.precision)}</td><td>${pct(c.recall)}</td><td>${c.escaped}</td></tr>`).join("")+`</table>`;
+  }
+  // U5: value of information as a fundable roadmap, not a line of text.
+  h+=`<h4>What to instrument next <span class="muted">ranked by what it buys</span></h4><div id="voi_box">`;
+  if(ns.length){
+    h+=voiRows(ns);
+  } else h+=`<div class="lp quiet">Working out what a retrofit would buy — re-running the twin with each dark station's profile flipped…</div>`;
+  h+=`</div><h4>Coverage</h4><div class="andons">`+Object.entries(cov).map(([k,v])=>`<div class="andon ${v==="dark"?"a-dark":(v==="plc_full"?"a-ok":"a-part")}"><b>${esc(k)}</b><span>${esc(v)}</span></div>`).join("")+`</div>`;
+  return h;
+}
+
 function livePanel(){
   // Active = raised and not since cleared. The event stream is the same one
   // the store persists, so this panel and the audit trail cannot disagree.
@@ -378,6 +522,22 @@ async function renderPane(){
     <h3>AI reports</h3><div class="events">${(au.reports||[]).map(r=>`<div class="${r.grounded?'cleared':'raised'}">#${r.id} ${r.persona} · ${r.provider}/${r.model} · evidence ${r.evidence_sha256.slice(0,10)}… · ${r.grounded?"grounded":"UNGROUNDED: "+r.unsupported.join(", ")} · $${(r.cost_usd||0).toFixed(4)}</div>`).join("")||"<div>none yet</div>"}</div>`;
     const mk=(id,persona)=>{$(id).onclick=async()=>{$("rep_out").innerHTML="<pre>working…</pre>";const r=await api(`/api/report/${persona}`,{});$("rep_out").innerHTML=r.error?`<div class="err">${r.error}</div>`:`<p>#${r.report_id} · ${r.provider} · evidence sha ${(r.evidence_sha256||"").slice(0,12)}… · ${r.grounded?"every number traced to the evidence pack":"unsupported numbers: "+r.unsupported.join(", ")}</p><pre>${r.text.replace(/</g,"&lt;")}</pre>`;};};
     mk("rep_sup","supervisor");mk("rep_q","quality");mk("rep_m","manager");return;}
+  const VIEWS={supervisor:vSupervisor,quality:vQuality,manager:vManager};
+  if(VIEWS[p]){
+    el.innerHTML=`<div class="pv"><div class="lp quiet">Reading the twin…</div></div>`;
+    const pack=await api2("/api/pack");
+    if(S.pane!==p)return;                       // the operator moved on
+    el.innerHTML=`<div class="pv">${VIEWS[p](pack)}</div>`;
+    if(p==="manager"){
+      // VOI re-runs the twin per dark station, so it arrives after the view.
+      api2("/api/voi").then(v=>{
+        if(S.pane!=="manager")return;
+        const box=$("voi_box"); if(!box)return;
+        box.innerHTML=voiRows(v.next_sensor||[]);
+      });
+    }
+    return;
+  }
   const txt=await fetch(`/api/view/${p}`).then(r=>r.text());el.innerHTML=`<pre>${txt.replace(/</g,"&lt;")}</pre>`;
 }
 function afterLoad(meta){S.meta=meta;S.events=[];S.history=[];S.sel=null;S.frame=null;buildScene();buildStrip();$("scenario").value=meta.source;renderPane();refreshScore();}
