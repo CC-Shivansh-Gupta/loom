@@ -9,7 +9,7 @@ separate code path — so these rows are the system, degraded.
 |---|---|---|---|---|---|---|---|
 | **full system** | 0.2 | 5/5 (7.0 min) | 5/5 (5.9 min) | 99% | 11.3 min | 0 | 5/5 |
 | no persistence rule | 2.0 | 5/5 (9.3 min) | 5/5 (8.6 min) | 99% | 11.3 min | 0 | 5/5 |
-| no standard-error test | 0.4 | 5/5 (7.7 min) | 5/5 (7.7 min) | 99% | 11.3 min | 0 | 5/5 |
+| no standard-error test | 0.4 | 4/5 (4.0 min) | 4/5 (3.4 min) | 99% | 11.3 min | 0 | 5/5 |
 | no inferred samples | 0.2 | 5/5 (7.0 min) | 0/5 (- min) | 99% | 11.3 min | 0 | 5/5 |
 | no pair search | 0.2 | 5/5 (7.0 min) | 5/5 (5.9 min) | 99% | 11.3 min | 0 | 0/5 |
 | no drift back-fill | 0.2 | 5/5 (7.0 min) | 5/5 (5.9 min) | 99% | 11.3 min | 0 | 5/5 |

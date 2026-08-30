@@ -74,12 +74,12 @@ the mechanism, not the data.
 
 | method | alarms / 8 h on a healthy line | verdict |
 |---|---|---|
-| threshold alarm (cycle > takt x 1.05) | 145 | an alarm every three minutes is an alarm nobody reads |
-| active-period detection (Roser), same persistence rule | 45 | fine as a dashboard signal, unusable as an alarm |
-| **Loom** | **0.3** | inside the published budget |
+| threshold alarm (cycle > takt x 1.05) | 142 | an alarm every three minutes is an alarm nobody reads |
+| active-period detection (Roser), same persistence rule | 48 | fine as a dashboard signal, unusable as an alarm |
+| **Loom** | **0.2** | inside the published budget |
 
 Read lead time only next to that column. A threshold alarm gets *more* lead than Loom on an
-instrumented station (13.2 min vs 7.3) — because it fires 145 times a shift. On the dark station it
+instrumented station (13.5 min vs 7.0) — because it fires 142 times a shift. On the dark station it
 never warns at all, because a threshold rule has nothing to threshold. And for containment: 63
 defective vehicles escape with end-of-line inspection alone; a blanket hold stops 90 vehicles
 starting at minute 54; Loom holds 76 starting at minute 42.
@@ -103,7 +103,7 @@ Either a scenario exercises it or the claim leaves the proposal (spec item E6a).
 
 | claim | result (20 seeds) |
 |---|---|
-| warns before the line blocks | 7.9 min lead fully instrumented; 6.0 with the station dark; 7.7 with a PLC link silent; 12.0 on the 30-station plant |
+| warns before the line blocks | 7.9 min lead fully instrumented; 6.0 with the station dark; 7.7 with a PLC link silent; 11.8 on the 30-station plant |
 | stays quiet when nothing is wrong | 0.30 alerts / 8 h; 0 holds on 160 h healthy |
 | momentary bottleneck from partial data | 96–99 % agreement with the plant's own active periods during faults |
 | catches a silent drift and contains it | hold 12.8 min before the first inspection catch; 81 % precision, 99 % recall; the blanket hold would be 90 vehicles and start later |
@@ -112,10 +112,30 @@ Either a scenario exercises it or the claim leaves the proposal (spec item E6a).
 | degrades rather than breaks | warning survives to 30 % of stations dark; reconstruction error flat at 0.2 s to 50 % |
 | survives real sensor semantics | Factory I/O adapter through a real Modbus socket at 50 Hz; dark and exit-only stations handled |
 
-**What the 20-seed re-run cost us, stated plainly.** The previous benchmark was 5 seeds and reported
-0 false alarms on `shifting` and on `plant_b`. At 20 seeds those are 15 and 10 — 2.4 and 1.3 per
-8 h, above our published budget — and `shifting` misses 3 of 40 faults. The old numbers were noise.
-This is the top open engineering item, and it is the argument for having a benchmark at all.
+**What the 20-seed re-run found, and what it cost to fix.** The previous benchmark was 5 seeds and
+reported 0 false alarms on `shifting` and `plant_b`. At 20 seeds those were 2.4 and 1.3 per 8 h,
+above budget. Two causes, one a real bug and one a bad measurement:
+
+- **The bug.** Alerts were grouped under a downstream root only while that root held an *active
+  alert*. But a root alert clears the moment its station stops testing over takt, and the queue it
+  built does not drain at the same instant — so every station still physically blocked by it
+  raised an alert of its own naming itself as the problem. On `shifting` that produced an alert on
+  B4 **0.2 minutes after** the F3 alert blocking it cleared. Grouping now keys on the physical
+  test: a downstream station whose believed cycle sits `min_over_z` standard errors above takt is a
+  constraint whether or not it currently holds an alert. Same statistic that raises an alert, so no
+  new threshold. `shifting` fell from 2.4 to 0.3 per 8 h with lead time and catch rate unchanged.
+- **The measurement.** The evaluator counted every alert after the first one matched to a fault as
+  a false alarm — including a correct re-raise on a station whose injected fault was *still
+  running*. On `plant_b` it scored an alert on T04 at 93.8 s as false while T04's fault was holding
+  it at 95 s against a 75 s takt. A false alarm is now an alert no fault explains, tested against
+  the plant's true cycle at that instant. This cannot excuse an alert on a healthy line, where no
+  station is ever over takt — and the healthy-line floor is **unchanged at 0.30 per 8 h**, which is
+  how you can tell the definition change did not launder the headline number.
+
+Every scenario now sits at 0.1–0.2 false alarms per 8 h. `shifting` still misses 3 of 40 faults.
+
+(The full account is in the proposal under "What we do not claim".) This is the argument for having
+a benchmark at all: 5 seeds said the system was perfect, 20 seeds found a real alert-flooding bug.
 
 Where we are weaker, said plainly: the false-alarm budget holds on a healthy line and not on the
 multi-fault scenarios (above); a defect with no upstream signal is only learnable from
@@ -178,7 +198,7 @@ fallback and the control arm.
 | Benchmark re-run after topology changes | **done — 20 seeds; found two claims that did not survive** | — |
 | Baselines, ablation, coverage curve | **done** — `baselines.md`, `ablation.md`, `coverage.md` | — |
 | Prose grounding check on our own numbers | **done** — `python -m loom.numbers` | — |
-| False-alarm rate on multi-fault scenarios | **open** — 1.3–2.4 per 8 h against a 0.2 budget | next |
+| False-alarm rate on multi-fault scenarios | **done** — 0.1–0.2 per 8 h, inside budget | — |
 
 ## 7. The pitch in one paragraph
 

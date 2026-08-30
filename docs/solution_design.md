@@ -208,7 +208,7 @@ line's share is the default `downtime_cost_per_min: 8000`. Formulas:
 | **Shifting bottlenecks** — the constraint moves as mix and wear change | per-station forecasting plus the active-period cross-check; demo with two staggered ramps |
 | **Mixed-model sequence effects** — a run of SUVs overloads F1 even with no fault | variant multipliers in the plant; forecaster reads the variant mix waiting in upstream buffers |
 | **Sensor faults vs process faults** — stuck sensor, clock skew, dropouts | sensor-health checks: a reading that contradicts its neighbours' timestamps is quarantined and its provenance downgraded to ◐ |
-| **Alarm flooding** — one bottleneck starves eight downstream stations | alerts grouped by causal chain; downstream starvation is a consequence line under the root alert, not eight alerts |
+| **Alarm flooding** — one bottleneck starves eight downstream stations and blocks the ones before it | alerts grouped by causal chain; a consequence is a line under the root alert, not eight alerts. Grouping keys on the *physical* constraint — a downstream station whose believed cycle sits `min_over_z` SEs over takt — not on whether that station currently holds an alert, because the root's alert clears before the queue it built drains |
 | **Rework loops and parallel stations** | built: `capacity: n` workers share a queue (forecaster compares cycle/n to takt; what-if "floater" adds a worker); inspection `rework_p`/`rework_s` sends fails to a bay and re-enters them out of order as a new thread. `parallel_rework.yaml` shows a quality problem becoming a flow problem: F5 processes fails twice, turns into the bottleneck, and the forecaster names it — because supply is measured per station, not assumed to be takt |
 | **Shifts, breaks, operator variation** | built: `calendar:` with breaks (no releases, cycles paused; the twin subtracts break time from cycles and never calls a station silent during one) and shifts with per-station crew multipliers (trend windows restart at a shift change so a slower crew is not a ramp). `shifts.yaml`: two breaks, a slower night crew, and a real B3 ramp at 5 h — 0 false alarms, ramp caught |
 | **Onset-time uncertainty in containment** | window widened by the detection delay's uncertainty; marginal vehicles tagged ◐ and listed separately |
@@ -292,16 +292,15 @@ Telemetry is kept for every LLM call (tokens, latency, cost) so the economics ar
 | Bottleneck warned ahead, fully instrumented | 20/20 caught, 7.9 min lead, ETA error 1.4 min |
 | …with the bottleneck station dark | 20/20 caught, 6.0 min lead; inferred cycle error 0.3 s |
 | …with a PLC link silent mid-fault | 20/20 caught, 7.7 min lead |
-| Shifting bottleneck (two faults, one repair) | 37/40 caught, **15 false alarms** |
-| A different 30-station plant with 9 checklist/dark stations | 20/20 caught, 12.0 min lead, **10 false alarms** |
+| Shifting bottleneck (two faults, one repair) | 37/40 caught, 0.2 false alarms / 8 h |
+| A different 30-station plant with 9 checklist/dark stations | 20/20 caught, 11.8 min lead, 0.1 false alarms / 8 h |
 | Momentary bottleneck from partial data vs plant truth | 96–99 % agreement during faults |
 | Silent weld drift | hold 12.8 min before the first end-of-line catch, precision 81 %, recall 99 % |
 | Two-condition intermittent defect | true pair ranked first in 17/20 runs |
 | Confidence means something | stated 0.9–1.0 → 97 % hit rate; 0.7–0.9 → 75 %; 0.5–0.7 → 44 % |
 
-Known limits, stated rather than hidden: (0) **the false-alarm budget is met on a healthy line and
-not on the multi-fault scenarios** — 2.4 per 8 h on `shifting`, 1.3 on `plant_b`, against a budget of
-0.2. The 5-seed benchmark reported zero on both; 20 seeds found it. Top open item. (1) a defect with no upstream signal is only learnable from
+Known limits, stated rather than hidden: (0) `shifting` still **misses 3 of 40 faults**, and the
+healthy-line floor of 0.30 per 8 h sits slightly above the 0.2 budget rather than under it. (1) a defect with no upstream signal is only learnable from
 inspection fails, so its hold necessarily trails the first catch; (2) two adjacent finish-only
 (checklist) stations cannot be told apart — the twin abstains rather than guess; (3) one false alarm
 per five 2-hour fault runs on the demo line sits at the budget, not below it.

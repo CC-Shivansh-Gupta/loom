@@ -16,9 +16,9 @@ A false alarm is an alert that no injected fault explains. The rate is per 8 h o
 |---|---|---|---|---|---|---|---|
 | `configs/ramp_b3.yaml` | 20 | 20 | 7.9 (p10 6.1, p90 9.6) | 1.4 (p10 0.1, p90 1.6) | 1 (0.2) | 99% (p10 93%, p90 100%) | - |
 | `configs/ramp_b3_dark.yaml` | 20 | 20 | 6.0 (p10 3.7, p90 8.3) | 3.2 (p10 0.6, p90 6.0) | 1 (0.2) | 99% (p10 97%, p90 100%) | 0.3 (p10 0.3, p90 0.4) |
-| `configs/sensor_fault_b2.yaml` | 20 | 20 | 7.7 (p10 4.9, p90 9.6) | 5.4 (p10 0.8, p90 8.0) | 2 (0.4) | 99% (p10 93%, p90 100%) | - |
-| `configs/shifting.yaml` | 40 | 37 | 5.6 (p10 1.2, p90 9.6) | 1.7 (p10 0.3, p90 3.6) | 15 (2.4) | 97% (p10 82%, p90 100%) | - |
-| `configs/plant_b.yaml` | 20 | 20 | 12.0 (p10 4.9, p90 17.5) | 7.9 (p10 1.8, p90 10.8) | 10 (1.3) | 96% (p10 92%, p90 100%) | 0.5 (p10 0.2, p90 0.9) |
+| `configs/sensor_fault_b2.yaml` | 20 | 20 | 7.7 (p10 4.9, p90 9.6) | 5.4 (p10 0.8, p90 8.0) | 1 (0.2) | 99% (p10 93%, p90 100%) | - |
+| `configs/shifting.yaml` | 40 | 37 | 5.6 (p10 1.2, p90 9.6) | 1.7 (p10 0.3, p90 3.6) | 1 (0.2) | 97% (p10 82%, p90 100%) | - |
+| `configs/plant_b.yaml` | 20 | 20 | 11.8 (p10 4.9, p90 16.6) | 8.0 (p10 1.8, p90 11.0) | 1 (0.1) | 96% (p10 92%, p90 100%) | 0.5 (p10 0.2, p90 0.9) |
 
 ## Containment
 
@@ -34,6 +34,6 @@ Hold timing is relative to the first end-of-line catch: positive = the twin held
 | stated confidence | n | realised hit rate |
 |---|---|---|
 | 0.0-0.5 | 1 | 100% |
-| 0.5-0.7 | 50 | 44% |
-| 0.7-0.9 | 40 | 75% |
-| 0.9-1.0 | 66 | 97% |
+| 0.5-0.7 | 37 | 59% |
+| 0.7-0.9 | 30 | 97% |
+| 0.9-1.0 | 65 | 100% |

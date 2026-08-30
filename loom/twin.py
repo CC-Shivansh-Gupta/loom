@@ -435,11 +435,35 @@ class Twin:
         self._assess(i, f.t)
 
     def _downstream_root(self, station: str) -> str | None:
-        """An active alert downstream explains slowness here (blocking)."""
+        """A constraint downstream explains slowness here: this station is
+        blocked, not failing.
+
+        The obvious test -- "is there an active alert downstream" -- is not
+        enough, and the way it fails is worth stating. A root alert clears
+        the moment its station stops *testing* over takt, but the queue it
+        built does not drain at the same instant. In between, every station
+        upstream is still blocked by a constraint that is still there, and
+        each one raises an alert of its own naming itself as the problem.
+        On `shifting.yaml` that produced an alert on B4 0.2 min after the
+        F3 alert that was blocking it cleared.
+
+        So the test is the physical one: a downstream station whose own
+        believed cycle sits `min_over_z` standard errors above takt is a
+        constraint whether or not it currently holds an alert. Same
+        statistic that raises an alert in the first place, so this
+        introduces no new threshold to tune."""
         i = self.cfg.index(station)
         for j in range(i + 1, self.n):
-            if self.cfg.ids[j] in self.active:
-                return self.cfg.ids[j]
+            sid = self.cfg.ids[j]
+            if sid in self.active:
+                return sid
+            fit = self.forecaster.fit(sid, self.t)
+            if fit is None or fit.c_now_se <= 0:
+                continue
+            workers = max(1, self.cfg.stations[j].capacity)
+            over_z = (fit.c_now / workers - self.cfg.takt_s) / (fit.c_now_se / workers)
+            if over_z >= self.forecaster.min_over_z:
+                return sid
         return None
 
     def _track(self, station: str, t: float, alert: Alert | None) -> None:

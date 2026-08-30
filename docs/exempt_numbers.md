@@ -20,6 +20,9 @@ about Loom must be traceable to `benchmark.md`, `baselines.md`, `ablation.md`, `
 | 500 | ~$500/station retrofit | low-cost sensing menu, `solution_design.md` C1 |
 | 6.3 | mean lead in minutes used in the illustrative ROI arithmetic | derived from `benchmark.md`; recompute when the benchmark changes |
 | 3.6 | $3.6 M — output of the bottleneck-avoidance formula | arithmetic on the row's own stated inputs |
+| 2.4 | false alarms per 8 h on `shifting` **before** the alert-grouping fix | measured at commit `e8a7555`; reproducible by reverting the `_downstream_root` change in `loom/twin.py` |
+| 1.3 | false alarms per 8 h on `plant_b` **before** the false-alarm definition was corrected | measured at commit `e8a7555`; reproducible by reverting the `bottleneck_scorecard` change in `loom/evaluator.py` |
+| 93.8 | the fitted cycle of the alert on T04 that the old definition scored as a false alarm | trace from `plant_b.yaml` seed 1 at commit `e8a7555` |
 | 16949 | IATF 16949 — the automotive quality management standard | standard designation, not a measurement |
 | 1000 | the 10x / 100x / 1000x cost ladder for a defect caught downstream, at final assembly, in the field | `research.md`; standard automotive quality figure |
 | 95 | ISA-95 — the enterprise/control integration standard | standard designation |

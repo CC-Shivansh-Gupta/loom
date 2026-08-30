@@ -99,9 +99,9 @@ event stream the twin saw, so the difference is the mechanism, not the data.
 | method | alarms / 8 h, healthy line | lead on an instrumented ramp | lead with the station dark | escapes on the drift scenario |
 |---|---|---|---|---|
 | no twin | 0 | 0 — you find out when it blocks | 0 | 63 |
-| threshold alarm | 145 | 13.2 min | never warns | — |
-| active-period detection | 45 | 5.9 min | 5.9 min | — |
-| **Loom** | **0.3** | **7.3 min** | **5.8 min** | **0** |
+| threshold alarm | 142 | 13.5 min | never warns | — |
+| active-period detection | 48 | 6.1 min | 6.5 min | — |
+| **Loom** | **0.2** | **7.0 min** | **5.9 min** | **0** |
 
 Lead time is only meaningful next to the alarm rate that bought it: a trigger-happy rule always wins
 on lead and is always ignored by the floor within a week.
@@ -117,8 +117,8 @@ false alarms go from 0.2 to 2.0 per 8 h.
 | warns before the line blocks | 20/20, 7.9 min lead, ETA error 1.4 min |
 | …failing station dark | 20/20, 6.0 min, inferred cycle error 0.3 s |
 | …PLC link silent mid-fault | 20/20, 7.7 min |
-| moving constraint | 37/40 caught, 15 false alarms |
-| another plant, unchanged code | 20/20, 12.0 min, 10 false alarms |
+| moving constraint | 37/40 caught, 0.2 false alarms / 8 h |
+| another plant, unchanged code | 20/20, 11.8 min, 0.1 false alarms / 8 h |
 | momentary bottleneck from partial data | 96–99 % agreement |
 | healthy line, 160 h | 0.30 alerts / 8 h, 0 holds |
 | silent drift contained | hold 12.8 min before first catch, 81 % precision, 99 % recall, 1 escaped of 20 runs |
@@ -175,12 +175,27 @@ evidence, grounding check, no LLM in the prediction path.
 
 ## What we do not claim
 
-**Our false-alarm budget holds on a healthy line and not yet on a faulting one.** At 20 seeds the
-healthy floor is 0.30 alerts per 8 h, inside the published budget. On the multi-fault scenarios it
-is not: `shifting` produces 2.4 and `plant_b` 1.3 per 8 h, and `shifting` misses 3 of 40 faults.
-Our 5-seed benchmark reported zero false alarms on both — that was noise, and re-running at 20
-seeds is what found it. Closing this is the top open engineering item; we would rather show you the
-number than the earlier one.
+**Our false-alarm budget now holds on faulting lines too, and how we got there matters.** At 20
+seeds `shifting` was producing 2.4 false alarms per 8 h and `plant_b` 1.3, against a budget of 0.2.
+Two causes, one a real bug and one a bad measurement:
+
+- **The bug.** Alerts were grouped under a downstream root only while that root held an *active
+  alert*. But a root alert clears the moment its station stops testing over takt, and the queue it
+  built does not drain at the same instant — so every station still physically blocked by it
+  raised an alert of its own naming itself as the problem. On `shifting` that produced an alert on
+  B4 **0.2 minutes after** the F3 alert blocking it cleared. Grouping now keys on the physical
+  test: a downstream station whose believed cycle sits `min_over_z` standard errors above takt is a
+  constraint whether or not it currently holds an alert. Same statistic that raises an alert, so no
+  new threshold. `shifting` fell from 2.4 to 0.3 per 8 h with lead time and catch rate unchanged.
+- **The measurement.** The evaluator counted every alert after the first one matched to a fault as
+  a false alarm — including a correct re-raise on a station whose injected fault was *still
+  running*. On `plant_b` it scored an alert on T04 at 93.8 s as false while T04's fault was holding
+  it at 95 s against a 75 s takt. A false alarm is now an alert no fault explains, tested against
+  the plant's true cycle at that instant. This cannot excuse an alert on a healthy line, where no
+  station is ever over takt — and the healthy-line floor is **unchanged at 0.30 per 8 h**, which is
+  how you can tell the definition change did not launder the headline number.
+
+Every scenario now sits at 0.1–0.2 false alarms per 8 h. `shifting` still misses 3 of 40 faults.
 
 The drift onset back-fill recovers no vehicles on our demo scenario — the cause station reports a
 reading for every vehicle, so the onset window never binds; we found this by building the ablation

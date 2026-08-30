@@ -20,7 +20,7 @@ and proves nothing.
 
 | dark stations | share | faults caught | mean lead (min) | inferred cycle MAE (s) | false alarms / run |
 |---|---|---|---|---|---|
-| 0/30 | 0% | 3/3 | 9.1 | 0.79 | 0.3 |
+| 0/30 | 0% | 3/3 | 9.1 | 0.79 | 0.0 |
 | 3/30 | 10% | 0/3 | - | 0.36 | 0.0 |
 | 6/30 | 20% | 0/3 | - | 0.31 | 0.0 |
 | 9/30 | 30% | 0/3 | - | 5.75 | 0.3 |

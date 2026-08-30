@@ -18,7 +18,7 @@ Priority: **P0** blocks submission · **P1** separates a good entry from a winni
 | E5 | Restore the forecaster tuning sweep | P1 | `loom/sweep.py` | — |
 | E6 | Multi-cause: discriminating sample instead of a bad hold | P1 | `loom/quality.py` | — |
 | E6a | Back-fill: a scenario that exercises it, or drop the claim | P1 | `configs/`, `docs/proposal.md` | **open** — claim removed from the proposal for now |
-| E7 | False-alarm rate on multi-fault scenarios (1.3–2.4 / 8 h vs a 0.2 budget) | **P0** | `loom/forecast.py`, `loom/twin.py` | **open — new, found by E4** |
+| E7 | False-alarm rate on multi-fault scenarios (1.3–2.4 / 8 h vs a 0.2 budget) | **P0** | `loom/twin.py`, `loom/evaluator.py` | **done** — 0.1–0.2 / 8 h, healthy floor unchanged |
 | A1 | Claude wired; live run of all four AI features | P0 | env + `loom/llm.py` | — |
 | A2 | AI tab: reports, what-if, improve, onboard in the control room | P0 | `loom/server.py`, `web/app.html` | **done** |
 | A3 | Grounding catch — the model caught reaching for a number | P0 | `loom/aieval.py`, AI tab | **done** — red-team fixtures, 4/4 caught |

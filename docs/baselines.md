@@ -15,35 +15,35 @@ by the floor within a week.
 
 | method | alarms per 8 h, healthy line | verdict |
 |---|---|---|
-| threshold | 145.0 | unusable — an alarm every three minutes is an alarm nobody reads |
-| detection | 45.3 | unusable as an alarm; fine as a dashboard signal |
-| loom | 0.3 | inside the published budget of 1 per five shifts |
+| threshold | 141.6 | unusable — an alarm every three minutes is an alarm nobody reads |
+| detection | 47.8 | unusable as an alarm; fine as a dashboard signal |
+| loom | 0.2 | inside the published budget of 1 per five shifts |
 
 ## Warning before the line blocks
 
 | scenario | method | faults warned | mean lead (min) |
 |---|---|---|---|
-| `configs/ramp_b3.yaml` | no_twin | 3/3 | 0.0 — you find out when it blocks |
-| `configs/ramp_b3.yaml` | threshold | 3/3 | 13.2 |
-| `configs/ramp_b3.yaml` | detection | 3/3 | 5.9 |
-| `configs/ramp_b3.yaml` | loom | 3/3 | 7.3 |
-| `configs/ramp_b3_dark.yaml` | no_twin | 3/3 | 0.0 — you find out when it blocks |
-| `configs/ramp_b3_dark.yaml` | threshold | 0/3 | never warned |
-| `configs/ramp_b3_dark.yaml` | detection | 3/3 | 5.9 |
-| `configs/ramp_b3_dark.yaml` | loom | 3/3 | 5.8 |
-| `configs/sensor_fault_b2.yaml` | no_twin | 3/3 | 0.0 — you find out when it blocks |
-| `configs/sensor_fault_b2.yaml` | threshold | 3/3 | 13.2 |
-| `configs/sensor_fault_b2.yaml` | detection | 3/3 | 5.9 |
-| `configs/sensor_fault_b2.yaml` | loom | 3/3 | 6.9 |
-| `configs/plant_b.yaml` | no_twin | 3/3 | 0.0 — you find out when it blocks |
-| `configs/plant_b.yaml` | threshold | 3/3 | 28.2 |
-| `configs/plant_b.yaml` | detection | 3/3 | 18.6 |
-| `configs/plant_b.yaml` | loom | 3/3 | 9.1 |
+| `configs/ramp_b3.yaml` | no_twin | 5/5 | 0.0 — you find out when it blocks |
+| `configs/ramp_b3.yaml` | threshold | 5/5 | 13.5 |
+| `configs/ramp_b3.yaml` | detection | 5/5 | 6.1 |
+| `configs/ramp_b3.yaml` | loom | 5/5 | 7.0 |
+| `configs/ramp_b3_dark.yaml` | no_twin | 5/5 | 0.0 — you find out when it blocks |
+| `configs/ramp_b3_dark.yaml` | threshold | 0/5 | never warned |
+| `configs/ramp_b3_dark.yaml` | detection | 5/5 | 6.5 |
+| `configs/ramp_b3_dark.yaml` | loom | 5/5 | 5.9 |
+| `configs/sensor_fault_b2.yaml` | no_twin | 5/5 | 0.0 — you find out when it blocks |
+| `configs/sensor_fault_b2.yaml` | threshold | 5/5 | 13.5 |
+| `configs/sensor_fault_b2.yaml` | detection | 5/5 | 6.1 |
+| `configs/sensor_fault_b2.yaml` | loom | 5/5 | 6.8 |
+| `configs/plant_b.yaml` | no_twin | 5/5 | 0.0 — you find out when it blocks |
+| `configs/plant_b.yaml` | threshold | 5/5 | 29.3 |
+| `configs/plant_b.yaml` | detection | 5/5 | 13.8 |
+| `configs/plant_b.yaml` | loom | 5/5 | 10.3 |
 
 ## Containment
 
 | scenario | method | vehicles held | truly defective held | escaped | first action at |
 |---|---|---|---|---|---|
-| `configs/weld_drift_b2.yaml` | end-of-line inspection only | 0 | 0 | 63 | 54 min |
-| `configs/weld_drift_b2.yaml` | blanket hold on the station | 90 | 62 | 0 | 54 min |
-| `configs/weld_drift_b2.yaml` | Loom targeted hold | 76 | 62 | 0 | 42 min |
+| `configs/weld_drift_b2.yaml` | end-of-line inspection only | 0 | 0 | 62 | 53 min |
+| `configs/weld_drift_b2.yaml` | blanket hold on the station | 90 | 62 | 0 | 53 min |
+| `configs/weld_drift_b2.yaml` | Loom targeted hold | 77 | 62 | 0 | 42 min |

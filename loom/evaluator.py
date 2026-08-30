@@ -227,7 +227,19 @@ def bottleneck_scorecard(plant: Plant, twin: Twin) -> dict:
             first.alert.confidence if first else None,
             first.alert.inferred_share if first else None))
 
-    false_alarms = [x for k, x in enumerate(raised) if k not in explained]
+    # A false alarm is an alert no injected fault explains. The obvious
+    # implementation -- "every alert that is not the first one matched to a
+    # perturbation" -- is wrong, and flattered nothing: it counted a correct
+    # re-raise on a station whose fault was still running. On plant_b that
+    # scored an alert on T04 at 93.8 s, while T04's injected fault was
+    # holding it at 95 s against a 75 s takt, as a false alarm.
+    #
+    # The test is the physical one: if the station's *true* cycle is over
+    # takt when the alert fires, a real constraint explains it. This cannot
+    # excuse an alert on a healthy line, where no station is ever over takt,
+    # so the published false-alarm floor is unaffected by this definition.
+    false_alarms = [x for k, x in enumerate(raised) if k not in explained
+                    and plant.true_cycle(x.alert.station, x.t) <= takt]
     return {"scores": scores, "false_alarms": false_alarms,
             "alerts_raised": len(raised)}
 
