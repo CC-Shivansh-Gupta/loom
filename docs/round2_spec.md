@@ -25,8 +25,8 @@ Priority: **P0** blocks submission · **P1** separates a good entry from a winni
 | A4 | LLM eval suite (groundedness, abstention, persona fit) | P1 | `loom/aieval.py` | **done** → `docs/ai_eval.md` |
 | A5 | Model tiering and measured cost per insight | P1 | `loom/llm.py` | — |
 | A6 | Operator notes treated as data, not instructions | P2 | `loom/evidence.py` | — |
-| U1 | Exec view never renders $0 | P0 | `loom/views.py` | — |
-| U2 | Camera fit; default panel shows live alerts | P0 | `web/app.html` | — |
+| U1 | Exec view never renders $0 | P0 | `loom/views.py`, `loom/bench.py` | **done** — falls back to `benchmark.json` and labels the basis; adds a 1/10th sensitivity line |
+| U2 | Camera fit; default panel shows live alerts | P0 | `web/app.html` | **done** — and it exposed a real UX confusion, see U2a |
 | U3 | Supervisor and exec views as designed UI, not `<pre>` | P1 | `web/app.html`, `loom/server.py` | — |
 | U4 | Story mode — scripted demo scenes with captions | P1 | `loom/live.py`, `web/app.html` | — |
 | U5 | VOI as a clickable retrofit roadmap | P1 | `web/app.html` | — |
@@ -217,6 +217,23 @@ attempt and asserts the report ignores it.
   injections. It is simultaneously the video's spine, the rehearsal harness, and the failure plan.
 - **U5.** VOI as a ranked, clickable retrofit roadmap: "instrument B3 next, ~$50 clamp, expected
   +2.4 min lead". Converts the brief's hardest constraint into a fundable plan on screen.
+
+## U2a · Forecast alerts and the current constraint are different questions
+
+Building the live panel surfaced something the old placeholder hid. On `ramp_b3` at 08:00 the twin
+holds **no open alert**, while B3 sits at 79.5 s against a 60 s takt and is plainly the constraint.
+That is correct, and the reason is worth putting in the pitch: the forecaster predicts *when a
+buffer will fill*. Once the block has formed and the line settles, measured supply into B3 falls to
+B3's own rate, the buffer stops growing, and there is no future event left to predict. The alert
+clears because the thing it was predicting has already happened.
+
+The constraint has not gone away — it has become the *current* one, which is exactly what the
+active-period detector reports and what the header has always shown. The panel now presents them as
+two sections, **Current constraint** and **Forecast alerts**, because a panel that shows only the
+second says "nothing forming" while a station is visibly holding up the line.
+
+This is a good answer to a question a judge will ask ("your alert cleared but the station is still
+slow?") and it was invisible until the default panel had to state the line's condition in words.
 
 ## M1–M2 · Market
 

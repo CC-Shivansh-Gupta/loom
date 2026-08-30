@@ -10,6 +10,8 @@ table. Writes markdown so the result is reviewable in the repo.
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import statistics as st
 from dataclasses import dataclass, field
 
@@ -53,6 +55,8 @@ class Agg:
     recall: list[float] = field(default_factory=list)
     escaped: int = 0
     hold_vs_blanket: list[float] = field(default_factory=list)
+    hold_saved: list[int] = field(default_factory=list)      # blanket size - targeted size
+    escapes_prevented: list[int] = field(default_factory=list)
     hold_ahead_min: list[float] = field(default_factory=list)
     records: list[Record] = field(default_factory=list)
     drift_warnings: int = 0
@@ -122,6 +126,9 @@ def run(seeds: int, scenarios=SCENARIOS) -> dict[str, Agg]:
                 a.escaped += c.escaped
                 if c.hold_size and c.blanket_size:
                     a.hold_vs_blanket.append(c.hold_size / c.blanket_size)
+                    a.hold_saved.append(c.blanket_size - c.hold_size)
+                a.escapes_prevented.append(
+                    max(0, (c.n_defective - c.detected_at_inspection) - c.escaped))
                 if c.t_first_hold is not None and c.t_first_fail is not None:
                     a.hold_ahead_min.append((c.t_first_fail - c.t_first_hold) / 60)
     return out
@@ -177,6 +184,37 @@ def markdown(res: dict[str, Agg], seeds: int) -> str:
     return "\n".join(L) + "\n"
 
 
+def summary(res: dict[str, Agg], seeds: int) -> dict:
+    """Machine-readable aggregates, written beside the markdown.
+
+    The leadership view needs a lead time to put a number on, and on a line
+    that has not faulted yet it has none of its own. Rather than render $0 --
+    which reads as a broken business case rather than an empty one -- it
+    falls back to this file and says so. Same discipline as the rest: the
+    figure comes from a run, not from someone typing it into a slide."""
+    leads = [l for a in res.values() for l in a.leads]
+    saved = [x for a in res.values() for x in a.hold_saved]
+    prevented = [x for a in res.values() for x in a.escapes_prevented]
+    return {
+        "seeds": seeds,
+        "mean_lead_min": round(st.mean(leads), 2) if leads else None,
+        "mean_hold_saved": round(st.mean(saved)) if saved else None,
+        "mean_escapes_prevented": round(st.mean(prevented)) if prevented else None,
+        "scenarios": {
+            cfg: {
+                "faults": a.faults,
+                "caught": a.faults - a.misses,
+                "mean_lead_min": round(st.mean(a.leads), 2) if a.leads else None,
+                "false_alarms": a.false_alarms,
+                "fa_per_8h": round(a.false_alarms / a.fault_hours * 8, 2) if a.fault_hours else None,
+                "healthy_alarms_per_8h": (round(a.healthy_alarms / a.healthy_hours * 8, 2)
+                                          if a.healthy_hours else None),
+            }
+            for cfg, a in res.items()
+        },
+    }
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seeds", type=int, default=5)
@@ -187,7 +225,10 @@ def main() -> None:
     if args.out:
         with open(args.out, "w") as f:
             f.write(md)
-        print(f"wrote {args.out}")
+        js = os.path.splitext(args.out)[0] + ".json"
+        with open(js, "w") as f:
+            json.dump(summary(res, args.seeds), f, indent=1)
+        print(f"wrote {args.out} and {js}")
     print(md)
 
 

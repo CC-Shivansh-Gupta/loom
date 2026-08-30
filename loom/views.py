@@ -151,6 +151,25 @@ def maintenance(twin: Twin) -> str:
     return "\n".join(lines)
 
 
+_BENCH_CACHE: dict | None = None
+
+
+def benchmark_reference() -> dict:
+    """Aggregates from the last `python -m loom.bench` run, if one exists."""
+    global _BENCH_CACHE
+    if _BENCH_CACHE is None:
+        import json
+        import os
+        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            "docs", "benchmark.json")
+        try:
+            with open(path) as f:
+                _BENCH_CACHE = json.load(f)
+        except (OSError, ValueError):
+            _BENCH_CACHE = {}
+    return _BENCH_CACHE
+
+
 def leadership(twin: Twin, scorecard: dict | None = None, containment: list | None = None,
                coverage: dict[str, str] | None = None, voi_rank: list[dict] | None = None) -> str:
     """The investment case, from measured twin performance and stated
@@ -163,10 +182,20 @@ def leadership(twin: Twin, scorecard: dict | None = None, containment: list | No
     # measured inputs
     leads = [s.lead_s / 60 for s in (scorecard or {}).get("scores", []) if s.lead_s]
     lead = sum(leads) / len(leads) if leads else None
+    # A line that has not faulted yet has no lead time of its own. Falling
+    # back to the benchmark and *saying so* beats rendering $0, which reads
+    # as a broken business case rather than an empty one.
+    ref = benchmark_reference()
+    basis = "measured on this line"
+    if lead is None and ref.get("mean_lead_min"):
+        lead = ref["mean_lead_min"]
+        basis = (f"no fault observed on this line yet — using the benchmark mean over "
+                 f"{ref.get('seeds', '?')} seeds x {len(ref.get('scenarios', {}))} scenarios")
     fa = len((scorecard or {}).get("false_alarms", []))
     raised = (scorecard or {}).get("alerts_raised", 0)
-    lines.append("  measured on this line:")
-    lines.append(f"    warning lead        {'-' if lead is None else f'{lead:.1f} min'} (mean over {len(leads)} fault(s))")
+    lines.append(f"  basis: {basis}")
+    lines.append(f"    warning lead        {'-' if lead is None else f'{lead:.1f} min'}"
+                 + (f" (mean over {len(leads)} fault(s) here)" if leads else " (benchmark)"))
     lines.append(f"    false alarms        {fa} of {raised} alerts")
     hold_saved = escaped = None
     if containment:
@@ -188,11 +217,18 @@ def leadership(twin: Twin, scorecard: dict | None = None, containment: list | No
     lines.append(f"    bottlenecks avoided  {lead or 0:.1f} min lead x {e.prevented_share:.0%} acted on x "
                  f"{e.bottleneck_events_per_week:g}/wk x {e.weeks_per_year:g} wk x ${e.downtime_cost_per_min:,.0f}/min "
                  f"= ${v_bottleneck:,.0f}")
+    # Same reasoning for the quality lines: with no containment event on this
+    # line, use what the benchmark measured rather than claiming zero value.
+    if hold_saved is None and ref.get("mean_hold_saved") is not None:
+        hold_saved = ref["mean_hold_saved"]
     hs = hold_saved if hold_saved is not None else 0
     v_holds = hs * e.hold_cost_per_vehicle * e.quality_events_per_month * 12
     lines.append(f"    targeted holds       {hs} fewer vehicles held/event x ${e.hold_cost_per_vehicle:,.0f} x "
                  f"{e.quality_events_per_month:g}/mo x 12 = ${v_holds:,.0f}")
-    esc_avoided = 0 if escaped is None else max(0, (containment[0].n_defective - containment[0].detected_at_inspection) - escaped)
+    if escaped is None:
+        esc_avoided = ref.get("mean_escapes_prevented") or 0
+    else:
+        esc_avoided = max(0, (containment[0].n_defective - containment[0].detected_at_inspection) - escaped)
     v_escape = esc_avoided * e.escape_cost_per_defect * e.quality_events_per_month * 12
     lines.append(f"    escapes prevented    {esc_avoided} defects/event x ${e.escape_cost_per_defect:,.0f} x "
                  f"{e.quality_events_per_month:g}/mo x 12 = ${v_escape:,.0f}")
@@ -203,7 +239,22 @@ def leadership(twin: Twin, scorecard: dict | None = None, containment: list | No
     lines.append(f"  cost: licence ${e.licence_per_line_per_year:,.0f}/yr + retrofit of {n_dark} station(s) ${capex:,.0f} one-off")
     net = total - e.licence_per_line_per_year
     payback = None if net <= 0 else 12 * (capex + e.licence_per_line_per_year) / total
-    lines.append(f"  payback              {'n/a' if payback is None else f'{payback:.1f} months'}   (net ${net:,.0f}/yr after licence)")
+    if total <= 0:
+        lines.append("  payback              not yet — no events on this line and no benchmark to fall back on;"
+                     "\n                       run `python -m loom.bench --out docs/benchmark.md` to populate it")
+    else:
+        lines.append(f"  payback              {'never at these inputs' if payback is None else f'{payback:.1f} months'}"
+                     f"   (net ${net:,.0f}/yr after licence)")
+        # A payback of weeks invites disbelief, and should: it rests entirely
+        # on downtime_cost_per_min. Show the answer at a tenth of it so the
+        # sceptic's first objection is already answered on the slide.
+        tenth = v_bottleneck / 10 + v_holds + v_escape
+        pb10 = None if tenth <= e.licence_per_line_per_year else 12 * (capex + e.licence_per_line_per_year) / tenth
+        lines.append(f"  sensitivity          at 1/10th the assumed ${e.downtime_cost_per_min:,.0f}/min: "
+                     f"${tenth:,.0f}/yr, payback "
+                     + ("never" if pb10 is None else f"{pb10:.1f} months"))
+        lines.append("                       the claim is not the number; it is that after two weeks of")
+        lines.append("                       shadow mode the plant has its own number in place of ours")
     if voi_rank:
         r = voi_rank[0]
         gain = "" if r["d_lead_s"] is None else f", +{r['d_lead_s'] / 60:.1f} min lead"

@@ -58,6 +58,14 @@ canvas.spark{width:100%;height:70px;display:block;background:var(--panel2);borde
 textarea.cfg{width:100%;height:52vh;font-family:var(--mono);font-size:11.5px;line-height:1.45;resize:vertical;tab-size:2}
 .err{color:#F2A08F;font-family:var(--mono);font-size:12px;white-space:pre-wrap;margin:6px 0}
 .ok{color:#5FD8A4}
+.lp{border-left:2px solid #2A3338;padding:6px 10px;margin:6px 0;font-family:var(--mono);font-size:11px;line-height:1.5}
+.lp b{font-family:var(--sans,inherit);font-size:12px}
+.lp span{color:var(--muted);margin-left:6px}
+.lp div{color:var(--muted);margin-top:2px;white-space:pre-wrap}
+.lp.raised{border-left-color:#F2A08F} .lp.drift{border-left-color:#E8C07A}
+.lp.hold{border-left-color:#B79BE8} .lp.grouped{border-left-color:#2A3338}
+.lp.quiet{border-left-color:#5FD8A4;color:var(--muted)}
+.lp.cons{border-left-color:#B79BE8}
 .muted{color:var(--muted);font-size:11px}
 .tbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;margin:6px 0}
 .tbl th{text-align:left;color:var(--muted);font-weight:400;border-bottom:1px solid #2A3338;padding:4px 6px}
@@ -111,7 +119,7 @@ function initThree(){
   const scene=new THREE.Scene(); scene.background=new THREE.Color(COL.bg); scene.fog=new THREE.Fog(COL.bg,60,200);
   const cam=new THREE.PerspectiveCamera(38,1,0.1,400);
   scene.add(new THREE.HemisphereLight(0xBFD4E6,0x0F1317,0.9)); const sun=new THREE.DirectionalLight(0xFFFFFF,0.9); sun.position.set(-8,18,12); scene.add(sun);
-  const orbit={theta:0.04,phi:1.0,dist:40,cx:0,drag:false,px:0,py:0};
+  const orbit={theta:0.04,phi:1.14,dist:40,cx:0,drag:false,px:0,py:0};
   canvas.addEventListener("pointerdown",e=>{orbit.drag=true;orbit.px=e.clientX;orbit.py=e.clientY;canvas.setPointerCapture(e.pointerId)});
   canvas.addEventListener("pointermove",e=>{if(!orbit.drag)return;orbit.theta-=(e.clientX-orbit.px)*0.005;orbit.phi=Math.max(0.25,Math.min(1.45,orbit.phi-(e.clientY-orbit.py)*0.005));orbit.px=e.clientX;orbit.py=e.clientY});
   canvas.addEventListener("pointerup",e=>{orbit.drag=false; if(Math.hypot(e.clientX-orbit.downX,e.clientY-orbit.downY)<5)pickStation(e);});
@@ -126,9 +134,9 @@ function buildScene(){
   const g=new THREE.Group(); T.group=g; T.meshes={st:[],bel:[],cars:new Map(),bcars:new Map(),beacons:[],slots:[],bslots:[],labels:[]};
   let x=0,lastZone=null; const xs=[];
   meta.stations.forEach(s=>{ if(lastZone&&s.zone!==lastZone)x+=1.6; x+=0.9*Math.min(s.buffer,6)+1.0; xs.push(x); x+=2.2; lastZone=s.zone; });
-  const width=x,cx=width/2; T.orbit.cx=cx; T.orbit.theta=0.0; T.orbit.phi=1.0; T.xs=xs;
+  const width=x,cx=width/2; T.orbit.cx=cx; T.orbit.theta=0.0; T.orbit.phi=1.14; T.xs=xs;
   const cv=T.r.domElement, aspect=Math.max(1.2,(cv.clientWidth||1200)/(cv.clientHeight||600));
-  T.orbit.dist=Math.max(18,(width/2+3)/(Math.tan(T.cam.fov*Math.PI/360)*aspect)*1.0);
+  T.orbit.dist=Math.max(16,(width/2+2.5)/(Math.tan(T.cam.fov*Math.PI/360)*aspect)*0.99);
   T.scene.fog.near=T.orbit.dist*1.3; T.scene.fog.far=T.orbit.dist*3.2; T.cam.far=T.orbit.dist*4; T.cam.updateProjectionMatrix();
   const floor=new THREE.Mesh(new THREE.PlaneGeometry(width+14,16),new THREE.MeshLambertMaterial({color:COL.floor})); floor.rotation.x=-Math.PI/2; floor.position.set(cx,-0.41,-2.2); g.add(floor);
   const grid=new THREE.GridHelper(width+14,Math.round((width+14)/2),0x22303A,0x1B242C); grid.position.set(cx,-0.4,-2.2); g.add(grid);
@@ -193,7 +201,7 @@ function hoverStation(e){const i=stationAt(e);const T=S.three;T.r.domElement.sty
   if(i>=0){[T.meshes.st[i],T.meshes.bel[i]].forEach(m=>m.scale.setScalar(1.08));}S.hover=i;}
 function render(){const T=S.three,o=T.orbit,cam=T.cam,cv=T.r.domElement;const w=cv.clientWidth,h=cv.clientHeight;
   if(w&&h&&(cv.width!==Math.round(w*T.r.getPixelRatio())||cv.height!==Math.round(h*T.r.getPixelRatio()))){T.r.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();}
-  cam.position.set(o.cx+o.dist*Math.sin(o.phi)*Math.sin(o.theta),o.dist*Math.cos(o.phi),-2.2+o.dist*Math.sin(o.phi)*Math.cos(o.theta));cam.lookAt(o.cx,0.2,-2.2);T.r.render(T.scene,cam);}
+  cam.position.set(o.cx+o.dist*Math.sin(o.phi)*Math.sin(o.theta),o.dist*Math.cos(o.phi),-2.2+o.dist*Math.sin(o.phi)*Math.cos(o.theta));cam.lookAt(o.cx,1.7,-2.2);T.r.render(T.scene,cam);}
 
 // ---------- live data ----------
 let ws=null;
@@ -205,6 +213,11 @@ function connect(){
     $("play").textContent=f.playing?"Pause":"Play"; [...$("speed").children].forEach(b=>b.classList.toggle("on",+b.dataset.s===f.speed));
     $("rec").classList.toggle("rec",!!f.recording); $("rec").textContent=f.recording?"■ Stop recording":"● Record";
     if(f.new_events.length){f.new_events.forEach(ev=>{S.events.push(ev);toast(ev);}); if(S.pane==="events")renderPane(); refreshScore();}
+    // The default panel reports live state, so it has to follow the stream.
+    // Throttled: re-rendering it every frame would fight the operator's scroll.
+    if(S.pane==="station"&&S.sel==null&&performance.now()-(S._lpAt||0)>1500){
+      S._lpAt=performance.now(); $("pane").innerHTML=livePanel();
+    }
     S.history.push([f.t,f.out[0],f.st.map(r=>r[10]!=null)]); if(S.history.length>2000)S.history.shift();
     onFrame(f);};
 }
@@ -242,9 +255,43 @@ function spark(canvas,series,opts){const w=canvas.clientWidth,h=70;if(canvas.wid
   series.forEach(s=>{g.strokeStyle=s.color;g.lineWidth=s.width||1.5;g.setLineDash(s.dash||[]);g.beginPath();s.pts.forEach((p,k)=>{k?g.lineTo(X(k),Y(p[1])):g.moveTo(X(k),Y(p[1]));});g.stroke();g.setLineDash([]);
     if(s.dots){g.fillStyle=s.color;s.pts.forEach((p,k)=>{g.beginPath();g.arc(X(k),Y(p[1]),2,0,7);g.fill();});}});
   g.fillStyle="#8C97A3";g.font="10px IBM Plex Mono";g.fillText(hi.toFixed(1),w-38,10);g.fillText(lo.toFixed(1),w-38,h-2);}
+function livePanel(){
+  // Active = raised and not since cleared. The event stream is the same one
+  // the store persists, so this panel and the audit trail cannot disagree.
+  const active=new Map();
+  (S.events||[]).forEach(e=>{
+    if(e.kind==="raised")active.set(e.station,e);
+    else if(e.kind==="cleared")active.delete(e.station);
+  });
+  const raisedN=(S.events||[]).filter(e=>e.kind==="raised").length;
+  const holds=(S.events||[]).filter(e=>e.kind==="hold");
+  const drifts=(S.events||[]).filter(e=>e.kind==="drift");
+  const clean=t=>esc(String(t||"").replace(/^\[\s*[\d.]+\]\s*/,""));
+  const card=(e,cls)=>`<div class="lp ${cls}"><b>${esc(e.station)}</b> <span>${fmt(e.t)}</span><div>${clean(e.text)}</div></div>`;
+  let h=`<h3>Line now</h3><p>Front lane is the plant's truth, behind it is what Loom believes — solid measured, dashed inferred. Click any station for its panel.</p>`;
+  // Two different questions, and conflating them is how a panel ends up saying
+  // "all clear" while a station is visibly the constraint. A forecast alert is
+  // about a block that is *forming*; once it has formed and the line adapts,
+  // supply falls to the constraint's own rate, the buffer stops growing and
+  // there is nothing left to forecast. The constraint has not gone away — it
+  // has become the current one, which is what the active-period method reports.
+  const bn=S.frame&&S.frame.bn;
+  if(bn&&bn[1]>=2){
+    h+=`<h3>Current constraint</h3><div class="lp cons"><b>${esc(bn[0])}</b><span>${SRC[bn[2]]}</span>`
+      +`<div>Longest uninterrupted active period on the line (${bn[1]} min) — this is the station setting the pace right now.</div></div>`;
+  }
+  h+=`<h3>Forecast alerts</h3>`;
+  h+= active.size ? [...active.values()].map(e=>card(e,"raised")).join("")
+                  : `<div class="lp quiet">Nothing forming.${raisedN?` ${raisedN} raised earlier this run; once a block has formed and the line settles there is no longer a future event to predict — see the constraint above and the Log tab.`:" On a quiet line that is the correct output: the published false-alarm floor is 0.30 per 8 h."}</div>`;
+  if(drifts.length){h+=`<h3>Process drift</h3>`+drifts.slice(-3).reverse().map(e=>card(e,"drift")).join("");}
+  if(holds.length){h+=`<h3>Holds</h3>`+holds.slice(-3).reverse().map(e=>card(e,"hold")).join("");}
+  const grouped=(S.events||[]).filter(e=>e.kind==="grouped");
+  if(grouped.length){h+=`<h3>Grouped as consequences</h3><p class="muted">Blocked or starved by a constraint elsewhere — one alert, not eight.</p>`+grouped.slice(-3).reverse().map(e=>card(e,"grouped")).join("");}
+  return h;
+}
 async function renderPane(){
   const el=$("pane"),m=S.meta,p=S.pane;
-  if(p==="station"){const i=S.sel;if(i==null){el.innerHTML=`<h3>Station</h3><p>Click a station card under the scene. This panel shows what the plant is really doing at that station next to what Loom believes — cycle history, process parameters against their spec limits, the CUSUM state, the forecast.</p>`;return;}
+  if(p==="station"){const i=S.sel;if(i==null){el.innerHTML=livePanel();return;}
     const d=await api(`/api/station/${m.stations[i].id}`);S.detail=d;const pill=k=>`<span class="pill ${k==="measured"?"m":k==="inferred"?"i":"s"}">${k}</span>`;
     let h=`<h3>${d.id} <span class="pill">${d.type}</span> <span class="pill">${d.zone}</span> <span class="pill">${d.sensors}</span></h3>
     <div class="kv"><span>plant</span><span>${d.truth.state}${d.truth.vehicle?` · v${d.truth.vehicle}`:""} · buffer ${d.truth.buffer}/${d.buffer_cap} · busy ${d.truth.busy_pct}% blocked ${d.truth.blocked_pct}%</span>

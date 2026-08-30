@@ -1,0 +1,72 @@
+{
+ "seeds": 20,
+ "mean_lead_min": 7.47,
+ "mean_hold_saved": 60,
+ "mean_escapes_prevented": 7,
+ "scenarios": {
+  "configs/healthy.yaml": {
+   "faults": 0,
+   "caught": 0,
+   "mean_lead_min": null,
+   "false_alarms": 0,
+   "fa_per_8h": null,
+   "healthy_alarms_per_8h": 0.3
+  },
+  "configs/ramp_b3.yaml": {
+   "faults": 20,
+   "caught": 20,
+   "mean_lead_min": 7.88,
+   "false_alarms": 1,
+   "fa_per_8h": 0.2,
+   "healthy_alarms_per_8h": null
+  },
+  "configs/ramp_b3_dark.yaml": {
+   "faults": 20,
+   "caught": 20,
+   "mean_lead_min": 5.99,
+   "false_alarms": 1,
+   "fa_per_8h": 0.2,
+   "healthy_alarms_per_8h": null
+  },
+  "configs/sensor_fault_b2.yaml": {
+   "faults": 20,
+   "caught": 20,
+   "mean_lead_min": 7.69,
+   "false_alarms": 1,
+   "fa_per_8h": 0.2,
+   "healthy_alarms_per_8h": null
+  },
+  "configs/shifting.yaml": {
+   "faults": 40,
+   "caught": 37,
+   "mean_lead_min": 5.56,
+   "false_alarms": 1,
+   "fa_per_8h": 0.16,
+   "healthy_alarms_per_8h": null
+  },
+  "configs/plant_b.yaml": {
+   "faults": 20,
+   "caught": 20,
+   "mean_lead_min": 11.82,
+   "false_alarms": 1,
+   "fa_per_8h": 0.13,
+   "healthy_alarms_per_8h": null
+  },
+  "configs/weld_drift_b2.yaml": {
+   "faults": 0,
+   "caught": 0,
+   "mean_lead_min": null,
+   "false_alarms": 3,
+   "fa_per_8h": 0.6,
+   "healthy_alarms_per_8h": null
+  },
+  "configs/multi_cause.yaml": {
+   "faults": 0,
+   "caught": 0,
+   "mean_lead_min": null,
+   "false_alarms": 2,
+   "fa_per_8h": 0.27,
+   "healthy_alarms_per_8h": null
+  }
+ }
+}

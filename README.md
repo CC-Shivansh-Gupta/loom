@@ -46,7 +46,7 @@ Views: `--view operator:<station>`, `supervisor`, `quality`, `maintenance`, `man
 Benchmark over many seeds (every number against ground truth the twin never saw):
 
 ```
-python -m loom.bench     --seeds 20 --out docs/benchmark.md    # absolute performance
+python -m loom.bench     --seeds 20 --out docs/benchmark.md    # absolute performance (+ benchmark.json)
 python -m loom.baseline  --seeds 10 --out docs/baselines.md    # vs no twin / threshold alarm / detection-only
 python -m loom.ablate    --seeds 10 --out docs/ablation.md     # what each mechanism buys
 python -m loom.coverage  --seeds 5  --out docs/coverage.md     # lead time vs share of stations dark

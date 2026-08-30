@@ -182,8 +182,14 @@ fallback and the control arm.
 
 - **Live control room** (`loom.server`): real-time plant and twin, 3D line with the plant's truth in
   front and the twin's belief behind, clickable stations with cycle history and parameter charts
-  against spec limits, fault injection, YAML line editor, six persona tabs, scorecard, recording to
-  a shareable replay page.
+  against spec limits, fault injection, YAML line editor, six persona tabs, an **AI tab** with all
+  four AI features live, scorecard, recording to a shareable replay page.
+- The default panel reports the line's condition — **current constraint** (active-period) and
+  **forecast alerts** (the forecaster) as separate sections, because they answer different
+  questions: once a block has formed and the line settles there is no future event left to predict,
+  so the alert clears while the constraint remains. The Exec tab never renders $0: with no fault
+  observed on this line it falls back to the benchmark and says so, and prints the payback at a
+  tenth of the assumed downtime cost so the sceptic's first objection is answered on the slide.
 - **Factory I/O clip**: third-party equipment, Loom read-only, dark station reconstructed.
 - **Demo script**: five scenes in `solution_design.md` §5.
 
