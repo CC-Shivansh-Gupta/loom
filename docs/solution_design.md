@@ -256,20 +256,27 @@ Telemetry is kept for every LLM call (tokens, latency, cost) so the economics ar
 
 ## 5. Demo script
 
-1. **Healthy line** — `healthy.yaml`, 12 stations, noise and mix. Supervisor view: green, no alerts.
-   Point out ●/◐/○.
-2. **Tool wear at B3** — `ramp_b3.yaml`. Operator view at B3 at 40 min: cycle creeping up, ◐. At 43
-   min the alert: "B2 blocks in ~7 min, conf 100 %". At 51 min it does. Manager view: 8.5 min lead,
-   ETA error 1 min, 0 false alarms.
-3. **Lights out at B3** — `ramp_b3_dark.yaml`. Same fault, B3 dark. Loom infers B3 from B2/B4
-   timestamps; alert still fires, later and with lower confidence — say by how much. Manager view:
-   "instrument B3 next; expected gain X min lead".
-4. **Silent drift** — step 5 scenario. Weld current drifts at B2; no cycle-time symptom. CUSUM
-   catches it; Loom names the 14 vehicles at risk out of 60 built; F5 later confirms defects on 11 of
-   them. Blanket hold would have been 60.
-5. **Another plant** — `plant_b.yaml`, 30 stations. Same code, same views, zero changes.
+Ten scripted scenes with captions run from the control room's **▶ Story** button, driving the same
+public API a person would click — so it rehearses the real demo rather than being a separate code
+path, and it is the failure plan if the live demo misbehaves. The spine:
 
----
+1. **Healthy line** — `healthy.yaml`, 12 stations, noise and mix. Nothing raised, which is the hard
+   part. Point out ● / ◐ / ○ on every value.
+2. **Tool wear at B3** — `ramp_b3.yaml`. The cycle creeps up, the forecaster fits it and simulates
+   the buffer forward: "B2 blocks in ~7 min". Then it does. The manager view scores the lead time
+   whether it flatters us or not.
+3. **Lights out at B3** — `ramp_b3_dark.yaml`, the hero shot. Same fault, B3 reporting nothing at
+   all. A threshold alarm has nothing to threshold and never fires; Loom still warns, reconstructed
+   from B2 and B4 alone, later and with lower confidence — and says by how much.
+4. **Silent drift** — `weld_drift_b2.yaml`. Weld current sags out of spec with no cycle-time
+   symptom. CUSUM catches it at source and opens a targeted hold minutes before end-of-line
+   inspection sees the first weak weld, holding fewer vehicles than a blanket hold would.
+5. **The AI layer** — the briefings written from the evidence pack, the what-if ranked by the
+   simulator, the gate refusing a proposal, and the grounding check catching a fabricated number.
+6. **Another plant** — `plant_b.yaml`, 30 stations. Same code, same views, zero changes.
+
+Figures are deliberately not quoted here: every number in the demo comes from the run happening on
+screen, and the measured distributions are in §6b and `docs/benchmark.md`.
 
 ## 6. Roadmap
 

@@ -493,7 +493,7 @@ function vMaintenance(p){
     if(due.length)parts.push(`<b>${due.map(esc).join(", ")}</b> ${due.length>1?"are":"is"} at or trending past takt`);
     if(first!=null)parts.push(first<=0?`a parameter is <b>already outside spec</b>`:`a parameter reaches its spec limit in <b>~${first} min</b>`);
     if(!due.length&&first===0)parts.push(`no asset is over takt, so the line looks healthy from the floor`);
-    h+=`<div class="banner">Cannot wait: ${parts.join(", and ")}. Intervene before the projected crossing — after it, the line is making scrap or losing takt.</div>`;
+    h+=`<div class="banner">Cannot wait: ${parts.join(", and ")}. ${first!=null&&first<=0?"The crossing has already happened — that is a repair now, not a window.":"Intervene before the projected crossing — after it, the line is making scrap or losing takt."}</div>`;
   } else if(watch.length){
     h+=`<div class="banner">Nothing due. <b>${watch.map(esc).join(", ")}</b> ${watch.length>1?"are":"is"} trending up but below the t≥${mt.trend_threshold_tstat} evidence bar — this fits the next scheduled window.</div>`;
   } else {

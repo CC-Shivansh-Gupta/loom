@@ -7,10 +7,12 @@ the table justifying them could not be re-run. This is that script.
     python -m loom.sweep --seeds 5 --out docs/forecaster_tuning.md
 
 The grid is deliberately *axial*, not a full factorial: from the chosen
-defaults, one parameter is varied at a time, plus one extra row for the naive
-trend test (short window, low t, no standard-error test, no persistence rule)
-because that row is the point of the whole table -- it is the alert-fatigue
-failure mode the brief warns about, measured rather than asserted.
+defaults, one parameter is varied at a time. Three anchor rows come first --
+the naive trend test (short window, low t, no standard-error test, no
+persistence rule) and that same corner with each of the two fixes put back --
+because they are the point of the whole table: the alert-fatigue failure mode
+the brief warns about, measured rather than asserted, and then what each fix
+does about it. Sixteen combinations, a couple of minutes at 5 seeds.
 
 Both criteria come from `harness.evaluate`, which is the same gate every
 proposed change goes through: false alarms per 8 h on healthy shifts, and lead
@@ -46,8 +48,17 @@ class Row:
     axis: str                 # which parameter this row varies ("naive" / "defaults" for the anchors)
     fa_per_8h: float
     mean_lead_min: float | None
-    min_lead_min: float | None
+    leads_min: list[float]
     misses: int
+
+    @property
+    def lead_range(self) -> str:
+        """The spread across seeds, not just the mean -- a combination whose
+        worst seed warns two minutes before the block is not the same offer as
+        one that never drops below six."""
+        if not self.leads_min:
+            return "\u2014"
+        return f"{min(self.leads_min):.1f}\u2013{max(self.leads_min):.1f}"
 
     @property
     def is_default(self) -> bool:
@@ -88,8 +99,7 @@ def measure(seeds: int) -> list[Row]:
     rows = []
     for axis, params in grid():
         r = harness.evaluate(params, scs)
-        rows.append(Row(r.params, axis, r.fa_per_8h, r.mean_lead_min,
-                        None if not r.leads_min else min(r.leads_min), r.misses))
+        rows.append(Row(r.params, axis, r.fa_per_8h, r.mean_lead_min, list(r.leads_min), r.misses))
     return rows
 
 
@@ -101,8 +111,8 @@ def choose(rows: list[Row]) -> Row:
     return max(pool, key=lambda r: (-r.fa_per_8h, r.mean_lead_min or 0.0))
 
 
-def report(seeds: int) -> str:
-    rows = measure(seeds)
+def report(seeds: int, rows: list[Row] | None = None) -> str:
+    rows = rows if rows is not None else measure(seeds)
     best = choose(rows)
     naive = next(r for r in rows if r.axis == "naive")
     defaults = next(r for r in rows if r.axis == "defaults")
@@ -126,10 +136,11 @@ def report(seeds: int) -> str:
            "- **lead**: minutes between the first alert on B3 and the upstream station actually",
            "  blocking, on `configs/ramp_b3.yaml` and `configs/ramp_b3_dark.yaml`.",
            "",
-           "The grid is axial: from the defaults, one parameter moves at a time. The first row is the",
-           "naive trend test — short window, t ≥ 3, no standard-error test, no persistence rule.",
+           "The grid is axial: from the defaults, one parameter moves at a time. The first three rows",
+           "are anchors — the naive trend test (short window, t ≥ 3, no standard-error test, no",
+           "persistence rule), then that same corner with each fix put back on its own.",
            "",
-           "| varies | window | min_tstat | min_over_z | raise_after | FA/8 h | mean lead (min) | min lead (min) | missed |",
+           "| varies | window | min_tstat | min_over_z | raise_after | FA/8 h | mean lead (min) | lead range (min) | missed |",
            "|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
         p = r.params
@@ -137,7 +148,7 @@ def report(seeds: int) -> str:
                  "naive+se": "naive + standard-error test",
                  "naive+persistence": "naive + persistence rule"}.get(r.axis, r.axis)
         cells = [label, f"{p['window']}", f"{p['min_tstat']:.0f}", f"{p['min_over_z']:.0f}",
-                 f"{p['raise_after']}", f"{r.fa_per_8h:.1f}", f(r.mean_lead_min), f(r.min_lead_min),
+                 f"{p['raise_after']}", f"{r.fa_per_8h:.1f}", f(r.mean_lead_min), r.lead_range,
                  f"{r.misses}"]
         if r.is_default:
             cells = [c if c.startswith("**") else f"**{c}**" for c in cells]
@@ -152,23 +163,36 @@ def report(seeds: int) -> str:
         f"budget of {FA_BUDGET}. Thousands of significance tests per shift means t \u2265 3 fires by "
         f"chance many times a shift, and a supervisor stops reading the panel long before the one "
         f"real alert arrives \u2014 a forecaster tuned this way is worse than no forecaster."))
-    out += ["", "Two fixes did the work, and rows 2 and 3 put each back on its own:", ""]
-    # Which half of the trade the standard-error test shows up in depends on
-    # the seeds: sometimes as false alarms, sometimes as lead. Report whichever
-    # the run actually produced rather than asserting one.
-    if no_se.fa_per_8h > defaults.fa_per_8h:
-        se_cost = (f"the false-alarm rate rises to {no_se.fa_per_8h:.1f} per 8 h against "
-                   f"{defaults.fa_per_8h:.1f}")
+    out += ["", _para(
+        "Two mechanisms separate that corner from the shipped defaults. Rows 2 and 3 put each one "
+        "back on its own; the axial rows below take each one away from the defaults."), ""]
+    # Neither the direction nor the axis of each fix's effect is safe to assert
+    # in advance -- the standard-error test can *raise* the raw alert count from
+    # the naive corner, because it also makes the forecaster willing to fire
+    # earlier. Report what the run produced, on both axes.
+    if plus_se.fa_per_8h < naive.fa_per_8h:
+        se_alone = (f"Added to the naive corner alone it takes false alarms from "
+                    f"{naive.fa_per_8h:.1f} to {plus_se.fa_per_8h:.1f} per 8 h.")
     else:
-        se_cost = (f"mean lead collapses to {f(no_se.mean_lead_min)} min against "
-                   f"{f(defaults.mean_lead_min)}, because without the test \"over takt\" only "
-                   f"becomes true once the station is unambiguously over \u2014 far too late to be "
-                   f"a forecast")
+        se_alone = (f"On its own it does not quieten the naive corner at all "
+                    f"({naive.fa_per_8h:.1f} \u2192 {plus_se.fa_per_8h:.1f} per 8 h): with no "
+                    f"persistence rule behind it, noise clears any single-cycle test. Its work "
+                    f"shows once the line is quiet enough for one alert to matter.")
+    se_cost = []
+    if no_se.fa_per_8h > defaults.fa_per_8h:
+        se_cost.append(f"false alarms rise to {no_se.fa_per_8h:.1f} per 8 h against "
+                       f"{defaults.fa_per_8h:.1f}")
+    if (no_se.mean_lead_min or 0) < (defaults.mean_lead_min or 0):
+        se_cost.append(f"mean lead falls to {f(no_se.mean_lead_min)} min against "
+                       f"{f(defaults.mean_lead_min)}")
+    if no_se.misses > defaults.misses:
+        se_cost.append(f"{no_se.misses} injected faults go unwarned")
     out.append(_para(
         f"1. **The standard-error test.** \"Already over takt\" has to mean the fitted cycle sits "
-        f"`min_over_z` standard errors above takt, not a raw comparison. Added to the naive corner "
-        f"alone it takes false alarms from {naive.fa_per_8h:.1f} to {plus_se.fa_per_8h:.1f} per 8 h. "
-        f"Removed from the defaults (`min_over_z = 0`), {se_cost}.", indent="   "))
+        f"`min_over_z` standard errors above takt, not a raw comparison. {se_alone} Removed from "
+        f"the defaults (`min_over_z = 0`), "
+        + ("; ".join(se_cost) if se_cost else "nothing measurably changes on this grid")
+        + ".", indent="   "))
     out.append(_para(
         f"2. **The persistence rule.** The condition must hold on "
         f"{harness.DEFAULT_PARAMS['raise_after']} consecutive cycles before an alert is raised. "
