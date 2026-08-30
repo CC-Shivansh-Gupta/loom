@@ -133,8 +133,17 @@ python -m loom.ai improve --iterations 3                                     # p
 python -m loom.ai onboard "18 stations, takt 72 s, 4 manual, 2 dark, paint buffer 10"
 ```
 
+All four are live in the control room's **AI** tab, not just the CLI: briefings, what-if with the
+simulator's ranking, the improvement loop showing the gate refusing proposals, onboarding from a
+sentence, and a red-team panel where the grounding check catches fabricated numbers on screen.
+
+```
+python -m loom.aieval --out docs/ai_eval.md    # groundedness, abstention, persona fit, red team
+```
+
 Runs on deterministic templates by default; with `pip install anthropic` and credentials (or
-`LOOM_LLM=claude`) the same calls go to `claude-opus-5`. See `docs/ai_layer.md`.
+`LOOM_LLM=claude`) the same calls go to `claude-opus-5` and `aieval` rescores the model's output
+unchanged. See `docs/ai_layer.md`.
 
 Sensor profiles carry noise: timestamp jitter, clock offset, dropouts and reporting latency
 (`loom/sensors.py`). Every twin value is tagged ● measured / ◐ inferred / ○ simulated, and inferred

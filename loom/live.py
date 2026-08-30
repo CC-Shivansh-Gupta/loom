@@ -95,6 +95,73 @@ class LiveSim:
                                         "grounded": res["grounded"]}, actor="loom", t=t)
         return out
 
+    # -- AI layer, live -----------------------------------------------------
+    # The control room is where a judge looks for the AI, so all four
+    # features are reachable here and not only from the CLI. Every one of
+    # them runs on the twin's *believed* state, never the plant's truth.
+
+    def whatif(self, station: str | None = None, horizon_min: float = 30.0) -> dict:
+        """LLM proposes mitigations from a fixed menu; the simulator measures
+        them and the ranking is the simulator's, not the model's."""
+        from . import evidence, llm, whatif
+        prov = llm.get_provider()
+        with self.lock:
+            pack = evidence.pack(self.twin, self.sensors.coverage())
+            cfg, twin, t = self.cfg, self.twin, self.plant.t
+        res = whatif.recommend(cfg, twin, pack, station, prov, horizon_min * 60)
+        res["provider"] = prov.name
+        res["telemetry"] = llm.telemetry_summary()
+        if self.store is not None:
+            self.store.audit("whatif", {"focus": res.get("focus_station"),
+                                        "n_candidates": len(res.get("ranked", []))},
+                             actor="loom", t=t)
+        return res
+
+    def improve(self, iterations: int = 3) -> dict:
+        """Propose -> backtest -> gate. The gate runs the same harness a human
+        would; nothing the model says changes behaviour without passing it."""
+        from . import improve as imp, llm
+        prov = llm.get_provider()
+        run = imp.improve(iterations, provider=prov)
+        out = run.as_dict()
+        out["provider"] = prov.name
+        out["telemetry"] = llm.telemetry_summary()
+        if self.store is not None:
+            self.store.audit("improve", {"iterations": len(out["iterations"]),
+                                         "accepted": sum(1 for i in out["iterations"] if i["accepted"])},
+                             actor="loom", t=self.plant.t)
+        return out
+
+    def onboard(self, description: str) -> dict:
+        """One sentence -> a plant file the loader validates. This is the
+        'extend to another plant' argument, live."""
+        from . import llm, onboard
+        prov = llm.get_provider()
+        try:
+            text, assumptions = onboard.draft(description, prov)
+        except Exception as e:
+            return {"error": str(e), "provider": prov.name}
+        if self.store is not None:
+            self.store.audit("onboard", {"description": description[:200]},
+                             actor="loom", t=self.plant.t)
+        return {"yaml": text, "assumptions": assumptions, "provider": prov.name,
+                "telemetry": llm.telemetry_summary()}
+
+    def redteam(self) -> dict:
+        """Run the grounding check against reports that contain numbers the
+        evidence does not support.
+
+        These are fixtures, not live model output, and are labelled as such:
+        with the template provider every report is grounded by construction,
+        so there is nothing to catch. The point is to show what the check
+        does when a model fabricates -- and the same harness runs live
+        outputs the moment a real provider is wired.
+        """
+        from . import aieval, evidence
+        with self.lock:
+            pack = evidence.pack(self.twin, self.sensors.coverage())
+        return aieval.redteam(pack)
+
     def step(self, real_dt: float) -> None:
         if not self.playing:
             return

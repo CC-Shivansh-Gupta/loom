@@ -57,6 +57,12 @@ canvas.spark{width:100%;height:70px;display:block;background:var(--panel2);borde
 .cap{font-family:var(--mono);font-size:11px;color:var(--muted);display:flex;justify-content:space-between}
 textarea.cfg{width:100%;height:52vh;font-family:var(--mono);font-size:11.5px;line-height:1.45;resize:vertical;tab-size:2}
 .err{color:#F2A08F;font-family:var(--mono);font-size:12px;white-space:pre-wrap;margin:6px 0}
+.ok{color:#5FD8A4}
+.muted{color:var(--muted);font-size:11px}
+.tbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;margin:6px 0}
+.tbl th{text-align:left;color:var(--muted);font-weight:400;border-bottom:1px solid #2A3338;padding:4px 6px}
+.tbl td{padding:4px 6px;border-bottom:1px solid #1C2428;vertical-align:top}
+.tbl tr.ok td{color:#5FD8A4} .tbl tr.err td{color:#F2A08F}
 .events{font-family:var(--mono);font-size:11.5px;display:grid;gap:4px} .events div{padding:4px 8px;border-left:2px solid var(--line)} .events .raised{border-color:var(--alert)} .events .hold{border-color:var(--hold)} .events .drift{border-color:var(--blocked)} .events .cleared{border-color:var(--busy)} .events .inject{border-color:var(--accent)}
 @media (prefers-reduced-motion:reduce){.toast div{transition:none}}
 </style></head><body>
@@ -83,7 +89,7 @@ textarea.cfg{width:100%;height:52vh;font-family:var(--mono);font-size:11.5px;lin
 </footer>
 <aside>
   <div class="tabs" id="tabs">
-    <button class="tab on" data-p="station">Station</button><button class="tab" data-p="inject">Inject</button><button class="tab" data-p="config">Line</button><button class="tab" data-p="supervisor">Floor</button><button class="tab" data-p="quality">Quality</button><button class="tab" data-p="maintenance">Maint.</button><button class="tab" data-p="manager">Mgr</button><button class="tab" data-p="leadership">Exec</button><button class="tab" data-p="events">Log</button>
+    <button class="tab on" data-p="station">Station</button><button class="tab" data-p="inject">Inject</button><button class="tab" data-p="config">Line</button><button class="tab" data-p="supervisor">Floor</button><button class="tab" data-p="quality">Quality</button><button class="tab" data-p="maintenance">Maint.</button><button class="tab" data-p="ai">AI</button><button class="tab" data-p="manager">Mgr</button><button class="tab" data-p="leadership">Exec</button><button class="tab" data-p="events">Log</button>
   </div>
   <div class="pane" id="pane"></div>
 </aside>
@@ -91,6 +97,7 @@ textarea.cfg{width:100%;height:52vh;font-family:var(--mono);font-size:11.5px;lin
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 const $=id=>document.getElementById(id);
+const esc=x=>String(x==null?"":x).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 const fmt=t=>`${String(Math.floor(t/3600)).padStart(2,"0")}:${String(Math.floor(t%3600/60)).padStart(2,"0")}`;
 const SRC=["measured","inferred","simulated"], STATE=["idle","busy","blocked"], HEALTH=["ok","silent","inconsistent"];
 const COL={bg:0x0F1317,accent:0xB388FF,busy:0x2FB8A6,blocked:0xE8A33D,alert:0xF2542D,idle:0x3A454F,floor:0x141A20};
@@ -272,6 +279,50 @@ async function renderPane(){
   if(p==="config"){el.innerHTML=`<h3>Line configuration</h3><p>Edit the YAML and apply: stations, zones, cycle times, buffers, sensor profiles, model variants, scheduled faults. Applying rebuilds the plant and the twin from zero.</p><textarea class="cfg" id="cfg" spellcheck="false">${m.yaml.replace(/</g,"&lt;")}</textarea><div class="row"><button id="cfg_apply" class="play">Apply</button><button id="cfg_reload">Discard</button></div><div class="err" id="cfg_err"></div>`;
     $("cfg_apply").onclick=async()=>{const r=await api("/api/load",{yaml:$("cfg").value});if(r.error){$("cfg_err").textContent=r.error;return;}$("cfg_err").textContent="";afterLoad(r.meta);};
     $("cfg_reload").onclick=()=>renderPane();return;}
+  if(p==="ai"){
+    el.innerHTML=`<h3>AI layer</h3><p>The rule, and every panel below enforces it: <b>statistics and simulation produce every number; the model turns numbers into decisions, proposes hypotheses for the simulator to test, and drives the improvement loop through a gate it cannot bypass.</b> It never predicts, scores a vehicle, decides a hold or writes a number that is not in the evidence pack.</p>
+    <h3>1 · Briefings — one evidence pack, three audiences</h3>
+    <div class="row"><button id="rep_sup">Floor</button><button id="rep_q">Quality</button><button id="rep_m">Manager</button></div><div id="rep_out"></div>
+    <h3>2 · What-if — the model proposes, the simulator judges</h3>
+    <div class="row"><label>station <select id="wi_st"><option value="">auto (worst)</option>${m.stations.map(x=>`<option>${x.id}</option>`).join("")}</select></label><label>horizon <input type="number" id="wi_h" value="30"> min</label><button id="wi_go" class="play">Run</button></div><div id="wi_out"></div>
+    <h3>3 · Improvement loop — propose, backtest, gate</h3>
+    <div class="row"><label>iterations <input type="number" id="im_n" value="3"></label><button id="im_go">Run</button><span class="muted">slow: it re-runs recorded shifts</span></div><div id="im_out"></div>
+    <h3>4 · Onboarding — a sentence becomes a plant</h3>
+    <div class="row"><input id="ob_d" style="flex:1" value="18 stations, takt 72 s, 4 manual, 2 dark, paint buffer 10"><button id="ob_go">Draft</button></div><div id="ob_out"></div>
+    <h3>5 · Grounding — the check that catches a fabricated number</h3>
+    <div class="row"><button id="rt_go" class="danger">Run red team</button></div><div id="rt_out"></div>`;
+
+    const mk=(id,persona)=>{$(id).onclick=async()=>{$("rep_out").innerHTML="<pre>working…</pre>";const r=await api(`/api/report/${persona}`,{});$("rep_out").innerHTML=r.error?`<div class="err">${r.error}</div>`:`<p>#${r.report_id} · ${r.provider} · evidence sha ${(r.evidence_sha256||"").slice(0,12)}… · ${r.grounded?"<b class='ok'>every number traced to the evidence pack</b>":"<b class='err'>unsupported: "+r.unsupported.join(", ")+"</b>"}</p><pre>${esc(r.text)}</pre>`;};};
+    mk("rep_sup","supervisor");mk("rep_q","quality");mk("rep_m","manager");
+
+    $("wi_go").onclick=async()=>{$("wi_out").innerHTML="<pre>simulating…</pre>";
+      const r=await api("/api/whatif",{station:$("wi_st").value,horizon_min:+$("wi_h").value});
+      if(r.error){$("wi_out").innerHTML=`<div class="err">${esc(r.error)}</div>`;return;}
+      const b=r.baseline;const row=o=>`<tr><td>${esc(o.mitigation)}</td><td>${o.simulated_veh_per_h}</td><td>${o.simulated_upstream_blocked_min}</td><td>${o.simulated_first_block_min==null?"never":o.simulated_first_block_min+" min"}</td></tr>`;
+      $("wi_out").innerHTML=`<p>Focus <b>${esc(r.focus_station)}</b> · next ${r.horizon_min} min · ${esc(r.inputs)} · provider ${r.provider}</p>
+      <table class="tbl"><tr><th>option</th><th>veh/h</th><th>blocked min</th><th>first block</th></tr>${row({...b,mitigation:"do nothing (baseline)"})}${r.ranked.map(row).join("")}</table>
+      <pre>${esc(r.explanation)}</pre>`;};
+
+    $("im_go").onclick=async()=>{$("im_out").innerHTML="<pre>backtesting on recorded shifts…</pre>";
+      const r=await api("/api/improve",{iterations:+$("im_n").value});
+      if(r.error){$("im_out").innerHTML=`<div class="err">${esc(r.error)}</div>`;return;}
+      const rows=r.iterations.map(i=>`<tr class="${i.accepted?'ok':'err'}"><td>${esc(JSON.stringify(i.proposal))}</td><td>${i.result.fa_per_8h}</td><td>${i.result.mean_lead_min==null?"—":i.result.mean_lead_min}</td><td>${i.accepted?"accepted":"rejected"}: ${esc(i.reason)}</td></tr>`).join("");
+      $("im_out").innerHTML=`<p>Budget ${r.fa_budget_per_8h} false alarms / 8 h. Baseline ${r.baseline.fa_per_8h} FA, ${r.baseline.mean_lead_min} min lead. The gate decides, not the proposer.</p>
+      <table class="tbl"><tr><th>proposal</th><th>FA/8h</th><th>lead</th><th>verdict</th></tr>${rows}</table>`;};
+
+    $("ob_go").onclick=async()=>{$("ob_out").innerHTML="<pre>drafting…</pre>";
+      const r=await api("/api/onboard",{description:$("ob_d").value});
+      if(r.error){$("ob_out").innerHTML=`<div class="err">${esc(r.error)}</div>`;return;}
+      $("ob_out").innerHTML=`<p>Validated by the loader · provider ${r.provider}. Assumptions it had to make:</p><ul>${r.assumptions.map(a=>`<li>${esc(a)}</li>`).join("")}</ul><pre>${esc(r.yaml)}</pre><p class="muted">Paste into the Line tab to run it.</p>`;};
+
+    $("rt_go").onclick=async()=>{$("rt_out").innerHTML="<pre>checking…</pre>";
+      const r=await fetch("/api/redteam").then(x=>x.json());
+      if(r.error){$("rt_out").innerHTML=`<div class="err">${esc(r.error)}</div>`;return;}
+      const rows=r.fixtures.map(f=>`<tr class="${f.correct?'ok':'err'}"><td>${esc(f.name)}</td><td>${f.sentence?esc(f.sentence):"<i>nothing — control</i>"}</td><td>${f.should_pass?"—":(f.correct?"caught":"MISSED")}</td></tr>`).join("");
+      $("rt_out").innerHTML=`<p>Reports containing numbers this shift's evidence does not support, run through the same check that gates every stored report. <b>${r.caught}/${r.planted} caught, ${r.false_accusations} clean reports wrongly flagged.</b></p>
+      <table class="tbl"><tr><th>fixture</th><th>planted sentence</th><th>result</th></tr>${rows}</table>
+      <p class="muted">${esc(r.note)}</p>`;};
+    return;}
   if(p==="events"){const au=await api("/api/audit");const c=au.counts||{};
     el.innerHTML=`<h3>Audit trail</h3><p>Persisted in SQLite (${c.path||"—"}): run ${c.run_id||"—"} · ${c.events||0} events the twin received · ${c.twin_events||0} alerts/holds/drifts · ${c.snapshots||0} belief snapshots · ${c.audit||0} actions · ${c.reports||0} AI reports.</p>
     <div class="row"><button id="rep_sup">Report: floor</button><button id="rep_q">Report: quality</button><button id="rep_m">Report: manager</button></div><div id="rep_out"></div>

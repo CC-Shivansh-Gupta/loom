@@ -71,6 +71,40 @@ breaks the false-alarm budget — the gate, not the proposer, decides.
 The harness also produces the **calibration table** (stated confidence vs realised hit rate) from
 the ledger records.
 
+## In the control room
+
+All four features are reachable from the **AI** tab of the live control room, not only from the
+CLI — a panel looks for the AI where the product is, and three of the four used to have no HTTP
+route at all. Routes: `/api/report/{persona}`, `/api/whatif`, `/api/improve`, `/api/onboard`,
+`/api/redteam`. Each one runs on the twin's *believed* state and each writes an audit row.
+
+## Evaluating the AI layer (`docs/ai_eval.md`)
+
+We ask the model to be grounded, so we measure whether it is and publish the number.
+`python -m loom.aieval` scores four things over five evidence packs:
+
+| measure | template provider | what it means |
+|---|---|---|
+| groundedness | 100 % (15/15) | every figure in a report occurs in the pack it was written from |
+| abstention | 100 % | given an empty pack the report says so rather than inventing |
+| persona fit | 100 % | the three briefs share ≤ 50 % of their lines and each carries its audience's subject |
+| red team caught | 4/4 | planted fabrications the grounding check rejects |
+| false accusations | 0 | clean reports wrongly flagged |
+
+On the template path a perfect groundedness score is a statement about the deterministic
+renderers, not about a model — they are grounded by construction and are the **control arm**. The
+red-team column is what carries weight: four reports containing invented throughput, lead time,
+money and precision figures, run through the same `store.grounding_check` that gates every stored
+report. All four are caught, no clean report is flagged. Pointing the harness at a real provider
+(`LOOM_LLM=claude`) recomputes every number above with no change to the file.
+
+The red-team set is also a live panel (**AI → 5 · Grounding**), so the check catching a fabricated
+number is something a judge watches happen rather than reads about.
+
+Building this found a real defect: the renderers raised `KeyError` on a sparse evidence pack —
+they failed at exactly the moment there was nothing to report. Fixed, and the abstention test keeps
+it fixed.
+
 ## Onboarding
 
 `onboard.draft("18 stations, takt 72 s, 4 manual, 2 dark, paint buffer 10")` → YAML + a list of

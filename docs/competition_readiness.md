@@ -143,8 +143,20 @@ This matches where the market is going (2026: copilots → agents "entering the 
 Deloitte: agentic adoption 6 % → 24 %) while answering the trust question the same sources raise:
 guardrails, traceability, permission boundaries are in the mechanism, not the slide.
 
-Still to do here: run the same calls through `claude-opus-5` once the key is wired and put the
-side-by-side in the deck; the template path is the demo fallback, not the headline.
+**Now measured, not asserted** (`docs/ai_eval.md`): groundedness 100 % (15/15 reports), abstention
+100 %, persona fit 100 %, and a red-team set of four reports carrying invented throughput, lead
+time, money and precision figures — **4/4 caught, 0 clean reports wrongly flagged**. On the
+template path the first three are a statement about the renderers, which are grounded by
+construction and serve as the control arm; the red-team column is what shows the check has teeth
+regardless of who wrote the text. Building the suite found a real defect: the renderers raised on a
+sparse pack, i.e. failed exactly when there was nothing to report.
+
+All four AI features are now in the control room's **AI** tab — three of them previously had no
+HTTP route at all, so a judge clicking through the prototype found no AI.
+
+Still to do here: run the same calls through `claude-opus-5` once the key is wired; `aieval`
+rescores model output with no change to the file, and the template path stays as the offline
+fallback and the control arm.
 
 ## 5. Is it presentable?
 

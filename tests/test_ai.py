@@ -107,3 +107,62 @@ def test_telemetry_is_recorded(prov):
     assert len(llm.TELEMETRY) == before + 1
     assert llm.TELEMETRY[-1].provider == "template"
     assert llm.telemetry_summary()["cost_usd"] == 0.0
+
+
+# ---- AI layer evaluation (docs/ai_eval.md) --------------------------------
+
+def test_redteam_catches_every_planted_fabrication():
+    """The grounding check is the whole basis for trusting a generated
+    briefing. If a planted number ever slips through, nothing else in the AI
+    layer is defensible."""
+    from loom import aieval, evidence
+    from loom.run import build
+    cfg, plant, sensors, twin = build("configs/ramp_b3.yaml")
+    plant.run(2400)
+    pack = evidence.pack(twin, sensors.coverage())
+    r = aieval.redteam(pack)
+    assert r["caught"] == r["planted"], \
+        f"missed: {[f['name'] for f in r['fixtures'] if not f['correct']]}"
+    assert r["false_accusations"] == 0, "a clean report was wrongly flagged"
+
+
+def test_reports_survive_an_empty_evidence_pack():
+    """Abstention: with nothing to report the renderers must say so, not
+    raise. A briefing generator that crashes on sparse evidence fails exactly
+    when the line is quiet."""
+    from loom import evidence, llm, narrate
+    from loom.run import build
+    cfg, plant, sensors, twin = build("configs/healthy.yaml")
+    plant.run(600)
+    pack = evidence.pack(twin, sensors.coverage())
+    pack.update(alerts=[], quality={}, stations=[])
+    prov = llm.get_provider()
+    for persona in ("supervisor", "quality", "manager"):
+        text = narrate.report(persona, pack, prov)
+        assert text.strip(), f"{persona} produced nothing"
+
+
+def test_whatif_ranks_against_a_simulated_baseline():
+    """The model proposes from a menu; the ranking has to come from the
+    simulator. Every option must carry a simulated number."""
+    from loom.live import LiveSim
+    sim = LiveSim("ramp_b3.yaml")
+    sim.plant.run(2700)
+    res = sim.whatif(horizon_min=15)
+    assert res["baseline"]["simulated_veh_per_h"] > 0
+    assert res["ranked"], "no mitigations proposed"
+    for o in res["ranked"]:
+        assert o["simulated_veh_per_h"] is not None
+        assert o["mitigation"]
+
+
+def test_improve_gate_refuses_a_budget_breaking_proposal():
+    """The point of the loop is the refusal. If every proposal is accepted the
+    gate is decorative."""
+    from loom import improve
+    run = improve.improve(2)
+    d = run.as_dict()
+    assert d["iterations"], "no proposals made"
+    for it in d["iterations"]:
+        if not it["accepted"]:
+            assert it["reason"], "a rejection with no stated reason"

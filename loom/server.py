@@ -152,6 +152,29 @@ async def report(persona: str):
         return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
 
 
+@app.post("/api/whatif")
+async def whatif(body: dict) -> dict:
+    fn = lambda: sim.whatif(body.get("station") or None, float(body.get("horizon_min", 30)))
+    return await asyncio.get_event_loop().run_in_executor(None, fn)
+
+
+@app.post("/api/improve")
+async def improve(body: dict) -> dict:
+    fn = lambda: sim.improve(int(body.get("iterations", 3)))
+    return await asyncio.get_event_loop().run_in_executor(None, fn)
+
+
+@app.post("/api/onboard")
+async def onboard(body: dict) -> dict:
+    fn = lambda: sim.onboard(str(body.get("description", "")))
+    return await asyncio.get_event_loop().run_in_executor(None, fn)
+
+
+@app.get("/api/redteam")
+async def redteam() -> dict:
+    return await asyncio.get_event_loop().run_in_executor(None, sim.redteam)
+
+
 @app.get("/api/audit")
 async def audit() -> dict:
     st = getattr(sim, "store", None)

@@ -60,13 +60,13 @@ def _pack_from_user(user: str) -> dict:
 
 def _supervisor(user: str) -> str:
     p = _pack_from_user(user)
-    L, O = p["line"], p["output"]
+    L, O = p.get("line", {}), p.get("output", {})
     lines = [f"# Shift handover — line {L['id']} at {L['now']}",
              f"- Output {O['vehicles_out']} vehicles, {O['veh_per_h']} veh/h against a takt ceiling of {O['takt_ceiling_per_h']}.",
              ]
     if O["vehicles_unplaced"]:
         lines.append(f"- {O['vehicles_unplaced']} vehicles are on the line but the twin cannot place them (dark stretch).")
-    hot = [s for s in p["stations"] if s["active_alert"]]
+    hot = [s for s in p.get("stations", []) if s.get("active_alert")]
     if hot:
         lines.append("## Watch now")
         for s in hot:
@@ -76,18 +76,18 @@ def _supervisor(user: str) -> str:
                          + (f" ({a['inferred_share']:.0%} of the evidence is inferred)" if a["inferred_share"] else "") + ".")
     else:
         lines.append("## Watch now\n- No active bottleneck alerts.")
-    grouped = [a for a in p["alerts"] if a["action"] == "grouped"]
+    grouped = [a for a in p.get("alerts", []) if a.get("action") == "grouped"]
     for g in grouped[-3:]:
         lines.append(f"- {g['station']} is slow (cycle {g['cycle_s']}s) as a consequence of {g['cause']}; not a separate problem.")
-    bad = [s for s in p["stations"] if s["sensor_health"] != "ok"]
+    bad = [s for s in p.get("stations", []) if s.get("sensor_health", "ok") != "ok"]
     if bad:
         lines.append("## Sensors")
         for s in bad:
             lines.append(f"- {s['id']}: instrumentation {s['sensor_health']}; the twin is bridging from neighbours (◐).")
-    dark = [s["id"] for s in p["stations"] if s["sensors"] == "dark"]
+    dark = [s["id"] for s in p.get("stations", []) if s.get("sensors") == "dark"]
     if dark:
         lines.append(f"- Dark stations (no sensors, state inferred): {', '.join(dark)}.")
-    holds = p["quality"]["holds"]
+    holds = p.get("quality", {}).get("holds", [])
     if holds:
         lines.append("## Holds")
         for h in holds:
@@ -104,27 +104,28 @@ def _supervisor(user: str) -> str:
 
 def _quality(user: str) -> str:
     p = _pack_from_user(user)
-    q = p["quality"]
-    lines = [f"# Containment memo — line {p['line']['id']} at {p['line']['now']}"]
-    fpy = q["first_pass_yield"]
+    q = p.get("quality", {})
+    L = p.get("line", {})
+    lines = [f"# Containment memo — line {L.get('id', '—')} at {L.get('now', '—')}"]
+    fpy = q.get("first_pass_yield") or {}
     if fpy:
         lines.append("## First-pass yield")
         for sid, y in fpy.items():
             if y["n"]:
                 lines.append(f"- {sid}: {y['ok']}/{y['n']} ({y['pct']}%)")
-    if q["drift_alerts"]:
+    if q.get("drift_alerts"):
         lines.append("## Drift")
         for d in q["drift_alerts"]:
             eta = "already out of spec" if d["min_to_limit"] == 0 else (
                 "no crossing projected" if d["min_to_limit"] is None else f"limit in ~{d['min_to_limit']} min")
             lines.append(f"- {d['station']}.{d['param']} {d['direction']} since ~{d['onset']} (mean {d['mean_now']}, {eta}).")
-    if q["hypotheses"]:
+    if q.get("hypotheses"):
         lines.append("## Root-cause hypotheses (ranked evidence, not verdicts)")
         for h in q["hypotheses"]:
             a, n1 = h["defective_under"]
             b, n2 = h["defective_otherwise"]
             lines.append(f"- {' AND '.join(h['conditions'])}: lift {h['lift']}x — {a}/{n1} defective under it vs {b}/{n2} otherwise, p={h['p_value']}.")
-    if q["holds"]:
+    if q.get("holds"):
         lines.append("## Holds")
         for h in q["holds"]:
             lines.append(f"- Hold #{h['id']} at {h['t']} ({h['reason']}, {h['station']}.{h['param']}): "
@@ -134,12 +135,12 @@ def _quality(user: str) -> str:
         lines.append("- Uncertain = built inside the onset margin or the deciding parameter is not reported at that station.")
     else:
         lines.append("## Holds\n- None active.")
-    if q["unreported_params"]:
+    if q.get("unreported_params"):
         lines.append(f"## Blind spots\n- Not reported to the twin: {', '.join(q['unreported_params'])}.")
     lines.append("## Next check")
-    if q["hypotheses"]:
+    if q.get("hypotheses"):
         lines.append(f"- Verify the top hypothesis physically at {q['hypotheses'][0]['conditions'][0].split('.')[0]}; inspect the 'uncertain' vehicles first.")
-    elif q["drift_alerts"]:
+    elif q.get("drift_alerts"):
         d = q["drift_alerts"][-1]
         lines.append(f"- Check {d['station']} for the cause of the {d['param']} drift; confirm spec on the held vehicles.")
     else:
@@ -149,7 +150,7 @@ def _quality(user: str) -> str:
 
 def _manager(user: str) -> str:
     p = _pack_from_user(user)
-    L, O = p["line"], p["output"]
+    L, O = p.get("line", {}), p.get("output", {})
     lines = [f"# Plant summary — {L['plant']}, line {L['id']} ({L['hours_run']} h)",
              f"- Output {O['vehicles_out']} vehicles at {O['veh_per_h']} veh/h (takt ceiling {O['takt_ceiling_per_h']})."]
     cov = p.get("coverage")
