@@ -1,25 +1,9 @@
-# Same ramp, but B3 is a dark station (no sensors) and B2 reports only
-# cycle timestamps. The twin can no longer see B3 directly -- this is the
-# case step 3 (inference) has to solve. Until then, expect mismatches.
-extends: ramp_b3.yaml
+# Healthy line with realistic cycle-time noise and a 2-variant mix.
+# Used to measure the twin's false-alarm rate.
+extends: plant_demo.yaml
 line:
-  id: L1-ramp-b3-dark
-  zones:
-    - name: body
-      stations:
-        - {id: B1, type: robot_weld, cycle_s: 55}
-        - {id: B2, type: robot_weld, cycle_s: 57, sensors: cycle_only}
-        - {id: B3, type: robot_weld, cycle_s: 56, sensors: dark}
-        - {id: B4, type: inspection, cycle_s: 58}
-    - name: paint
-      stations:
-        - {id: P1, type: paint_booth, cycle_s: 55, buffer_before: 6}
-        - {id: P2, type: paint_booth, cycle_s: 58}
-        - {id: P3, type: inspection,  cycle_s: 56}
-    - name: final
-      stations:
-        - {id: F1, type: door_fit,   cycle_s: 57, sensors: plc_full}
-        - {id: F2, type: manual_fit, cycle_s: 55, sensors: plc_full}
-        - {id: F3, type: manual_fit, cycle_s: 58, sensors: plc_full}
-        - {id: F4, type: manual_fit, cycle_s: 56, sensors: plc_full}
-        - {id: F5, type: inspection, cycle_s: 55}
+  id: L1-healthy
+  cv: 0.05
+variants:
+  sedan: {share: 0.6}
+  suv:   {share: 0.4, cycle_mult: {F1: 1.04, F3: 1.03}}

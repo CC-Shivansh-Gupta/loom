@@ -404,10 +404,12 @@ with the reasoning in a comment at the definition. Written up in `docs/forecaste
 
 | item | why it is still open |
 |---|---|
-| **A1 · Claude wired** | needs an `ANTHROPIC_API_KEY`. Everything is built behind the provider boundary, so it is one environment variable; `aieval` then rescores model output with no change to any file |
+| **A1 · Claude wired** | needs `pip install anthropic` and an `ANTHROPIC_API_KEY`; neither is present on this machine and neither is ours to add. Everything is built behind the provider boundary, so it is one install and one environment variable; `aieval` then rescores real model output with no file changed. The AI axis is complete and demonstrable without it — `TemplateProvider` is the offline path *and* the control arm |
 | **A5 · model tiering / measured cost** | blocked on A1 |
-| **Deck** | **done** — `docs/deck.html`, 11 slides, every figure from a generated evidence document |
-| **Video** | not started. Story mode is its spine: ten scripted scenes, re-recordable after any code change |
+| **Video** | not started, and the only item that needs a person rather than a commit. `docs/video_script.md` is the shot list; story mode is the spine, so it can be re-cut after any code change |
+
+Every E and U item is closed. The three above are the whole remainder, and two of them are one
+environment variable apart from being closed too.
 
 ## Demo scene order (the spine of deck and video)
 
