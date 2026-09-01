@@ -23,7 +23,7 @@ Priority: **P0** blocks submission · **P1** separates a good entry from a winni
 | A2 | AI tab: reports, what-if, improve, onboard in the control room | P0 | `loom/server.py`, `web/app.html` | **done** |
 | A3 | Grounding catch — the model caught reaching for a number | P0 | `loom/aieval.py`, AI tab | **done** — red-team fixtures, 4/4 caught |
 | A4 | LLM eval suite (groundedness, abstention, persona fit) | P1 | `loom/aieval.py` | **done** → `docs/ai_eval.md` |
-| A5 | Model tiering and measured cost per insight | P1 | `loom/llm.py` | — |
+| A5 | Model tiering and measured cost per insight | P1 | `loom/llm.py` | **open** — telemetry and pricing are wired and report free as a *known* zero; a priced model is what is missing |
 | A6 | Operator notes treated as data, not instructions | P2 | `loom/evidence.py` | **done** — quoted, delimiter-stripped, `trust: untrusted_operator_text`; `tests/test_injection.py` |
 | U1 | Exec view never renders $0, and is a designed view | P0 | `loom/views.py`, `loom/bench.py`, `web/app.html` | **done** — falls back to `benchmark.json` and labels the basis; adds a 1/10th sensitivity line |
 | U2 | Camera fit; default panel shows live alerts | P0 | `web/app.html` | **done** — and it exposed a real UX confusion, see U2a |
@@ -481,8 +481,13 @@ enough to demo repeatedly. The template path remains the offline fallback and ne
 | **A5 · model tiering / measured cost** | needs a *priced* model; the free tier's honest cost is $0.00, which measures nothing |
 | **Video** | not started, and the only item that needs a person rather than a commit. `docs/video_script.md` is the shot list; story mode is the spine, so it can be re-cut after any code change |
 
-Every E and U item is closed. The three above are the whole remainder, and two of them are one
-environment variable apart from being closed too.
+Every E and U item is closed, and the AI layer now has a live run behind it rather than a promise.
+The three above are the whole remainder: one is an environment variable, one needs a priced model,
+and one needs a person with a screen recorder.
+
+The deck's AI slide is the one open judgement call — it cites the template control's 100 %, where
+`docs/ai_eval_live.md` has the stronger story. That is a pitch decision, so it is listed at the top
+of **Where to pick up** rather than made here.
 
 ## Demo scene order (the spine of deck and video)
 
@@ -506,20 +511,58 @@ Everything below is repo state, not memory — a fresh session can start here.
 
 | | |
 |---|---|
-| tests | `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -q` — the flag is not optional, a ROS `launch_testing` plugin on this machine breaks collection without it |
+| tests | `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -q` — the flag is not optional, a ROS `launch_testing` plugin on this machine breaks collection without it. 85 tests, all passing |
 | control room | `python3 -m loom.server`, then `http://localhost:8000`. Check `pgrep -af loom.server` and kill stale ones first; a leftover process holding port 8000 serves old HTML and looks exactly like a render bug |
-| regenerate evidence | `python3 -m loom.bench --seeds 20 --out docs/benchmark.md`, and `-m loom.{baseline,ablate,coverage,trace,sweep,aieval} --out docs/<file>.md`. **`--out` is required** — without it they only print |
+| regenerate evidence | `python3 -m loom.bench --seeds 20 --out docs/benchmark.md`, and `-m loom.{baseline,ablate,coverage,trace,sweep,aieval} --out docs/<file>.md`. **`--out` is required** — without it they only print. Regenerating is part of a change, not a follow-up to it: `benchmark.md` once sat a full day describing code that no longer existed |
 | grounding check | `python3 -m loom.numbers` — two passes. *Presence*: the figure exists in a document a run produced. *Correspondence*: it exists in a row that is about the thing the claim is about, established by the claim's other numbers co-occurring on that row or by a discriminating word shared with the row's label. `--presence-only` skips the second. `docs/exempt_numbers.md` carries the cited-not-measured figures, and the rows naming a commit are the historical ones |
+| AI layer, offline | Nothing to configure. `TemplateProvider` is selected automatically with no credentials and every feature works, so the demo never depends on a network |
+| AI layer, live | See the block below |
+
+**Running the AI layer against a real model.**
+
+The provider boundary means this is configuration, not code. Any Messages-API-compatible endpoint
+works; OpenRouter's is the one that has been exercised.
+
+```bash
+export ANTHROPIC_BASE_URL=https://openrouter.ai/api
+export ANTHROPIC_AUTH_TOKEN=sk-or-...          # bearer. NOT ANTHROPIC_API_KEY, which sends x-api-key
+export LOOM_LLM_MODEL=minimax/minimax-m3:free  # gateways namespace the model id
+export LOOM_LLM=claude                         # force the API path
+python3 -m loom.aieval --out docs/ai_eval_live.md
+```
+
+For Anthropic's own API instead, unset the first three and set `ANTHROPIC_API_KEY`; the model
+defaults to `claude-opus-5` and nothing else changes.
+
+- **`ANTHROPIC_AUTH_TOKEN`, not `ANTHROPIC_API_KEY`.** A gateway wants `Authorization: Bearer`; the
+  key variable sends `x-api-key` and is rejected. This is the one that wastes an afternoon.
+- **Free tier is 20 requests/minute and 50/day** (1000/day after $10 of credit has ever been bought;
+  a *negative* balance 402s even on free models). One `aieval` run is 18 calls — enough to rehearse,
+  not enough to demo repeatedly.
+- **Model choice matters more than it should.** `minimax/minimax-m3:free` behaved. Of the others
+  tried, `google/gemma-4-31b-it:free` was rate-limited upstream and
+  `nvidia/nemotron-3-super-120b-a12b:free` exhausted `max_tokens` on a one-sentence question.
+- **A non-Anthropic model runs on reduced terms it declares.** `thinking` and `output_config` are
+  Messages API features and are not sent to a model that lacks them; a JSON schema stops being
+  enforced and becomes a prompt instruction, which is why `llm.extract_json` tolerates a markdown
+  fence. All four features were verified end to end this way.
+- **Rotate any key that has been pasted into a chat or a shell.** Nothing in this repo has ever
+  contained one, and nothing should.
 
 **Open, in the order worth doing them.**
 
-1. **A1 · wire Claude.** `pip install anthropic` and an `ANTHROPIC_API_KEY`. `ClaudeProvider` is already
-   written and already selected by env; `TemplateProvider` stays as the offline control arm. Then
-   `python3 -m loom.aieval --out docs/ai_eval.md` rescores real model output with no file changed.
-   Everything else in the AI axis is done and demonstrable offline, so this is upside, not a blocker.
-2. **A5 · model tiering and cost per insight.** Blocked on A1 and cheap once it lands.
-3. **Video.** `docs/video_script.md` is the shot list; story mode in the control room is the spine,
-   so it can be re-recorded after any code change. Hero shot is scenes 6–7, the dark station.
+1. **The deck's AI slide.** It cites the template control's 100 % groundedness, which only says the
+   deterministic renderers are deterministic. `docs/ai_eval_live.md` is the stronger slide: 87 %
+   grounded on live model output, two invented figures, both caught. Decided against changing it
+   unilaterally — it is a pitch judgment, not a correctness one.
+2. **A1 on `claude-opus-5` itself.** The AI layer is proven live, but on a free model. Anthropic's
+   own model is an `ANTHROPIC_API_KEY` away and no code; `aieval` then rescores it unchanged.
+3. **A5 · model tiering and cost per insight.** Needs a *priced* model. On the free tier the honest
+   cost is $0.00, which measures nothing — `price_of` reports that as a known zero rather than an
+   unknown one, so the manager view is not lying, but there is no figure worth quoting yet.
+4. **Video.** `docs/video_script.md` is the shot list; story mode in the control room is the spine,
+   so it can be re-recorded after any code change. Hero shot is scenes 6–7, the dark station. This is
+   the only remaining item that needs a person rather than a commit.
 
 **Things learned the hard way, so they are not re-learned.**
 
@@ -529,3 +572,14 @@ Everything below is repo state, not memory — a fresh session can start here.
   seeds had supported, and that is what opened E7 — a real alert-flooding bug.
 - The tuning gate measures benefit per fault and cost per healthy hour, so it under-samples cost by
   construction and drifts toward whatever change it is offered. See E5a.
+- **Regenerate the evidence documents in the same change that alters behaviour.** E6 shipped and
+  `benchmark.md` was not re-run, so the repo advertised 16 % precision for code that scored 67 %.
+  It surfaced only because a later regeneration looked like a regression.
+- **A dependency being installed is not a capability.** `anthropic.Anthropic()` constructs happily
+  with no credential and raises only on the first request, so auto-detection chose Claude on the
+  strength of the import and every AI feature failed mid-call. Detection now asks whether a
+  credential actually resolved.
+- **One run of a sampled model is not a measurement.** Two consecutive identical `aieval` runs
+  scored 80 % and 87 % with different reports failing. Compare models across several runs, never one.
+- **Name the model, not just the provider.** A gateway lets one provider front any model, so a
+  report saying "on the claude provider" above text MiniMax wrote cannot say what it measured.
