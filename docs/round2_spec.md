@@ -19,7 +19,7 @@ Priority: **P0** blocks submission · **P1** separates a good entry from a winni
 | E6 | Multi-cause: discriminating sample instead of a bad hold | P1 | `loom/quality.py`, `loom/trace.py`, `loom/evidence.py`, `web/app.html` | **done** — abstain, `SampleRequest`, precision curve; precision 16 % → 67 %, and the curve is reported |
 | E6a | Back-fill: a scenario that exercises it, or drop the claim | P1 | `configs/`, `loom/config.py`, `loom/sensors.py`, `loom/quality.py`, `loom/ablate.py` | **done** — sampled-parameter scenario built; the mechanism is real, the claim is narrow, and measuring it found a bug |
 | E7 | False-alarm rate on multi-fault scenarios (1.3–2.4 / 8 h vs a 0.2 budget) | **P0** | `loom/twin.py`, `loom/evaluator.py` | **done** — 0.1–0.2 / 8 h, healthy floor unchanged |
-| A1 | Claude wired; live run of all four AI features | P0 | env + `loom/llm.py` | — |
+| A1 | Claude wired; live run of all four AI features | P0 | env + `loom/llm.py`, `loom/aieval.py` | **done live** — all four features run against a real model through a Messages-API gateway → `docs/ai_eval_live.md`. Not yet against `claude-opus-5` itself, which needs an Anthropic key |
 | A2 | AI tab: reports, what-if, improve, onboard in the control room | P0 | `loom/server.py`, `web/app.html` | **done** |
 | A3 | Grounding catch — the model caught reaching for a number | P0 | `loom/aieval.py`, AI tab | **done** — red-team fixtures, 4/4 caught |
 | A4 | LLM eval suite (groundedness, abstention, persona fit) | P1 | `loom/aieval.py` | **done** → `docs/ai_eval.md` |
@@ -439,14 +439,46 @@ did". From there the station is the **current constraint**, reported by the cons
 in the frame — which keeps naming it at 60 % active share. `tests/test_forecast.py` pins exactly
 that, so the twin cannot go quiet about a realised bottleneck without a test failing.
 
+## A1 · The AI layer, run live
+
+**Done, on a real model.** All four features — persona narration, what-if, the improvement gate,
+onboarding — ran end to end against `minimax/minimax-m3:free` through OpenRouter's Messages-API
+endpoint. Nothing above the provider boundary changed; `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`
+and `LOOM_LLM_MODEL` were the whole configuration.
+
+**The result is better than a clean pass.** `docs/ai_eval_live.md`: 15 reports written by the model,
+**87 % grounded**, abstention 100 %, persona fit 100 %, red team 4/4, zero false accusations. The
+model invented figures in two reports and the grounding check caught every one, unprompted. That is
+a stronger claim than the template control's 100 %, which is a statement about our own renderers:
+*an invented number never reaches an operator*, demonstrated on a model we do not control.
+
+**One sample is not a measurement.** Two consecutive identical runs scored 80 % (12/15) and 87 %
+(13/15), and the failing set differed — `plant_b`/quality failed only in the first. A live-model
+score is sampled and must be read as such; the document now says so, and a model comparison needs
+several runs per model rather than one. What did not vary is the direction: on both runs every
+invented figure was caught.
+
+**What this does not yet show.** The run used a free model, not `claude-opus-5` — A1's acceptance
+names the latter, and that is one environment variable away rather than any code. Cost per insight
+(A5) also stays open on the free tier, where the honest number is $0.00: `price_of` reports free as
+a *known* zero rather than an unknown one, so the manager view does not present an unpriced model as
+free, but a free model cannot produce a cost-per-insight figure worth quoting.
+
+**Practical notes for a live demo.** `google/gemma-4-31b-it:free` was rate-limited upstream and
+`nvidia/nemotron-3-super-120b-a12b:free` exhausted `max_tokens` on a one-sentence question. Free
+tier is 20 requests/minute and 50/day, and one `aieval` run is 18 of them — enough to rehearse, not
+enough to demo repeatedly. The template path remains the offline fallback and needs no network.
+
+---
+
 ---
 
 ## What is left
 
 | item | why it is still open |
 |---|---|
-| **A1 · Claude wired** | needs `pip install anthropic` and an `ANTHROPIC_API_KEY`; neither is present on this machine and neither is ours to add. Everything is built behind the provider boundary, so it is one install and one environment variable; `aieval` then rescores real model output with no file changed. The AI axis is complete and demonstrable without it — `TemplateProvider` is the offline path *and* the control arm |
-| **A5 · model tiering / measured cost** | blocked on A1 |
+| **A1 · on `claude-opus-5` specifically** | the AI layer is proven live (see A1 above) but on a free model through a gateway. Running it on Anthropic's own model needs an `ANTHROPIC_API_KEY` and no code |
+| **A5 · model tiering / measured cost** | needs a *priced* model; the free tier's honest cost is $0.00, which measures nothing |
 | **Video** | not started, and the only item that needs a person rather than a commit. `docs/video_script.md` is the shot list; story mode is the spine, so it can be re-cut after any code change |
 
 Every E and U item is closed. The three above are the whole remainder, and two of them are one

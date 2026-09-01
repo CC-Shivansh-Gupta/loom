@@ -48,7 +48,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # have to come from one file or a judge can catch them disagreeing.
 GENERATED = ["docs/benchmark.md", "docs/benchmark.json", "docs/baselines.md",
              "docs/ablation.md", "docs/coverage.md", "docs/traces.md",
-             "docs/forecaster_tuning.md", "docs/ai_eval.md"]
+             "docs/forecaster_tuning.md", "docs/ai_eval.md", "docs/ai_eval_live.md"]
 EXEMPT_DOC = "docs/exempt_numbers.md"
 
 NUM = re.compile(r"\d[\d,]*\.?\d*")
