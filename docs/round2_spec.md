@@ -371,15 +371,15 @@ retrofits off ten minutes of history produces a table of zeroes in a confident o
 
 ## E5a · The sweep disagreed with the shipped defaults (opened by E5)
 
-`loom/sweep.py`, restored and run, picks `window = 10` where the twin ships `window = 20` — 9.3 min
-of mean lead against 6.4, both at zero false alarms on the scenarios the sweep saw. The defaults
+`loom/sweep.py`, restored and run on the three scenarios it then had, picked `window = 10` where the
+twin ships `window = 20` — 9.3 min of mean lead against 6.4, both at zero false alarms. The defaults
 only move through `improve.py`'s gate, so the disagreement was recorded rather than applied, then
 tested.
 
-It is wrong, and the way it is wrong is the interesting part. Neither the sweep's three scenarios
-nor the broadened six-scenario harness separates the two settings on false alarms; both report the
-same rate, because a false alarm is a low-rate quantity and twelve healthy hours cannot tell 0.4
-per 8 h from 0.8 per 8 h. Measured on 240 healthy hours per setting, they separate immediately:
+It was wrong, and the way it was wrong is the interesting part. Neither the sweep's three scenarios
+nor the six-scenario harness separated the two settings on false alarms; both reported the same
+rate, because a false alarm is a low-rate quantity and twelve healthy hours cannot tell 0.4 per 8 h
+from 0.8 per 8 h. Measured on 240 healthy hours per setting, they separate immediately:
 
 | `window` | alarms in 240 healthy h | per 8 h |
 |---|---|---|
@@ -394,9 +394,32 @@ false-alarm rate against a 0.2-per-8-h budget.
 **The finding is about the gate, not the window: a gate that samples the cost of a change less
 precisely than its benefit will always drift toward the change.** Lead time is measured per fault,
 so a few runs pin it down; false alarms are counted per healthy hour, so the same few runs leave
-them wide open, and any search optimising the pair walks into the imprecision. `DEFAULT_SCENARIOS`
-now runs 48 healthy hours over six seeds and adds the moving constraint and the 30-station plant,
-with the reasoning in a comment at the definition. Written up in `docs/forecaster_tuning.md`.
+them wide open, and any search optimising the pair walks into the imprecision.
+
+**Fixed, and the fix is falsifiable.** `DEFAULT_SCENARIOS` now runs 48 healthy hours over six seeds
+and adds the moving constraint and the 30-station plant, with the reasoning in a comment at the
+definition. Re-running the sweep against that harness, it picks `window = 20` — the shipped value.
+The disagreement that motivated the change disappeared when the change was made, which is the only
+evidence that it was the harness and not the window.
+
+**And the gate immediately earned its keep.** On the widened harness the sweep raises a *new*
+disagreement, `min_over_z = 3` against the shipped 2. Same shape of question, so the same decisive
+measurement rather than the harness's own estimate — 240 healthy hours per setting, and the fault
+scenarios for what it costs:
+
+| `min_over_z` | alarms per 8 h, 240 healthy h | mean fault lead | misses |
+|---|---|---|---|
+| 2 (shipped) | 0.30 | 6.79 min | 0 |
+| 3 (sweep's pick) | **0.10** | 6.40 min | 0 |
+
+This time the sweep is right, and the same measurement that overruled it on the window vindicates
+it here — which is the argument for having the measurement rather than a preference. 0.39 min of
+warning buys a two-thirds cut in false alarms and misses nothing extra, and it moves the healthy
+floor from **above** the project's own 0.2-per-8-h budget to comfortably under it, retiring known
+limit (0) in `solution_design.md` §6b.
+
+**Not applied yet.** It is a default change that every generated document and every quoted lead
+figure depends on, so it is a decision with a regeneration behind it, not a one-line edit.
 
 ---
 
@@ -436,7 +459,7 @@ Everything below is repo state, not memory — a fresh session can start here.
 | tests | `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -q` — the flag is not optional, a ROS `launch_testing` plugin on this machine breaks collection without it |
 | control room | `python3 -m loom.server`, then `http://localhost:8000`. Check `pgrep -af loom.server` and kill stale ones first; a leftover process holding port 8000 serves old HTML and looks exactly like a render bug |
 | regenerate evidence | `python3 -m loom.bench --seeds 20 --out docs/benchmark.md`, and `-m loom.{baseline,ablate,coverage,trace,sweep,aieval} --out docs/<file>.md`. **`--out` is required** — without it they only print |
-| grounding check | `python3 -m loom.numbers` — fails if any figure in a generated document was not produced by a run. It checks *presence*, not correspondence, so a stale-but-still-present number survives it; `docs/exempt_numbers.md` carries the cited-not-measured figures |
+| grounding check | `python3 -m loom.numbers` — two passes. *Presence*: the figure exists in a document a run produced. *Correspondence*: it exists in a row that is about the thing the claim is about, established by the claim's other numbers co-occurring on that row or by a discriminating word shared with the row's label. `--presence-only` skips the second. `docs/exempt_numbers.md` carries the cited-not-measured figures, and the rows naming a commit are the historical ones |
 
 **Open, in the order worth doing them.**
 
