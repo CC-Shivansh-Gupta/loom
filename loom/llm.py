@@ -16,14 +16,25 @@ Environment:
   ANTHROPIC_AUTH_TOKEN  bearer credential, which is what a gateway wants
                         instead of `x-api-key`.
   LOOM_LLM_MODEL        model id, for gateways that namespace it
-                        (`anthropic/claude-opus-5`).
+                        (`anthropic/claude-opus-5`, `deepseek/deepseek-r1:free`).
 
 The last three are what an OpenRouter key needs; nothing else in the codebase
-changes, because the gateway speaks the same Messages API. Note that this only
-holds for Anthropic models behind it -- `thinking` and `output_config` are
-Messages API features, so pointing this provider at a non-Anthropic model is
-not a supported configuration, and the template path is the offline fallback
-rather than a second model.
+changes, because the gateway speaks the same Messages API.
+
+A non-Anthropic model behind that gateway works, on reduced terms it declares
+rather than hides. `thinking` and `output_config` are Messages API features, so
+they are not sent to a model that does not have them (`speaks_anthropic_
+extensions`), and a JSON schema stops being enforced and becomes an instruction
+in the prompt -- which is why `extract_json` tolerates a markdown fence and why
+every caller validates the shape it gets back.
+
+This is the part of the design that pays for itself. Nothing above the provider
+boundary knows which model answered, and nothing above it trusts the answer:
+`store.grounding_check` still requires every number in a report to occur in the
+evidence pack, `improve` still passes proposals through a gate the model cannot
+reach, and `loom.aieval` still scores groundedness, abstention and red-team
+catches. So "is this free model good enough" is a question with a measured
+answer rather than an opinion -- run `python -m loom.aieval` against it.
 
 Every call is logged to `TELEMETRY` (tokens, latency, estimated cost) so
 the manager view can show what the AI layer costs to run.
@@ -32,6 +43,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
@@ -52,6 +64,8 @@ def price_of(model: str) -> tuple[float, float] | None:
     """
     if model in PRICE_PER_M:
         return PRICE_PER_M[model]
+    if model.endswith(":free"):
+        return (0.0, 0.0)       # known to be free, as opposed to unknown
     return PRICE_PER_M.get(model.rsplit("/", 1)[-1])
 
 
@@ -85,6 +99,81 @@ def telemetry_summary() -> dict:
     }
 
 
+_FENCE = re.compile(r"```(?:json)?\s*(.*?)```", re.S)
+
+
+def extract_json(text: str) -> Any:
+    """Parse JSON out of a model response that may not be only JSON.
+
+    With schema-constrained output this is `json.loads` and nothing else. Take
+    that away -- any model that cannot enforce a schema -- and the same request
+    comes back fenced in markdown, or with a sentence of preamble, or with the
+    object followed by an explanation. All three are still the right answer
+    wrapped in politeness, and all three make `json.loads` raise.
+
+    Three attempts, cheapest first, then give up honestly. Never a regex that
+    *builds* the object: this reads what the model produced or fails, it does
+    not invent structure the model did not supply.
+    """
+    text = text.strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    m = _FENCE.search(text)
+    if m:
+        try:
+            return json.loads(m.group(1).strip())
+        except json.JSONDecodeError:
+            pass
+    # the outermost balanced {...} or [...], scanned with string-awareness so a
+    # brace inside a quoted value does not end the object early
+    start = min((i for i in (text.find("{"), text.find("[")) if i >= 0), default=-1)
+    if start >= 0:
+        opens, closes = {"{": "}", "[": "]"}, []
+        depth, in_str, esc = 0, False, False
+        for i, ch in enumerate(text[start:], start):
+            if in_str:
+                if esc:
+                    esc = False
+                elif ch == "\\":
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+                continue
+            if ch == '"':
+                in_str = True
+            elif ch in opens:
+                closes.append(opens[ch])
+                depth += 1
+            elif closes and ch == closes[-1]:
+                closes.pop()
+                depth -= 1
+                if depth == 0:
+                    try:
+                        return json.loads(text[start:i + 1])
+                    except json.JSONDecodeError:
+                        break
+    raise ValueError(f"no JSON object in model response: {text[:200]!r}")
+
+
+def speaks_anthropic_extensions(model: str) -> bool:
+    """Whether `thinking` and `output_config` mean anything to this model.
+
+    They are Messages API features, not HTTP ones. A gateway will happily carry
+    them to a model that has never heard of them, and what comes back is either
+    a 400 or -- worse -- a success with the request silently reinterpreted. The
+    reply to that is not to hope, it is to send what the model actually has.
+    """
+    return "claude" in model.lower()
+
+
+JSON_INSTRUCTION = (
+    "\n\nReply with a single JSON value and nothing else: no markdown fence, no "
+    "commentary before or after. It must validate against this schema:\n"
+)
+
+
 class Provider:
     name = "base"
 
@@ -95,7 +184,7 @@ class Provider:
     def complete_json(self, purpose: str, system: str, user: str, schema: dict,
                       max_tokens: int = 4000) -> Any:
         text = self.complete(purpose, system, user, schema=schema, max_tokens=max_tokens)
-        return json.loads(text)
+        return extract_json(text)
 
 
 class TemplateProvider(Provider):
@@ -126,6 +215,7 @@ class ClaudeProvider(Provider):
         self.client = anthropic.Anthropic()
         self.model = model
         self.effort = effort
+        self.extensions = speaks_anthropic_extensions(model)
 
     def complete(self, purpose, system, user, *, schema=None, max_tokens=4000):
         kwargs: dict[str, Any] = {
@@ -133,11 +223,19 @@ class ClaudeProvider(Provider):
             "max_tokens": max_tokens,
             "system": system,
             "messages": [{"role": "user", "content": user}],
-            "thinking": {"type": "adaptive"},
-            "output_config": {"effort": self.effort},
         }
-        if schema is not None:
-            kwargs["output_config"]["format"] = {"type": "json_schema", "schema": schema}
+        if self.extensions:
+            kwargs["thinking"] = {"type": "adaptive"}
+            kwargs["output_config"] = {"effort": self.effort}
+            if schema is not None:
+                kwargs["output_config"]["format"] = {"type": "json_schema", "schema": schema}
+        elif schema is not None:
+            # No schema enforcement on this model, so the schema goes where it
+            # can still do work: in the prompt, as an instruction. The result is
+            # a request, not a guarantee -- which is why `extract_json` has to
+            # cope with a fence and why every caller validates what it gets back
+            # rather than trusting the shape.
+            kwargs["system"] = system + JSON_INSTRUCTION + json.dumps(schema, indent=1)
         t0 = time.perf_counter()
         try:
             resp = self.client.messages.create(**kwargs)

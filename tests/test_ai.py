@@ -184,3 +184,33 @@ def test_auto_detection_needs_a_credential_not_just_the_package(monkeypatch):
     # ...and asking for it explicitly still gets it, so the fallback is not a trap
     monkeypatch.setattr(llm, "_credentials_visible", lambda client: True)
     assert llm.get_provider("claude").name == "claude"
+
+
+def test_json_survives_a_model_that_cannot_be_held_to_a_schema():
+    """Schema-constrained output is a Claude feature, not an HTTP one. Every
+    other model answers the same question wrapped in politeness, and all three
+    wrappings below are the right answer that `json.loads` still refuses."""
+    obj = {"proposals": [{"param": "window", "to": 20}]}
+    plain = json.dumps(obj)
+    for text in (plain,
+                 f"Here is the JSON:\n```json\n{plain}\n```\nLet me know!",
+                 f"Sure thing. {plain} — I hope that helps.",
+                 f"```\n{plain}\n```"):
+        assert llm.extract_json(text) == obj, text
+    # a brace inside a string must not end the object early
+    assert llm.extract_json('{"note": "a } here", "n": 1}') == {"note": "a } here", "n": 1}
+    # and a refusal is a failure, never a guess
+    with pytest.raises(ValueError):
+        llm.extract_json("I'm not able to help with that.")
+
+
+def test_anthropic_only_parameters_are_not_sent_to_other_models():
+    """`thinking` and `output_config` are Messages API features. A gateway will
+    carry them to a model that never heard of them, and the failure mode is
+    either a 400 or a silent reinterpretation — so they are not sent."""
+    assert llm.speaks_anthropic_extensions("claude-opus-5")
+    assert llm.speaks_anthropic_extensions("anthropic/claude-opus-5")
+    assert not llm.speaks_anthropic_extensions("deepseek/deepseek-r1:free")
+    # free is a known price of zero, not an unknown price silently shown as zero
+    assert llm.price_of("deepseek/deepseek-r1:free") == (0.0, 0.0)
+    assert llm.price_of("deepseek/deepseek-r1") is None
