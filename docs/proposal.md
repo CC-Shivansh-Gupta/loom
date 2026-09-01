@@ -153,7 +153,7 @@ false alarms go from 0.2 to 2.0 per 8 h.
 | healthy line, 160 h | 0.30 alerts / 8 h, 0 holds |
 | silent drift contained | hold 12.8 min before first catch, 81 % precision, 99 % recall, 1 escaped of 20 runs |
 | two-condition cause | 17/20 pair ranked first |
-| calibration | 0.9–1.0 stated → 100 % hit; 0.7–0.9 → 97 %; 0.5–0.7 → 59 % |
+| calibration | 0.9–1.0 stated → 100 % hit; 0.7–0.9 → 97 %; 0.5–0.7 → 54 % |
 | third-party equipment | 0 writes, dark station reconstructed, wear forecast |
 
 **Graceful degradation** (`docs/coverage.md`) — darkening a growing share of stations, the failing

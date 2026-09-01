@@ -1,8 +1,8 @@
 {
  "seeds": 20,
  "mean_lead_min": 7.47,
- "mean_hold_saved": 54,
- "mean_escapes_prevented": 7,
+ "mean_hold_saved": 47,
+ "mean_escapes_prevented": 9,
  "scenarios": {
   "configs/healthy.yaml": {
    "faults": 0,
@@ -58,6 +58,14 @@
    "mean_lead_min": null,
    "false_alarms": 3,
    "fa_per_8h": 0.6,
+   "healthy_alarms_per_8h": null
+  },
+  "configs/weld_drift_b2_sampled.yaml": {
+   "faults": 0,
+   "caught": 0,
+   "mean_lead_min": null,
+   "false_alarms": 4,
+   "fa_per_8h": 0.8,
    "healthy_alarms_per_8h": null
   },
   "configs/multi_cause.yaml": {

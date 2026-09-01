@@ -42,6 +42,7 @@ class SensorLayer:
         self.silenced = 0
         self._delayed: list[tuple[float, int, Event]] = []
         self._seq = 0
+        self._param_seen: dict[tuple, int] = {}      # (station, param) -> readings offered
 
     def profile_for(self, station: str | None) -> SensorProfile:
         return self.profiles.get(station, _LINE_PROFILE) if station else _LINE_PROFILE
@@ -63,6 +64,16 @@ class SensorLayer:
         if prof.drop_p and self.rng.random() < prof.drop_p:
             self.dropped += 1
             return
+        # Audit-sample parameter logging: one reading in N, deterministic in the
+        # count rather than random, because that is how a plant actually does it
+        # -- every tenth body off the line, not a coin flip per body.
+        if ev.kind == "param" and prof.param_every > 1:
+            k = (ev.station, ev.payload.get("param"))
+            n = self._param_seen.get(k, 0)
+            self._param_seen[k] = n + 1
+            if n % prof.param_every:
+                self.dropped += 1
+                return
         t = ev.t + prof.clock_offset_s
         if prof.jitter_s:
             t += self.rng.gauss(0.0, prof.jitter_s)

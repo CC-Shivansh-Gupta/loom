@@ -5,24 +5,42 @@ everything else held fixed, same seeds. Each knob is a real property of the twin
 (`RAISE_AFTER`, `Forecaster.use_inferred`, `QualityTwin.backfill`, `MAX_PAIRS`), not a
 separate code path — so these rows are the system, degraded.
 
-| mechanism removed | false alarms / 8 h | B3 ramp caught (lead) | B3 **dark** caught (lead) | drift recall | hold before first catch | held-before-detection | 2-condition cause found |
-|---|---|---|---|---|---|---|---|
-| **full system** | 0.2 | 5/5 (7.0 min) | 5/5 (5.9 min) | 99% | 11.3 min | 0 | 5/5 |
-| no persistence rule | 2.0 | 5/5 (9.3 min) | 5/5 (8.6 min) | 99% | 11.3 min | 0 | 5/5 |
-| no standard-error test | 0.4 | 4/5 (4.0 min) | 4/5 (3.4 min) | 99% | 11.3 min | 0 | 5/5 |
-| no inferred samples | 0.2 | 5/5 (7.0 min) | 0/5 (- min) | 99% | 11.3 min | 0 | 5/5 |
-| no pair search | 0.2 | 5/5 (7.0 min) | 5/5 (5.9 min) | 99% | 11.3 min | 0 | 0/5 |
-| no drift back-fill | 0.2 | 5/5 (7.0 min) | 5/5 (5.9 min) | 99% | 11.3 min | 0 | 5/5 |
+Drift rows are measured on `weld_drift_b2_sampled.yaml` -- the same drift with B2's weld
+current logged one body in five -- with the fully-reported version alongside as a control.
+
+| mechanism removed | false alarms / 8 h | B3 ramp caught (lead) | B3 **dark** caught (lead) | drift recall (sampled) | precision (sampled) | recall (all reported) | hold before first catch | held-before-detection | 2-condition cause found |
+|---|---|---|---|---|---|---|---|---|---|
+| **full system** | 0.2 | 5/5 (7.0 min) | 5/5 (5.9 min) | 60% | 65% | 99% | 4.3 min | 14 | 5/5 |
+| no persistence rule | 2.0 | 5/5 (9.3 min) | 5/5 (8.6 min) | 60% | 65% | 99% | 4.3 min | 14 | 5/5 |
+| no standard-error test | 0.4 | 4/5 (4.0 min) | 4/5 (3.4 min) | 60% | 65% | 99% | 4.3 min | 14 | 5/5 |
+| no inferred samples | 0.2 | 5/5 (7.0 min) | 0/5 (- min) | 60% | 65% | 99% | 4.3 min | 14 | 5/5 |
+| no pair search | 0.2 | 5/5 (7.0 min) | 5/5 (5.9 min) | 60% | 65% | 99% | 4.3 min | 14 | 0/5 |
+| no drift back-fill | 0.2 | 5/5 (7.0 min) | 5/5 (5.9 min) | 56% | 79% | 99% | 4.3 min | 3 | 5/5 |
 
 Read the first row as the reference. Every other row is worse on at least one axis;
 where a row is *better* on lead time it is worse on false alarms, which is the whole
 trade the guards exist to make.
 
-**One mechanism does not earn its row.** `held-before-detection` counts vehicles in a drift
-hold that were already built when the drift was caught -- the thing the onset back-fill
-exists to recover. It is 0 with the back-fill on *and* off, so on this scenario the
-back-fill contributes nothing: B2 reports a weld-current reading for every vehicle, so
-hold membership is decided by each vehicle's own reading and the onset window never
-binds. The mechanism is only load-bearing where readings are sparse or sampled. Until a
-scenario exercises that, the proposal should not claim back-fill as a source of recall.
-Found by building this table, which is the argument for building it.
+**The back-fill row is the one to read carefully, and it took two tries to measure.**
+`held-before-detection` counts vehicles in a drift hold that were already built when the
+drift was caught -- the thing the onset back-fill exists to recover. Measured against the
+fully-reported drift it was 0 with the back-fill on *and* off, and the first version of
+this table concluded the mechanism contributed nothing. That was a property of the
+scenario, not of the mechanism: when B2 reports a reading for every vehicle, membership is
+decided by each vehicle's own reading and the onset window never binds. The `recall (all
+reported)` column is that control, and it still does not move.
+
+With B2 sampled one body in five the row comes alive, and it does not flatter the
+mechanism. The back-fill is what puts 14 vehicles in the hold that nothing else could
+place, against 3 without it, and it buys 4 points of recall -- for 14 points of precision.
+That is the honest shape of it: back-fill is the *only* way to contain a vehicle that
+carries no reading of its own, and every vehicle it adds is added on a time estimate
+rather than on evidence about that vehicle. It belongs in the system for the sampled case
+and it should not be claimed as free recall.
+
+Measuring it also found a bug worth more than the row. The back-fill originally started at
+the CUSUM onset -- when the parameter began *moving* -- which on sampled data lands about
+fourteen minutes before the drift even starts, because each CUSUM step stands for five
+vehicles. A hold is for out-of-spec product, so it now starts where the readings' own
+least-squares line crosses the spec limit. That recovered 9 points of precision on this
+scenario at no cost in recall, and it is invisible on the fully-reported one.

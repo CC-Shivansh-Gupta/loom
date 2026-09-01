@@ -390,15 +390,53 @@ class QualityTwin:
                 out.append((vid, st.t, st.exact))
         return out
 
+    def _crossed_at(self, a: DriftAlert, t: float) -> float:
+        """When the parameter is estimated to have left spec, not when it
+        started moving.
+
+        A drift onset and a spec crossing are different instants, and the gap
+        between them is silent-but-in-spec production: real parts, built to
+        print, that a hold has no business scrapping. Where every vehicle
+        reports its own reading the distinction costs nothing, because each
+        reading decides its own vehicle and the in-spec ones are skipped. Where
+        readings are sampled, the un-sampled vehicles are placed by time alone,
+        and back-filling from the CUSUM onset sweeps the whole in-spec stretch
+        in -- on `weld_drift_b2_sampled` the onset lands ~14 min before the
+        drift actually starts, because at one reading in five each CUSUM step
+        stands for five vehicles.
+
+        Estimated from the readings themselves: the same least-squares line the
+        ETA projects forward, solved backwards for where it crossed the limit.
+        Clamped into [onset, now] -- an estimate outside the interval the drift
+        is known to live in is not evidence, and falls back to the onset.
+        """
+        spec = self.specs[(a.station, a.param)]
+        mon = self.monitors.get((a.station, a.param))
+        if mon is None or len(mon.hist) < 3:
+            return a.onset_t
+        limit = spec.lsl if a.direction == "low" else spec.usl
+        ts = [x for x, _ in mon.hist]
+        xs = [y for _, y in mon.hist]
+        n = len(ts)
+        mt, mx = sum(ts) / n, sum(xs) / n
+        sxx = sum((v - mt) ** 2 for v in ts)
+        if sxx == 0:
+            return a.onset_t
+        slope = sum((v - mt) * (w - mx) for v, w in zip(ts, xs)) / sxx
+        if slope == 0 or (slope < 0) != (a.direction == "low"):
+            return a.onset_t                    # not moving the way the alert says
+        cross = mt + (limit - mx) / slope
+        return cross if a.onset_t <= cross <= t else a.onset_t
+
     def _hold_from_drift(self, a: DriftAlert, t: float) -> None:
-        """Vehicles built since the estimated onset, decided by their own
-        reading where the station reports one; the onset margin and
-        unknown readings go to `uncertain`. The hold keeps growing while
-        the drift is on."""
+        """Vehicles built since the parameter is estimated to have left spec,
+        decided by their own reading where the station reports one; the onset
+        margin and unknown readings go to `uncertain`. The hold keeps growing
+        while the drift is on."""
         key = (a.station, a.param)
         spec = self.specs[key]
         margin = self.ONSET_MARGIN_TAKTS * self.cfg.takt_s
-        onset = a.onset_t if self.backfill else t
+        onset = max(a.onset_t, self._crossed_at(a, t)) if self.backfill else t
         hold = Hold(len(self.holds) + 1, t, "drift", a.station, a.param, [], [], [], onset_t=onset)
         for vid, t0, exact in sorted(self._started_at(a.station), key=lambda r: r[1]):
             if t0 < onset - margin or vid in self._held:

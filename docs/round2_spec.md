@@ -17,7 +17,7 @@ Priority: **P0** blocks submission · **P1** separates a good entry from a winni
 | E4 | 20-seed re-run, numbers as single source of truth | P0 | `loom/bench.py`, `loom/numbers.py` | **done** — and it found two claims that did not survive |
 | E5 | Restore the forecaster tuning sweep | P1 | `loom/sweep.py` | **done** → `docs/forecaster_tuning.md`, and it disagreed with the shipped defaults; resolved below |
 | E6 | Multi-cause: discriminating sample instead of a bad hold | P1 | `loom/quality.py`, `loom/trace.py`, `loom/evidence.py`, `web/app.html` | **done** — abstain, `SampleRequest`, precision curve; precision 16 % → 67 %, and the curve is reported |
-| E6a | Back-fill: a scenario that exercises it, or drop the claim | P1 | `configs/`, `docs/proposal.md` | **open** — claim removed from the proposal for now |
+| E6a | Back-fill: a scenario that exercises it, or drop the claim | P1 | `configs/`, `loom/config.py`, `loom/sensors.py`, `loom/quality.py`, `loom/ablate.py` | **done** — sampled-parameter scenario built; the mechanism is real, the claim is narrow, and measuring it found a bug |
 | E7 | False-alarm rate on multi-fault scenarios (1.3–2.4 / 8 h vs a 0.2 budget) | **P0** | `loom/twin.py`, `loom/evaluator.py` | **done** — 0.1–0.2 / 8 h, healthy floor unchanged |
 | A1 | Claude wired; live run of all four AI features | P0 | env + `loom/llm.py` | — |
 | A2 | AI tab: reports, what-if, improve, onboard in the control room | P0 | `loom/server.py`, `web/app.html` | **done** |
@@ -120,6 +120,46 @@ Two acceptable resolutions, in order of preference:
    soon as the drift is detected.
 
 Either way the claim and the evidence must agree before submission.
+
+## E6a · Back-fill, resolved
+
+**What was open.** The ablation measured the onset back-fill as contributing exactly nothing —
+`held-before-detection` was 0 with it on and off — so the claim came out of the proposal pending a
+scenario that exercised it, or the mechanism's removal.
+
+**It was the scenario.** `weld_drift_b2.yaml` has B2 reporting a weld-current reading for every
+vehicle, so hold membership is decided by each vehicle's own reading and the onset window never
+binds. Nothing in the repo could express the case the mechanism exists for, because a sensor
+profile's `params` was a boolean: report every reading, or none.
+
+**Built.** `param_every` on the sensor profile — report one reading in N, deterministic in the count
+because that is how a plant samples, every tenth body rather than a coin flip per body — plus the
+`plc_sampled` built-in profile and `configs/weld_drift_b2_sampled.yaml`: the same drift, the same
+defect, the same detection, with B2 logged one body in five. This is the ordinary case, not an
+exotic one: parameters read by a hand tool or logged at a reduced rate to keep the historian small.
+
+**Measured (5 seeds, `docs/ablation.md`, with the fully-reported drift alongside as a control).**
+
+| | recall (sampled) | precision (sampled) | held-before-detection | recall (all reported) |
+|---|---|---|---|---|
+| back-fill on | 60 % | 65 % | 14 | 99 % |
+| back-fill off | 56 % | 79 % | 3 | 99 % |
+
+The mechanism is real — it places 14 vehicles nothing else could place — and the trade is not free:
+4 points of recall for 14 of precision. So the claim is narrow and stays narrow. Back-fill is the
+only way to contain a vehicle that carries no reading of its own, and every vehicle it adds is added
+on a time estimate rather than on evidence about that vehicle. The control column does not move,
+which is the proof that this is the back-fill and not something else.
+
+**And it found a bug.** The back-fill started at the CUSUM onset — when the parameter began
+*moving*. On sampled data that lands about fourteen minutes before the drift starts, because each
+CUSUM step stands for five vehicles, so the hold swallowed the entire silent-but-in-spec stretch. A
+hold is for out-of-spec product: `_crossed_at` now estimates where the readings' own least-squares
+line crossed the spec limit (the ETA projection, pointed backwards, clamped into the interval the
+drift is known to live in). Worth 9 points of precision on the sampled scenario at no cost in
+recall, and invisible on the fully-reported one — which is why nothing caught it before.
+
+---
 
 ## E7 · The false-alarm budget on faulting lines (opened by the 20-seed re-run)
 
@@ -366,7 +406,6 @@ with the reasoning in a comment at the definition. Written up in `docs/forecaste
 |---|---|
 | **A1 · Claude wired** | needs an `ANTHROPIC_API_KEY`. Everything is built behind the provider boundary, so it is one environment variable; `aieval` then rescores model output with no change to any file |
 | **A5 · model tiering / measured cost** | blocked on A1 |
-| **E6a · the back-fill claim** | needs a sparse-reading scenario, or the mechanism goes |
 | **Deck** | **done** — `docs/deck.html`, 11 slides, every figure from a generated evidence document |
 | **Video** | not started. Story mode is its spine: ten scripted scenes, re-recordable after any code change |
 
@@ -404,9 +443,7 @@ Everything below is repo state, not memory — a fresh session can start here.
    `python3 -m loom.aieval --out docs/ai_eval.md` rescores real model output with no file changed.
    Everything else in the AI axis is done and demonstrable offline, so this is upside, not a blocker.
 2. **A5 · model tiering and cost per insight.** Blocked on A1 and cheap once it lands.
-3. **E6a · back-fill.** Needs a config that samples parameters sparsely — `weld_drift_b2` reports a
-   reading per vehicle, which is why the ablation measures the mechanism as inert. Otherwise drop it.
-4. **Video.** `docs/video_script.md` is the shot list; story mode in the control room is the spine,
+3. **Video.** `docs/video_script.md` is the shot list; story mode in the control room is the spine,
    so it can be re-recorded after any code change. Hero shot is scenes 6–7, the dark station.
 
 **Things learned the hard way, so they are not re-learned.**

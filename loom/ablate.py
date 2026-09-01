@@ -53,7 +53,13 @@ ABLATIONS = [
 HEALTHY = ("configs/healthy.yaml", 8.0)
 RAMP = ("configs/ramp_b3.yaml", 2.0)
 DARK = ("configs/ramp_b3_dark.yaml", 2.0)
-DRIFT = ("configs/weld_drift_b2.yaml", 2.0)
+# The drift scenario is the *sampled* one: B2 logs weld current for one body
+# in five. On the fully-reported version every vehicle carries its own reading,
+# so hold membership never consults the onset window and the back-fill row
+# measures nothing -- which is what the first version of this table found, and
+# why the scenario exists.
+DRIFT = ("configs/weld_drift_b2_sampled.yaml", 2.0)
+DRIFT_FULL = ("configs/weld_drift_b2.yaml", 2.0)
 MULTI = ("configs/multi_cause.yaml", 3.0)
 
 
@@ -83,6 +89,7 @@ def measure(ab: Ablation, seeds: int) -> dict:
     fa, leads, caught, faults = 0, [], 0, 0
     dark_leads, dark_caught, dark_faults = [], 0, 0
     recall, hold_lead, prealert = [], [], []
+    precision, recall_full = [], []
     pair_found = 0
 
     for seed in range(seeds):
@@ -120,8 +127,17 @@ def measure(ab: Ablation, seeds: int) -> dict:
         for c in containment_scorecard(plant, twin):
             if c.recall is not None:
                 recall.append(c.recall)
+            if c.precision is not None:
+                precision.append(c.precision)
             if c.t_first_hold is not None and c.t_first_fail is not None:
                 hold_lead.append((c.t_first_fail - c.t_first_hold) / 60)
+
+        # The control: the same drift with every vehicle reporting. Any row that
+        # moves here is not the back-fill doing it.
+        plant, twin = run(*DRIFT_FULL, seed, ab)
+        for c in containment_scorecard(plant, twin):
+            if c.recall is not None:
+                recall_full.append(c.recall)
 
         plant, twin = run(*MULTI, seed, ab)
         hyps = twin.quality.hypotheses
@@ -130,6 +146,8 @@ def measure(ab: Ablation, seeds: int) -> dict:
 
     return {
         "fa_per_8h": fa / seeds,
+        "precision": _mean(precision),
+        "recall_full": _mean(recall_full),
         "ramp": (caught, faults, _mean(leads)),
         "dark": (dark_caught, dark_faults, _mean(dark_leads)),
         "recall": _mean(recall),
@@ -151,8 +169,11 @@ def report(seeds: int) -> str:
            "(`RAISE_AFTER`, `Forecaster.use_inferred`, `QualityTwin.backfill`, `MAX_PAIRS`), not a",
            "separate code path — so these rows are the system, degraded.",
            "",
-           "| mechanism removed | false alarms / 8 h | B3 ramp caught (lead) | B3 **dark** caught (lead) | drift recall | hold before first catch | held-before-detection | 2-condition cause found |",
-           "|---|---|---|---|---|---|---|---|"]
+           "Drift rows are measured on `weld_drift_b2_sampled.yaml` -- the same drift with B2's weld",
+           "current logged one body in five -- with the fully-reported version alongside as a control.",
+           "",
+           "| mechanism removed | false alarms / 8 h | B3 ramp caught (lead) | B3 **dark** caught (lead) | drift recall (sampled) | precision (sampled) | recall (all reported) | hold before first catch | held-before-detection | 2-condition cause found |",
+           "|---|---|---|---|---|---|---|---|---|---|"]
     for ab, m in rows:
         f = lambda x, s="{:.1f}": "-" if x is None else s.format(x)
         rc, rf, rl = m["ramp"]
@@ -164,6 +185,8 @@ def report(seeds: int) -> str:
             f"| {rc}/{rf} ({f(rl)} min) "
             f"| {dc}/{df} ({f(dl)} min) "
             f"| {f(None if m['recall'] is None else m['recall'] * 100, '{:.0f}%')} "
+            f"| {f(None if m['precision'] is None else m['precision'] * 100, '{:.0f}%')} "
+            f"| {f(None if m['recall_full'] is None else m['recall_full'] * 100, '{:.0f}%')} "
             f"| {f(m['hold_lead'])} min "
             f"| {f(m['prealert'], '{:.0f}')} "
             f"| {pf}/{pn} |")
@@ -171,14 +194,29 @@ def report(seeds: int) -> str:
             "where a row is *better* on lead time it is worse on false alarms, which is the whole",
             "trade the guards exist to make.",
             "",
-            "**One mechanism does not earn its row.** `held-before-detection` counts vehicles in a drift",
-            "hold that were already built when the drift was caught -- the thing the onset back-fill",
-            "exists to recover. It is 0 with the back-fill on *and* off, so on this scenario the",
-            "back-fill contributes nothing: B2 reports a weld-current reading for every vehicle, so",
-            "hold membership is decided by each vehicle's own reading and the onset window never",
-            "binds. The mechanism is only load-bearing where readings are sparse or sampled. Until a",
-            "scenario exercises that, the proposal should not claim back-fill as a source of recall.",
-            "Found by building this table, which is the argument for building it."]
+            "**The back-fill row is the one to read carefully, and it took two tries to measure.**",
+            "`held-before-detection` counts vehicles in a drift hold that were already built when the",
+            "drift was caught -- the thing the onset back-fill exists to recover. Measured against the",
+            "fully-reported drift it was 0 with the back-fill on *and* off, and the first version of",
+            "this table concluded the mechanism contributed nothing. That was a property of the",
+            "scenario, not of the mechanism: when B2 reports a reading for every vehicle, membership is",
+            "decided by each vehicle's own reading and the onset window never binds. The `recall (all",
+            "reported)` column is that control, and it still does not move.",
+            "",
+            "With B2 sampled one body in five the row comes alive, and it does not flatter the",
+            "mechanism. The back-fill is what puts 14 vehicles in the hold that nothing else could",
+            "place, against 3 without it, and it buys 4 points of recall -- for 14 points of precision.",
+            "That is the honest shape of it: back-fill is the *only* way to contain a vehicle that",
+            "carries no reading of its own, and every vehicle it adds is added on a time estimate",
+            "rather than on evidence about that vehicle. It belongs in the system for the sampled case",
+            "and it should not be claimed as free recall.",
+            "",
+            "Measuring it also found a bug worth more than the row. The back-fill originally started at",
+            "the CUSUM onset -- when the parameter began *moving* -- which on sampled data lands about",
+            "fourteen minutes before the drift even starts, because each CUSUM step stands for five",
+            "vehicles. A hold is for out-of-spec product, so it now starts where the readings' own",
+            "least-squares line crosses the spec limit. That recovered 9 points of precision on this",
+            "scenario at no cost in recall, and it is invisible on the fully-reported one."]
     return "\n".join(out)
 
 

@@ -34,6 +34,7 @@ SCENARIOS = [
     ("configs/shifting.yaml", 2.5, "flow"),
     ("configs/plant_b.yaml", 3.0, "flow"),
     ("configs/weld_drift_b2.yaml", 2.0, "quality"),
+    ("configs/weld_drift_b2_sampled.yaml", 2.0, "quality"),   # same drift, 1 reading in 5
     ("configs/multi_cause.yaml", 3.0, "quality"),
 ]
 

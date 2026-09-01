@@ -108,7 +108,7 @@ Either a scenario exercises it or the claim leaves the proposal (spec item E6a).
 | momentary bottleneck from partial data | 96–99 % agreement with the plant's own active periods during faults |
 | catches a silent drift and contains it | hold 12.8 min before the first inspection catch; 81 % precision, 99 % recall; the blanket hold would be 90 vehicles and start later |
 | finds a two-condition cause | 17/20 |
-| confidence means something | 0.9–1.0 stated → 100 % realised; 0.7–0.9 → 97 %; 0.5–0.7 → 59 % |
+| confidence means something | 0.9–1.0 stated → 100 % realised; 0.7–0.9 → 97 %; 0.5–0.7 → 54 % |
 | degrades rather than breaks | warning survives to 30 % of stations dark; reconstruction error flat at 0.2 s to 50 % |
 | survives real sensor semantics | Factory I/O adapter through a real Modbus socket at 50 Hz; dark and exit-only stations handled |
 

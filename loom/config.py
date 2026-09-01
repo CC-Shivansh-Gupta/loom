@@ -45,10 +45,17 @@ BUILTIN_STATION_TYPES: dict[str, dict] = {
 
 # jitter_s: sd of timestamp noise. clock_offset_s: fixed skew of that
 # station's clock. drop_p: per-event loss. latency_s: reporting delay.
-# params: whether process-parameter readings are reported. Inspection
+# params: whether process-parameter readings are reported. param_every: report
+# one reading in N, the audit-sample case -- a torque gauge read on every tenth
+# body, a weld-current log sampled to keep the historian small. Inspection
 # results are reported by any non-dark profile (an inspector logs them).
 BUILTIN_SENSOR_PROFILES: dict[str, dict] = {
     "plc_full":   {"events": "all", "jitter_s": 0.2, "params": True},
+    # Cycle times fully instrumented, process parameters sampled. Common where
+    # the parameter is read by a hand tool or logged at a reduced rate, and the
+    # case where a hold has to be reconstructed from an estimated onset rather
+    # than read off each vehicle's own reading.
+    "plc_sampled": {"events": "all", "jitter_s": 0.2, "params": True, "param_every": 5},
     "cycle_only": {"events": ["start", "finish"], "jitter_s": 1.0, "drop_p": 0.01},
     "checklist":  {"events": ["finish"], "latency_s": 120.0, "jitter_s": 30.0, "drop_p": 0.05},
     "dark":       {"events": []},
@@ -67,6 +74,7 @@ class SensorProfile:
     jitter_s: float = 0.0
     clock_offset_s: float = 0.0
     params: bool = False
+    param_every: int = 1        # report one parameter reading in N
 
     def passes(self, kind: str) -> bool:
         if kind == "param":
@@ -281,7 +289,7 @@ def _sensor_profiles(raw: dict) -> dict[str, SensorProfile]:
             name, None if ev == "all" else frozenset(ev),
             float(p.get("latency_s", 0.0)), float(p.get("drop_p", 0.0)),
             float(p.get("jitter_s", 0.0)), float(p.get("clock_offset_s", 0.0)),
-            bool(p.get("params", False)))
+            bool(p.get("params", False)), max(1, int(p.get("param_every", 1))))
     return out
 
 

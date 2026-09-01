@@ -311,8 +311,9 @@ screen, and the measured distributions are in §6b and `docs/benchmark.md`.
 | A different 30-station plant with 9 checklist/dark stations | 20/20 caught, 11.8 min lead, 0.1 false alarms / 8 h |
 | Momentary bottleneck from partial data vs plant truth | 96–99 % agreement during faults |
 | Silent weld drift | hold 12.8 min before the first end-of-line catch, precision 81 %, recall 99 % |
+| …with that parameter logged one body in five | hold 5.8 min before the first catch, precision 65 %, recall 58 % — the rest of the hold is placed by the estimated spec crossing, not by readings |
 | Two-condition intermittent defect | true pair ranked first in 17/20 runs; containment precision 67 %, recall 13 %, holding 3 % of what a blanket hold would stop |
-| Confidence means something | stated 0.9–1.0 → 100 % hit rate; 0.7–0.9 → 97 %; 0.5–0.7 → 59 % |
+| Confidence means something | stated 0.9–1.0 → 100 % hit rate; 0.7–0.9 → 97 %; 0.5–0.7 → 54 % |
 
 Known limits, stated rather than hidden: (0) `shifting` still **misses 3 of 40 faults**, and the
 healthy-line floor of 0.30 per 8 h sits slightly above the 0.2 budget rather than under it. (1) a defect with no upstream signal is only learnable from
