@@ -29,9 +29,16 @@ def sim():
     for _ in range(20):
         s.step(0.1)
     s.inject("slow", "B3", cycle_s=80, ramp_s=0)
+    # Stop while the alert is live. A forecast alert answers "will this block
+    # the line", so it clears once the line has slowed to the station's pace and
+    # the answer becomes "it already did" -- from there B3 is the *constraint*,
+    # reported by the constraint panel rather than the alert list. An operator
+    # acknowledging an alert does it while there is one.
     for _ in range(60):
         s.step(0.1)
-    assert any(x.action == "raised" and x.alert.station == "B3" for x in s.twin.log)
+        if "B3" in s.twin.active:
+            break
+    assert "B3" in s.twin.active, "no live alert on B3 to acknowledge"
     return s
 
 

@@ -15,7 +15,7 @@ Priority: **P0** blocks submission · **P1** separates a good entry from a winni
 | E2 | Ablation table (what each mechanism buys) | P0 | `loom/ablate.py` | **done** → `docs/ablation.md` |
 | E3 | Coverage degradation curve | P1 | `loom/coverage.py` | **done** → `docs/coverage.md` |
 | E4 | 20-seed re-run, numbers as single source of truth | P0 | `loom/bench.py`, `loom/numbers.py` | **done** — and it found two claims that did not survive |
-| E5 | Restore the forecaster tuning sweep | P1 | `loom/sweep.py` | **done** → `docs/forecaster_tuning.md`, and it disagreed with the shipped defaults; resolved below |
+| E5 | Restore the forecaster tuning sweep | P1 | `loom/sweep.py` | **done** → `docs/forecaster_tuning.md`; it disagreed twice, was wrong once and right once, and the sweep now re-selects the shipped defaults |
 | E6 | Multi-cause: discriminating sample instead of a bad hold | P1 | `loom/quality.py`, `loom/trace.py`, `loom/evidence.py`, `web/app.html` | **done** — abstain, `SampleRequest`, precision curve; precision 16 % → 67 %, and the curve is reported |
 | E6a | Back-fill: a scenario that exercises it, or drop the claim | P1 | `configs/`, `loom/config.py`, `loom/sensors.py`, `loom/quality.py`, `loom/ablate.py` | **done** — sampled-parameter scenario built; the mechanism is real, the claim is narrow, and measuring it found a bug |
 | E7 | False-alarm rate on multi-fault scenarios (1.3–2.4 / 8 h vs a 0.2 budget) | **P0** | `loom/twin.py`, `loom/evaluator.py` | **done** — 0.1–0.2 / 8 h, healthy floor unchanged |
@@ -418,8 +418,26 @@ warning buys a two-thirds cut in false alarms and misses nothing extra, and it m
 floor from **above** the project's own 0.2-per-8-h budget to comfortably under it, retiring known
 limit (0) in `solution_design.md` §6b.
 
-**Not applied yet.** It is a default change that every generated document and every quoted lead
-figure depends on, so it is a decision with a regeneration behind it, not a one-line edit.
+**Applied**, with every evidence document and every quoted figure regenerated behind it. The
+healthy floor is 0.10 per 8 h, and known limit (0) in `solution_design.md` §6b — the floor sitting
+above the project's own budget — is retired.
+
+**And it broke a test, which was the point of having one.** `min_over_z = 3` fires the alert about a
+minute later, and on `ramp_b3` seed 0 the stated ETA collapsed from 370 s (against a true 375) to
+5 s. Not drift — a cliff, 68 seconds apart. The forward buffer projection was reading `len(pending)`
+at one instant, and buffers fill and drain between vehicles, so a momentarily full one turns "the
+line blocks in six minutes" into "it blocks in five seconds". It reads the median of the last three
+now (`Twin.Q_WINDOW`), which is what the buffer is actually doing. Mean ETA error on `ramp_b3` went
+1.8 min → **0.8 min**, better than it had ever been at `min_over_z = 2`. The parameter change did not
+cause that bug; it stood on the one instant where the bug showed.
+
+**One behaviour genuinely changed, and it is worth knowing before a demo.** A station held far over
+takt now raises at onset and then *clears*, where at 2 it kept re-raising. That is correct and it is
+the U2a separation doing its job: once the line has slowed to the station's pace the station is no
+longer outrunning its supply, and the question "will this block the line" has become "it already
+did". From there the station is the **current constraint**, reported by the constraint panel — `bn`
+in the frame — which keeps naming it at 60 % active share. `tests/test_forecast.py` pins exactly
+that, so the twin cannot go quiet about a realised bottleneck without a test failing.
 
 ---
 

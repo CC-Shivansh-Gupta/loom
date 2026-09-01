@@ -16,26 +16,26 @@ persistence rule), then that same corner with each fix put back on its own.
 
 | varies | window | min_tstat | min_over_z | raise_after | FA/8 h | mean lead (min) | lead range (min) | missed |
 |---|---|---|---|---|---|---|---|---|
-| naive trend test | 10 | 3 | 0 | 1 | 33.8 | 9.8 | 1.4–26.1 | 1 |
-| naive + standard-error test | 10 | 3 | 2 | 1 | 32.7 | 11.3 | 1.4–26.1 | 0 |
-| naive + persistence rule | 10 | 3 | 0 | 3 | 5.7 | 6.6 | 2.3–14.7 | 1 |
-| **chosen defaults** | **20** | **4** | **2** | **3** | **0.5** | **6.9** | **1.1–16.6** | **1** |
-| window | 10 | 4 | 2 | 3 | 0.5 | 7.7 | 1.2–13.8 | 2 |
-| window | 15 | 4 | 2 | 3 | 0.8 | 7.3 | 1.1–15.1 | 2 |
-| window | 25 | 4 | 2 | 3 | 0.5 | 6.5 | 0.9–12.2 | 2 |
-| min_tstat | 20 | 3 | 2 | 3 | 1.8 | 8.1 | 1.1–18.0 | 0 |
-| min_tstat | 20 | 5 | 2 | 3 | 0.5 | 7.1 | 2.3–12.2 | 5 |
-| min_tstat | 20 | 6 | 2 | 3 | 0.5 | 6.7 | 3.0–9.6 | 6 |
-| min_over_z | 20 | 4 | 0 | 3 | 0.7 | 5.3 | 1.1–16.6 | 5 |
+| naive trend test | 10 | 3 | 0 | 1 | 34.0 | 9.8 | 1.4–26.1 | 1 |
+| naive + standard-error test | 10 | 3 | 2 | 1 | 32.5 | 11.2 | 1.4–26.1 | 0 |
+| naive + persistence rule | 10 | 3 | 0 | 3 | 5.8 | 6.6 | 2.3–14.7 | 1 |
+| **chosen defaults** | **20** | **4** | **3** | **3** | **0.0** | **6.6** | **1.1–16.6** | **1** |
+| window | 10 | 4 | 3 | 3 | 0.2 | 7.2 | 1.2–13.8 | 2 |
+| window | 15 | 4 | 3 | 3 | 0.2 | 7.0 | 1.1–15.1 | 2 |
+| window | 25 | 4 | 3 | 3 | 0.0 | 6.2 | 0.9–12.2 | 2 |
+| min_tstat | 20 | 3 | 3 | 3 | 1.7 | 8.0 | 1.1–18.0 | 0 |
+| min_tstat | 20 | 5 | 3 | 3 | 0.0 | 6.3 | 2.3–12.2 | 5 |
+| min_tstat | 20 | 6 | 3 | 3 | 0.0 | 5.8 | 2.4–8.5 | 6 |
+| min_over_z | 20 | 4 | 0 | 3 | 0.7 | 5.5 | 1.1–16.6 | 6 |
 | min_over_z | 20 | 4 | 1 | 3 | 0.7 | 7.3 | 1.1–16.6 | 1 |
-| min_over_z | 20 | 4 | 3 | 3 | 0.0 | 6.6 | 1.1–16.6 | 1 |
-| raise_after | 20 | 4 | 2 | 1 | 2.5 | 9.4 | 2.6–19.4 | 0 |
-| raise_after | 20 | 4 | 2 | 2 | 1.2 | 7.9 | 1.3–18.1 | 0 |
-| raise_after | 20 | 4 | 2 | 4 | 0.5 | 6.3 | 0.9–15.1 | 4 |
+| min_over_z | 20 | 4 | 2 | 3 | 0.5 | 6.9 | 1.1–16.6 | 1 |
+| raise_after | 20 | 4 | 3 | 1 | 1.8 | 9.1 | 2.6–19.4 | 0 |
+| raise_after | 20 | 4 | 3 | 2 | 0.3 | 7.6 | 1.3–18.1 | 0 |
+| raise_after | 20 | 4 | 3 | 4 | 0.0 | 5.9 | 0.9–15.1 | 4 |
 
 ## What the table says
 
-**The naive trend test is the alert-fatigue failure mode.** It raises 33.8 false alarms per 8 h
+**The naive trend test is the alert-fatigue failure mode.** It raises 34.0 false alarms per 8 h
 on a line where nothing is wrong, against a budget of 0.2. Thousands of significance tests per
 shift means t ≥ 3 fires by chance many times a shift, and a supervisor stops reading the panel
 long before the one real alert arrives — a forecaster tuned this way is worse than no
@@ -46,13 +46,13 @@ its own; the axial rows below take each one away from the defaults.
 
 1. **The standard-error test.** "Already over takt" has to mean the fitted cycle sits
    `min_over_z` standard errors above takt, not a raw comparison. Added to the naive corner
-   alone it takes false alarms from 33.8 to 32.7 per 8 h. Removed from the defaults (`min_over_z
-   = 0`), false alarms rise to 0.7 per 8 h against 0.5; mean lead falls to 5.3 min against 6.9;
-   5 injected faults go unwarned.
+   alone it takes false alarms from 34.0 to 32.5 per 8 h. Removed from the defaults (`min_over_z
+   = 0`), false alarms rise to 0.7 per 8 h against 0.0; mean lead falls to 5.5 min against 6.6;
+   6 injected faults go unwarned.
 2. **The persistence rule.** The condition must hold on 3 consecutive cycles before an alert is
-   raised. Added to the naive corner alone it takes false alarms from 33.8 to 5.7 per 8 h.
-   Removed from the defaults (`raise_after = 1`) they are 2.5 per 8 h for 9.4 min of mean lead
-   against 6.9 — which is the trade the rule exists to make.
+   raised. Added to the naive corner alone it takes false alarms from 34.0 to 5.8 per 8 h.
+   Removed from the defaults (`raise_after = 1`) they are 1.8 per 8 h for 9.1 min of mean lead
+   against 6.6 — which is the trade the rule exists to make.
 
 Everything else is second-order: a longer `window` buys a steadier fit and a little lead,
 a higher `min_tstat` trades lead for quiet, and neither changes the shape of the result.
@@ -63,8 +63,6 @@ Selection rule: stay inside the false-alarm budget, miss no fault, then take the
 mean warning.
 
 - Sweep picks: window 20, min_tstat 4, min_over_z 3, raise_after 3 (0.0 FA/8 h, 6.6 min mean lead).
-- Shipped defaults (`harness.DEFAULT_PARAMS`): window 20, min_tstat 4, min_over_z 2, raise_after 3 (0.5 FA/8 h, 6.9 min mean lead).
+- Shipped defaults (`harness.DEFAULT_PARAMS`): window 20, min_tstat 4, min_over_z 3, raise_after 3 (0.0 FA/8 h, 6.6 min mean lead).
 
-**These disagree.** The sweep's pick is recorded as it came out rather than edited to match the
-shipped values; the defaults change only through `improve.py`'s gate, so a disagreement here is
-a finding to act on, not a number to overwrite.
+The sweep re-selects the shipped defaults.

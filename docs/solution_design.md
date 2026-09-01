@@ -303,20 +303,19 @@ screen, and the measured distributions are in §6b and `docs/benchmark.md`.
 
 | claim | measured |
 |---|---|
-| Healthy line stays quiet | 0.30 bottleneck alerts and 0.45 drift warnings per 8 h line-wide; 0 holds over 160 h |
-| Bottleneck warned ahead, fully instrumented | 20/20 caught, 7.9 min lead, ETA error 1.4 min |
-| …with the bottleneck station dark | 20/20 caught, 6.0 min lead; inferred cycle error 0.3 s |
-| …with a PLC link silent mid-fault | 20/20 caught, 7.7 min lead |
+| Healthy line stays quiet | 0.10 bottleneck alerts and 0.45 drift warnings per 8 h line-wide; 0 holds over 160 h |
+| Bottleneck warned ahead, fully instrumented | 20/20 caught, 7.4 min lead, ETA error 0.8 min |
+| …with the bottleneck station dark | 20/20 caught, 5.2 min lead; inferred cycle error 0.3 s |
+| …with a PLC link silent mid-fault | 20/20 caught, 7.4 min lead |
 | Shifting bottleneck (two faults, one repair) | 37/40 caught, 0.2 false alarms / 8 h |
-| A different 30-station plant with 9 checklist/dark stations | 20/20 caught, 11.8 min lead, 0.1 false alarms / 8 h |
+| A different 30-station plant with 9 checklist/dark stations | 20/20 caught, 12.0 min lead, 0.1 false alarms / 8 h |
 | Momentary bottleneck from partial data vs plant truth | 96–99 % agreement during faults |
 | Silent weld drift | hold 12.8 min before the first end-of-line catch, precision 81 %, recall 99 % |
 | …with that parameter logged one body in five | hold 5.8 min before the first catch, precision 65 %, recall 58 % — the rest of the hold is placed by the estimated spec crossing, not by readings |
 | Two-condition intermittent defect | true pair ranked first in 17/20 runs; containment precision 67 %, recall 13 %, holding 3 % of what a blanket hold would stop |
-| Confidence means something | stated 0.9–1.0 → 100 % hit rate; 0.7–0.9 → 97 %; 0.5–0.7 → 54 % |
+| Confidence means something | stated 0.9–1.0 → 100 % hit rate; 0.7–0.9 → 100 %; 0.5–0.7 → 85 % |
 
-Known limits, stated rather than hidden: (0) `shifting` still **misses 3 of 40 faults**, and the
-healthy-line floor of 0.30 per 8 h sits slightly above the 0.2 budget rather than under it. (1) a defect with no upstream signal is only learnable from
+Known limits, stated rather than hidden: (0) `shifting` still **misses 3 of 40 faults**. (1) a defect with no upstream signal is only learnable from
 inspection fails, so its hold necessarily trails the first catch; (2) two adjacent finish-only
 (checklist) stations cannot be told apart — the twin abstains rather than guess; (3) one false alarm
 per five 2-hour fault runs on the demo line sits at the budget, not below it.

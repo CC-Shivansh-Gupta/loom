@@ -13,7 +13,7 @@ def test_proposal_numbers_are_grounded():
     supported = N.harvest(N.GENERATED)
     assert supported, "no generated evidence documents found"
     for doc in ("docs/proposal.md", "docs/competition_readiness.md",
-                "docs/solution_design.md"):
+                "docs/solution_design.md", "docs/deck.html"):
         bad = N.check(doc, supported)
         assert not bad, (
             f"{doc} quotes figures no run produced: "
@@ -84,7 +84,7 @@ def test_evidence_documents_and_prose_correspond():
     idx, common = N.index_generated()
     assert idx, "no generated evidence documents found"
     for doc in ("docs/proposal.md", "docs/competition_readiness.md",
-                "docs/solution_design.md"):
+                "docs/solution_design.md", "docs/deck.html"):
         bad = N.correspondence(doc, idx, common)
         assert not bad, (
             f"{doc} quotes figures a run produced, but not for the claim they are attached to:\n"

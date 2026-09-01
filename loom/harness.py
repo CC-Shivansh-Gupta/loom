@@ -17,7 +17,7 @@ from .sensors import SensorLayer
 from .twin import Twin
 
 H = 3600.0
-DEFAULT_PARAMS = {"window": 20, "min_tstat": 4.0, "min_over_z": 2.0, "raise_after": 3}
+DEFAULT_PARAMS = {"window": 20, "min_tstat": 4.0, "min_over_z": 3.0, "raise_after": 3}
 BOUNDS = {"window": (8, 40), "min_tstat": (2.0, 8.0), "min_over_z": (1.0, 5.0), "raise_after": (1, 6)}
 
 

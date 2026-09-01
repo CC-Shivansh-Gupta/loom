@@ -17,7 +17,7 @@ by the floor within a week.
 |---|---|---|
 | threshold | 141.6 | unusable — an alarm every three minutes is an alarm nobody reads |
 | detection | 47.8 | unusable as an alarm; fine as a dashboard signal |
-| loom | 0.2 | inside the published budget of 1 per five shifts |
+| loom | 0.0 | inside the published budget of 1 per five shifts |
 
 ## Warning before the line blocks
 
@@ -26,15 +26,15 @@ by the floor within a week.
 | `configs/ramp_b3.yaml` | no_twin | 5/5 | 0.0 — you find out when it blocks |
 | `configs/ramp_b3.yaml` | threshold | 5/5 | 13.5 |
 | `configs/ramp_b3.yaml` | detection | 5/5 | 6.1 |
-| `configs/ramp_b3.yaml` | loom | 5/5 | 7.0 |
+| `configs/ramp_b3.yaml` | loom | 5/5 | 6.6 |
 | `configs/ramp_b3_dark.yaml` | no_twin | 5/5 | 0.0 — you find out when it blocks |
 | `configs/ramp_b3_dark.yaml` | threshold | 0/5 | never warned |
 | `configs/ramp_b3_dark.yaml` | detection | 5/5 | 6.5 |
-| `configs/ramp_b3_dark.yaml` | loom | 5/5 | 5.9 |
+| `configs/ramp_b3_dark.yaml` | loom | 5/5 | 5.2 |
 | `configs/sensor_fault_b2.yaml` | no_twin | 5/5 | 0.0 — you find out when it blocks |
 | `configs/sensor_fault_b2.yaml` | threshold | 5/5 | 13.5 |
 | `configs/sensor_fault_b2.yaml` | detection | 5/5 | 6.1 |
-| `configs/sensor_fault_b2.yaml` | loom | 5/5 | 6.8 |
+| `configs/sensor_fault_b2.yaml` | loom | 5/5 | 6.6 |
 | `configs/plant_b.yaml` | no_twin | 5/5 | 0.0 — you find out when it blocks |
 | `configs/plant_b.yaml` | threshold | 5/5 | 29.3 |
 | `configs/plant_b.yaml` | detection | 5/5 | 13.8 |

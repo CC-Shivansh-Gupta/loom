@@ -159,7 +159,7 @@ ul strong{color:var(--ink);font-weight:600}
       <tr><td>no twin</td><td class="n dim">0</td><td class="n dim">0 — you find out when it blocks</td><td class="n dim">0</td></tr>
       <tr><td>threshold alarm</td><td class="n bad">141.6</td><td class="n">13.5 min</td><td class="n bad">never warns</td></tr>
       <tr><td>active-period detection</td><td class="n bad">47.8</td><td class="n">6.1 min</td><td class="n">6.5 min</td></tr>
-      <tr class="hi"><td>Loom</td><td class="n good">0.2</td><td class="n">7.0 min</td><td class="n acc">5.9 min</td></tr>
+      <tr class="hi"><td>Loom</td><td class="n good">0.0</td><td class="n">6.6 min</td><td class="n acc">5.2 min</td></tr>
     </tbody>
   </table></div>
   <p class="lede">A threshold alarm beats us on lead time — by firing <b>142 times a shift</b>. Lead time is only meaningful next to the alarm rate that bought it: a trigger-happy rule always wins on lead and is always ignored by the floor within a week. And when the failing station goes dark, the threshold rule has nothing to threshold.</p>
@@ -171,20 +171,20 @@ ul strong{color:var(--ink);font-weight:600}
   <span class="eyebrow">05 · Evidence</span>
   <h2>Twenty seeds, against ground truth the twin never saw.</h2>
   <div class="kpis">
-    <div class="kpi g"><b>0.30</b><span>false alerts per 8 h<br>over 160 healthy hours</span></div>
-    <div class="kpi"><b>7.9<span style="font-size:.9rem"> min</span></b><span>warning before the line blocks<br>20/20 faults caught</span></div>
-    <div class="kpi v"><b>6.0<span style="font-size:.9rem"> min</span></b><span>same warning with the failing<br>station dark · 0.3 s cycle error</span></div>
+    <div class="kpi g"><b>0.10</b><span>false alerts per 8 h<br>over 160 healthy hours</span></div>
+    <div class="kpi"><b>7.4<span style="font-size:.9rem"> min</span></b><span>warning before the line blocks<br>20/20 faults caught</span></div>
+    <div class="kpi v"><b>5.2<span style="font-size:.9rem"> min</span></b><span>same warning with the failing<br>station dark · 0.3 s cycle error</span></div>
     <div class="kpi g"><b>12.8<span style="font-size:.9rem"> min</span></b><span>hold opens before inspection sees<br>the first weak weld · 81% precision</span></div>
   </div>
   <h3 style="color:var(--muted);margin-top:8px">What each mechanism actually buys — one knob off per row</h3>
   <div class="tablewrap"><table>
     <thead><tr><th>mechanism removed</th><th>false alarms / 8 h</th><th>dark ramp caught</th><th>2-condition cause found</th></tr></thead>
     <tbody>
-      <tr class="hi"><td>full system</td><td class="n good">0.2</td><td class="n good">5/5</td><td class="n good">5/5</td></tr>
-      <tr><td>no persistence rule</td><td class="n bad">2.0</td><td class="n">5/5</td><td class="n">5/5</td></tr>
+      <tr class="hi"><td>full system</td><td class="n good">0.0</td><td class="n good">5/5</td><td class="n good">5/5</td></tr>
+      <tr><td>no persistence rule</td><td class="n bad">1.2</td><td class="n">5/5</td><td class="n">5/5</td></tr>
       <tr><td>no standard-error test</td><td class="n warn">0.4</td><td class="n warn">4/5</td><td class="n">5/5</td></tr>
-      <tr><td>no inferred samples</td><td class="n">0.2</td><td class="n bad">0/5</td><td class="n">5/5</td></tr>
-      <tr><td>no pair search</td><td class="n">0.2</td><td class="n">5/5</td><td class="n bad">0/5</td></tr>
+      <tr><td>no inferred samples</td><td class="n">0.0</td><td class="n bad">0/5</td><td class="n">5/5</td></tr>
+      <tr><td>no pair search</td><td class="n">0.0</td><td class="n">5/5</td><td class="n bad">0/5</td></tr>
     </tbody>
   </table></div>
   <p class="lede">And it degrades rather than breaks: the warning survives to <b>30% of stations dark</b>, while reconstruction error stays flat at 0.2 s even at 50% — where the forecast has already stopped. Inference and forecasting fail separately, and the fix for the second is one more timestamp, which is a purchase order.</p>
@@ -217,9 +217,9 @@ ul strong{color:var(--ink);font-weight:600}
   <div class="tablewrap"><table>
     <thead><tr><th>stated confidence</th><th>alerts</th><th>realised hit rate</th></tr></thead>
     <tbody>
-      <tr><td class="n">0.5 – 0.7</td><td class="n">41</td><td class="n">54%</td></tr>
-      <tr><td class="n">0.7 – 0.9</td><td class="n">30</td><td class="n">97%</td></tr>
-      <tr class="hi"><td class="n">0.9 – 1.0</td><td class="n">65</td><td class="n good">100%</td></tr>
+      <tr><td class="n">0.5 – 0.7</td><td class="n">67</td><td class="n">85%</td></tr>
+      <tr><td class="n">0.7 – 0.9</td><td class="n">30</td><td class="n good">100%</td></tr>
+      <tr class="hi"><td class="n">0.9 – 1.0</td><td class="n">25</td><td class="n good">100%</td></tr>
     </tbody>
   </table></div>
   <p class="lede">Confidence means something because it is checked. The evaluator ships in the product, so the plant gets this table for its own line — which is also the gate between shadow mode, advisory, and reversible automation.</p>
@@ -233,13 +233,13 @@ ul strong{color:var(--ink);font-weight:600}
   <div class="tablewrap"><table>
     <thead><tr><th>line</th><th>arithmetic</th><th>per year</th></tr></thead>
     <tbody>
-      <tr><td>bottlenecks avoided</td><td class="dim">7.5 min lead × 50% acted on × 3/wk × 48 wk × $8,000/min</td><td class="n">$4,302,720</td></tr>
-      <tr><td>targeted holds</td><td class="dim">60 fewer vehicles held/event × $250 × 1/mo × 12</td><td class="n">$180,000</td></tr>
-      <tr><td>escapes prevented</td><td class="dim">7 defects/event × $5,000 × 1/mo × 12</td><td class="n">$420,000</td></tr>
-      <tr class="hi"><td>total</td><td class="dim">against $60,000/yr licence + ~$500 a station, only where the twin asks</td><td class="n good">$4,902,720</td></tr>
+      <tr><td>bottlenecks avoided</td><td class="dim">7.12 min mean lead × 50% acted on × 3/wk × 48 wk × $8,000/min</td><td class="n">$4,101,120</td></tr>
+      <tr><td>targeted holds</td><td class="dim">47 fewer vehicles held/event × $250 × 1/mo × 12</td><td class="n">$141,000</td></tr>
+      <tr><td>escapes prevented</td><td class="dim">9 defects/event × $5,000 × 1/mo × 12</td><td class="n">$540,000</td></tr>
+      <tr class="hi"><td>total</td><td class="dim">against $60,000/yr licence + ~$500 a station, only where the twin asks</td><td class="n good">$4,782,120</td></tr>
     </tbody>
   </table></div>
-  <p class="lede">A payback measured in weeks invites disbelief, and should — the whole case rests on the downtime assumption. <b>At a tenth of $8,000/min it is $1,030,272 a year and payback is 0.7 months.</b> Bought from OT operating budget, not capital, which is exactly why a read-only tap clears where a retrofit waits for a window.</p>
+  <p class="lede">A payback measured in weeks invites disbelief, and should — the whole case rests on the downtime assumption. <b>At a tenth of $8,000/min it is $1,091,112 a year and payback is 0.7 months.</b> Bought from OT operating budget, not capital, which is exactly why a read-only tap clears where a retrofit waits for a window.</p>
   <div class="pull">The claim is not the number. It is that <b>after two weeks of shadow mode the plant has its own number</b> in place of ours.</div>
 </section>
 

@@ -10,12 +10,12 @@ current logged one body in five -- with the fully-reported version alongside as 
 
 | mechanism removed | false alarms / 8 h | B3 ramp caught (lead) | B3 **dark** caught (lead) | drift recall (sampled) | precision (sampled) | recall (all reported) | hold before first catch | held-before-detection | 2-condition cause found |
 |---|---|---|---|---|---|---|---|---|---|
-| **full system** | 0.2 | 5/5 (7.0 min) | 5/5 (5.9 min) | 60% | 65% | 99% | 4.3 min | 14 | 5/5 |
-| no persistence rule | 2.0 | 5/5 (9.3 min) | 5/5 (8.6 min) | 60% | 65% | 99% | 4.3 min | 14 | 5/5 |
+| **full system** | 0.0 | 5/5 (6.6 min) | 5/5 (5.2 min) | 60% | 65% | 99% | 4.3 min | 14 | 5/5 |
+| no persistence rule | 1.2 | 5/5 (8.8 min) | 5/5 (7.9 min) | 60% | 65% | 99% | 4.3 min | 14 | 5/5 |
 | no standard-error test | 0.4 | 4/5 (4.0 min) | 4/5 (3.4 min) | 60% | 65% | 99% | 4.3 min | 14 | 5/5 |
-| no inferred samples | 0.2 | 5/5 (7.0 min) | 0/5 (- min) | 60% | 65% | 99% | 4.3 min | 14 | 5/5 |
-| no pair search | 0.2 | 5/5 (7.0 min) | 5/5 (5.9 min) | 60% | 65% | 99% | 4.3 min | 14 | 0/5 |
-| no drift back-fill | 0.2 | 5/5 (7.0 min) | 5/5 (5.9 min) | 56% | 79% | 99% | 4.3 min | 3 | 5/5 |
+| no inferred samples | 0.0 | 5/5 (6.6 min) | 0/5 (- min) | 60% | 65% | 99% | 4.3 min | 14 | 5/5 |
+| no pair search | 0.0 | 5/5 (6.6 min) | 5/5 (5.2 min) | 60% | 65% | 99% | 4.3 min | 14 | 0/5 |
+| no drift back-fill | 0.0 | 5/5 (6.6 min) | 5/5 (5.2 min) | 56% | 79% | 99% | 4.3 min | 3 | 5/5 |
 
 Read the first row as the reference. Every other row is worse on at least one axis;
 where a row is *better* on lead time it is worse on false alarms, which is the whole

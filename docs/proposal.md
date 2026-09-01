@@ -24,8 +24,8 @@ bypass.
 
 | | |
 |---|---|
-| 7.9 min | warning before a wearing station blocks the line, fully instrumented (`ramp_b3`) |
-| 6.0 min | same warning with the failing station dark — reconstructed from its neighbours |
+| 7.4 min | warning before a wearing station blocks the line, fully instrumented (`ramp_b3`) |
+| 5.2 min | same warning with the failing station dark — reconstructed from its neighbours |
 | 12.8 min | hold before end-of-line inspection sees the first weak weld; 81 % precision, 99 % recall |
 | 0.30 / 8 h | false bottleneck alerts on a healthy line over 160 simulated hours |
 | 0 writes | to the plant: read-only, proven against a third-party PLC simulator |
@@ -131,29 +131,29 @@ event stream the twin saw, so the difference is the mechanism, not the data.
 | no twin | 0 | 0 — you find out when it blocks | 0 | 63 |
 | threshold alarm | 142 | 13.5 min | never warns | — |
 | active-period detection | 48 | 6.1 min | 6.5 min | — |
-| **Loom** | **0.2** | **7.0 min** | **5.9 min** | **0** |
+| **Loom** | **0.0** | **6.6 min** | **5.2 min** | **0** |
 
 Lead time is only meaningful next to the alarm rate that bought it: a trigger-happy rule always wins
 on lead and is always ignored by the floor within a week.
 
 **What each mechanism buys** (`docs/ablation.md`) — without inferred samples the dark ramp is missed
 5/5; without the pair search the two-condition cause is found 0/5; without the persistence rule
-false alarms go from 0.2 to 2.0 per 8 h.
+false alarms go from 0.0 to 1.2 per 8 h.
 
 **Absolute performance** (20 seeds per scenario, `docs/benchmark.md`)
 
 | claim | result |
 |---|---|
-| warns before the line blocks | 20/20, 7.9 min lead, ETA error 1.4 min |
-| …failing station dark | 20/20, 6.0 min, inferred cycle error 0.3 s |
-| …PLC link silent mid-fault | 20/20, 7.7 min |
+| warns before the line blocks | 20/20, 7.4 min lead, ETA error 0.8 min |
+| …failing station dark | 20/20, 5.2 min, inferred cycle error 0.3 s |
+| …PLC link silent mid-fault | 20/20, 7.4 min |
 | moving constraint | 37/40 caught, 0.2 false alarms / 8 h |
-| another plant, unchanged code | 20/20, 11.8 min, 0.1 false alarms / 8 h |
+| another plant, unchanged code | 20/20, 12.0 min, 0.1 false alarms / 8 h |
 | momentary bottleneck from partial data | 96–99 % agreement |
 | healthy line, 160 h | 0.30 alerts / 8 h, 0 holds |
 | silent drift contained | hold 12.8 min before first catch, 81 % precision, 99 % recall, 1 escaped of 20 runs |
 | two-condition cause | 17/20 pair ranked first |
-| calibration | 0.9–1.0 stated → 100 % hit; 0.7–0.9 → 97 %; 0.5–0.7 → 54 % |
+| calibration | 0.9–1.0 stated → 100 % hit; 0.7–0.9 → 100 %; 0.5–0.7 → 85 % |
 | third-party equipment | 0 writes, dark station reconstructed, wear forecast |
 
 **Graceful degradation** (`docs/coverage.md`) — darkening a growing share of stations, the failing
@@ -174,13 +174,15 @@ assumptions printed).
 
 ## Business case
 
-Runs live in the Exec view from measured lead, hold sizes and escapes plus printed assumptions.
+Runs live in the Exec view from measured lead, hold sizes and escapes plus printed assumptions. The
+inputs below are `docs/benchmark.json` — the same file the Exec view falls back to — so the proposal
+and the running product cannot quote different money.
 
 | line | formula | illustrative |
 |---|---|---|
-| bottlenecks avoided | lead × share acted on × events/wk × weeks × $/min | 6.3 × 50 % × 3 × 48 × $8,000 = $3.6 M |
-| targeted holds | (blanket − targeted) × $/vehicle × events | 13 × $250 × 12 = $39 k |
-| escapes prevented | defects caught upstream × field cost × events | 19 × $5,000 × 12 = $1.1 M |
+| bottlenecks avoided | `mean_lead_min` × share acted on × events/wk × weeks × $/min | 7.12 × 50 % × 3 × 48 × $8,000 = $4.1 M |
+| targeted holds | `mean_hold_saved` (blanket − targeted) × $/vehicle × events | 47 × $250 × 12 = $141 k |
+| escapes prevented | `mean_escapes_prevented` × field cost × events | 9 × $5,000 × 12 = $540 k |
 | cost | licence + retrofit | $60 k/yr + ~$500/station |
 
 $8,000/min is about a fifth of the plant-wide Siemens figure; at a tenth of the bottleneck line alone,

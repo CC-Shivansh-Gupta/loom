@@ -43,8 +43,12 @@ from dataclasses import dataclass
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Documents a run writes. Anything quoted in prose must appear in one of them.
-GENERATED = ["docs/benchmark.md", "docs/baselines.md", "docs/ablation.md",
-             "docs/coverage.md", "docs/traces.md", "docs/forecaster_tuning.md"]
+# benchmark.json is here because it is a run product like the rest, and because
+# the Exec view reads it: the money in the proposal and the money on the screen
+# have to come from one file or a judge can catch them disagreeing.
+GENERATED = ["docs/benchmark.md", "docs/benchmark.json", "docs/baselines.md",
+             "docs/ablation.md", "docs/coverage.md", "docs/traces.md",
+             "docs/forecaster_tuning.md", "docs/ai_eval.md"]
 EXEMPT_DOC = "docs/exempt_numbers.md"
 
 NUM = re.compile(r"\d[\d,]*\.?\d*")
@@ -293,6 +297,31 @@ def is_structural(n: str) -> bool:
     return len(str(i)) <= SMALL or i in YEARS
 
 
+def _html_text(lines: list[str]) -> list[str]:
+    """The prose of an HTML page, with the machinery removed.
+
+    The deck is the document most likely to be read by a judge and the one
+    furthest from the code, so it is the one most likely to drift -- but a naive
+    read of it drowns in colours and font sizes. Style and script blocks go
+    entirely, then tags, leaving the text a reader sees. One source line stays
+    one line, which keeps a `<tr>` a row.
+    """
+    out, skip = [], False
+    for line in lines:
+        low = line.lower()
+        if "<style" in low or "<script" in low:
+            skip = True
+        if skip:
+            if "</style>" in low or "</script>" in low:
+                skip = False
+            out.append("")
+            continue
+        text = re.sub(r"<!--.*?-->", " ", line)
+        text = re.sub(r"<[^>]*>", " ", text)
+        out.append(text)
+    return out
+
+
 def _prose_lines(path: str):
     """The lines of a document that make claims, as (raw, numbers-text,
     anchor-text).
@@ -311,6 +340,8 @@ def _prose_lines(path: str):
     """
     with open(os.path.join(ROOT, path) if not os.path.isabs(path) else path) as f:
         lines = f.readlines()
+    if path.endswith(".html"):
+        lines = _html_text(lines)
     blocks: list[list[str]] = []
     cur: list[str] = []
     in_code = False

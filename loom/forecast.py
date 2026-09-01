@@ -72,11 +72,18 @@ def linfit(ts: list[float], cs: list[float], at: float) -> Fit:
 
 
 class Forecaster:
-    # Defaults chosen by sweep (see docs/forecaster_tuning.md): 0 false
-    # alarms over 5 x 8h healthy shifts at 5% CV, 6-11 min lead on a
-    # 56->80s ramp, with the twin's RAISE_AFTER=3 persistence rule.
+    # Defaults chosen by sweep (see docs/forecaster_tuning.md) and confirmed on
+    # healthy line-time the sweep is too short to measure: 0.10 false alarms per
+    # 8 h over 240 healthy hours at 5% CV, 6.4 min mean lead across the fault
+    # scenarios with no misses, and the twin's RAISE_AFTER=3 persistence rule.
+    #
+    # min_over_z is 3, not the 2 shipped through step 7. The sweep proposed the
+    # change and the sweep alone could not justify it -- 48 healthy hours cannot
+    # separate 0.1 per 8 h from 0.3. Measured over 240, it is 0.10 against 0.30
+    # for 0.39 min of lead and no extra misses, which is what took the healthy
+    # floor under the 0.2 budget it had been sitting above.
     def __init__(self, takt_s: float, *, window: int = 20, min_samples: int = 8,
-                 min_tstat: float = 4.0, min_over_z: float = 2.0,
+                 min_tstat: float = 4.0, min_over_z: float = 3.0,
                  horizon_s: float = 1800.0, step_s: float = 5.0,
                  use_inferred: bool = True) -> None:
         self.takt = takt_s

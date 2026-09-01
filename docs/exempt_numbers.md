@@ -23,9 +23,15 @@ historical claim nobody can re-run is worth no more than an invented one.
 | 5000 | $/defect field cost of an escaped defect | stated assumption (`economics:`); the 10x/100x/1000x cost ladder is in `research.md` |
 | 60000 | $60,000/yr licence, the cost side of the ROI model | our own pricing assumption |
 | 500 | ~$500/station retrofit | low-cost sensing menu, `solution_design.md` C1 |
-| 6.3 | mean lead in minutes used in the illustrative ROI arithmetic | derived from `benchmark.md`; recompute when the benchmark changes |
-| 3.6 | $3.6 M — output of the bottleneck-avoidance formula | arithmetic on the row's own stated inputs |
-| 1.1 | $1.1 M — output of the escapes-prevented formula | arithmetic on the row's own stated inputs |
+| 0.30 | healthy-line false-alarm floor **before** `min_over_z` moved from 2 to 3 | measured at commit `05620a3`; quoted only to show the E7 definition change did not move it |
+| 4.1 | $4.1 M — output of the bottleneck-avoidance formula | arithmetic on the row's own stated inputs, which are `benchmark.json` |
+| 141 | $141 k — output of the targeted-hold formula | as above |
+| 540 | $540 k — output of the escapes-prevented formula | as above |
+| 4,101,120 | the same bottleneck figure unrounded, as the deck prints it | arithmetic on `benchmark.json` and the `economics:` defaults |
+| 141,000 | the same targeted-hold figure unrounded | as above |
+| 540,000 | the same escapes figure unrounded | as above |
+| 4,782,120 | their total | as above |
+| 1,091,112 | the total at one tenth of the downtime assumption, the deck's sensitivity line | as above |
 | 2.4 | false alarms per 8 h on `shifting` **before** the alert-grouping fix | measured at commit `e8a7555`; reproducible by reverting the `_downstream_root` change in `loom/twin.py` |
 | 1.3 | false alarms per 8 h on `plant_b` **before** the false-alarm definition was corrected | measured at commit `e8a7555`; reproducible by reverting the `bottleneck_scorecard` change in `loom/evaluator.py` |
 | 93.8 | the fitted cycle of the alert on T04 that the old definition scored as a false alarm | trace from `plant_b.yaml` seed 1 at commit `e8a7555` |

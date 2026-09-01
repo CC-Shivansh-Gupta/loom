@@ -23,12 +23,12 @@ solutioning areas, and eleven the brief does not list, each to a mechanism and a
 
 | brief item | built | measured |
 |---|---|---|
-| uneven sensor coverage | sensor profiles, dark-station reconstruction R1–R5, sensor-health, VOI ranking | dark-B3 ramp caught 5/5 seeds, 6.1 min lead, 0.3 s inferred-cycle error |
+| uneven sensor coverage | sensor profiles, dark-station reconstruction R1–R5, sensor-health, VOI ranking | dark-B3 ramp caught 5/5 seeds, 5.2 min lead, 0.3 s inferred-cycle error |
 | multi-causal, intermittent root causes | contribution analysis, singles + pairs, Fisher exact | true pair ranked first 5/5 |
 | no live-system changes, rare maintenance windows | read-only by construction; Factory I/O run over Modbus with zero writes; retrofit = config diff | integration test through a real socket |
 | early defect surfaces late | build-record trace, drift-onset back-fill, targeted hold | hold 11 min before first end-of-line catch, 80 % precision, 99 % recall, 0 escaped |
 | different stakeholder views | operator, supervisor, quality, maintenance, manager, leadership | six live tabs on one twin |
-| extend to other lines/plants | ISA-95 YAML, libraries, `extends`; plant B (30 stations) unchanged code | `plant_b`: 20/20 caught, 11.8 min lead, 0.1 false alarms / 8 h |
+| extend to other lines/plants | ISA-95 YAML, libraries, `extends`; plant B (30 stations) unchanged code | `plant_b`: 20/20 caught, 12.0 min lead, 0.1 false alarms / 8 h |
 | validate predictions over time | evaluator ships in product; trust ledger; calibration; benchmark | 0.2 false alarms / 8 h; stated 0.9–1.0 confidence → 100 % hit rate |
 | reference parameters (30–50 stations, mixed maturity) | `plant_b.yaml`: 30 stations, 4 zones, 3 variants, 9 partial/dark | — |
 
@@ -79,7 +79,7 @@ the mechanism, not the data.
 | **Loom** | **0.2** | inside the published budget |
 
 Read lead time only next to that column. A threshold alarm gets *more* lead than Loom on an
-instrumented station (13.5 min vs 7.0) — because it fires 142 times a shift. On the dark station it
+instrumented station (13.5 min vs 6.6) — because it fires 142 times a shift. On the dark station it
 never warns at all, because a threshold rule has nothing to threshold. And for containment: 63
 defective vehicles escape with end-of-line inspection alone; a blanket hold stops 90 vehicles
 starting at minute 54; Loom holds 76 starting at minute 42.
@@ -89,7 +89,7 @@ starting at minute 54; Loom holds 76 starting at minute 42.
 | mechanism removed | false alarms / 8 h | dark ramp caught | 2-condition cause found |
 |---|---|---|---|
 | **full system** | **0.2** | **5/5** | **5/5** |
-| no persistence rule | 2.0 | 5/5 | 5/5 |
+| no persistence rule | 1.2 | 5/5 | 5/5 |
 | no standard-error test | 0.4 | 5/5 | 5/5 |
 | no inferred samples | 0.2 | **0/5** | 5/5 |
 | no pair search | 0.2 | 5/5 | **0/5** |
@@ -103,12 +103,12 @@ Either a scenario exercises it or the claim leaves the proposal (spec item E6a).
 
 | claim | result (20 seeds) |
 |---|---|
-| warns before the line blocks | 7.9 min lead fully instrumented; 6.0 with the station dark; 7.7 with a PLC (`sensor_fault_b2`) link silent; 11.8 on the 30-station plant |
-| stays quiet when nothing is wrong | 0.30 alerts / 8 h; 0 holds on 160 h healthy |
+| warns before the line blocks | 7.4 min lead fully instrumented (`ramp_b3`); 5.2 with the station dark; 7.4 with a PLC (`sensor_fault_b2`) link silent; 12.0 on the 30-station plant |
+| stays quiet when nothing is wrong | 0.10 alerts / 8 h; 0 holds on 160 h healthy |
 | momentary bottleneck from partial data | 96–99 % agreement with the plant's own active periods during faults |
 | catches a silent drift and contains it | hold 12.8 min before the first inspection catch; 81 % precision, 99 % recall; the blanket hold would be 90 vehicles and start later |
 | finds a two-condition cause | 17/20 |
-| confidence means something | 0.9–1.0 stated → 100 % realised; 0.7–0.9 → 97 %; 0.5–0.7 → 54 % |
+| confidence means something | 0.9–1.0 stated → 100 % realised; 0.7–0.9 → 100 %; 0.5–0.7 → 85 % |
 | degrades rather than breaks | warning survives to 30 % of stations dark; reconstruction error flat at 0.2 s to 50 % |
 | survives real sensor semantics | Factory I/O adapter through a real Modbus socket at 50 Hz; dark and exit-only stations handled |
 
@@ -129,8 +129,9 @@ above budget. Two causes, one a real bug and one a bad measurement:
   running*. On `plant_b` it scored an alert on T04 at 93.8 s as false while T04's fault was holding
   it at 95 s against a 75 s takt. A false alarm is now an alert no fault explains, tested against
   the plant's true cycle at that instant. This cannot excuse an alert on a healthy line, where no
-  station is ever over takt — and the healthy-line floor is **unchanged at 0.30 per 8 h**, which is
-  how you can tell the definition change did not launder the headline number.
+  station is ever over takt — and the healthy-line floor was **unchanged at 0.30 per 8 h across that
+  change**, which is how you can tell the definition change did not launder the headline number. It
+  is 0.10 today, from a later and separate change to `min_over_z`.
 
 Every scenario now sits at 0.1–0.2 false alarms per 8 h. `shifting` still misses 3 of 40 faults.
 

@@ -20,6 +20,7 @@ from the sensor profiles' declared jitter.
 from __future__ import annotations
 
 from collections import deque
+from statistics import median
 from dataclasses import dataclass, field
 
 from .config import LineCfg
@@ -95,6 +96,10 @@ class Twin:
     # Run rules: a condition must persist before we raise, and must be
     # absent for a while before we clear. Cheap, standard, cuts false alarms.
     RAISE_AFTER = 3
+    # Queue readings the ETA's buffer projection is smoothed over. Three is
+    # enough to reject a single transient full buffer and short enough that a
+    # genuinely filling buffer still reads as filling.
+    Q_WINDOW = 3
     CLEAR_AFTER = 3
     SILENT_AFTER_TAKTS = 4
 
@@ -116,6 +121,12 @@ class Twin:
         self.samples: dict[str, list[tuple[int, float, str]]] = {s.id: [] for s in cfg.stations}
 
         self._pending: list[set[int]] = [set() for _ in range(self.n)]   # arrived, not started
+        # Recent queue depths, for the ETA. One instant's buffer reading is a
+        # bad thing to quote a minute-scale forecast from: buffers fill and
+        # drain between vehicles, so a momentarily full one turns "the line
+        # blocks in six minutes" into "the line blocks in five seconds". The
+        # median of the last few readings is what the buffer is actually doing.
+        self._qhist: list[deque[int]] = [deque(maxlen=self.Q_WINDOW) for _ in range(self.n)]
         self._last_started: list[int | None] = [None] * self.n
         self._first_vid: int | None = None
 
@@ -298,7 +309,9 @@ class Twin:
     def _assess(self, i: int, t: float) -> None:
         sid = self.cfg.ids[i]
         cap = self.cfg.stations[i].buffer_before
-        alert = self.forecaster.assess(sid, t, len(self._pending[i]), cap,
+        self._qhist[i].append(len(self._pending[i]))
+        q = int(median(self._qhist[i]))
+        alert = self.forecaster.assess(sid, t, q, cap,
                                        self._workers[i], self._interarrival(i))
         self._track(sid, t, alert)
 

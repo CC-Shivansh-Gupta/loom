@@ -52,3 +52,28 @@ def test_alert_clears_after_recovery(tmp_path):
     actions = [x.action for x in twin.log if x.alert.station == "B3"]
     assert actions[:2] == ["raised", "cleared"]
     assert "B3" not in twin.active
+
+
+def test_a_realised_constraint_is_still_reported_after_its_alert_clears():
+    """A forecast alert and the current constraint answer different questions,
+    and the twin must not go quiet when the first answer stops being useful.
+
+    Once a slow station has become the constraint, the line feeds it at its own
+    pace, so it is no longer running measurably faster than its supply and the
+    forecast alert clears — correctly: it will not block anything that is not
+    already blocked. What the operator needs then is the constraint panel, and
+    that has to keep naming the station.
+    """
+    from loom.live import LiveSim
+    s = LiveSim("healthy.yaml")
+    s.playing, s.speed = True, 600
+    for _ in range(20):
+        s.step(0.1)
+    s.inject("slow", "B3", cycle_s=80, ramp_s=0)
+    for _ in range(60):
+        s.step(0.1)
+    assert any(x.action == "raised" and x.alert.station == "B3" for x in s.twin.log), \
+        "the onset was never warned about at all"
+    station, share, _ = s.frame()["bn"]
+    assert station == "B3", f"constraint is {station}, not the station held at 80 s"
+    assert share > 40, f"named B3 but at only {share}% active share"
