@@ -48,3 +48,44 @@ def test_darken_hits_the_faulting_station_first():
     faulted = {p.station for p in cfg.perturbations}
     _, chosen = coverage.darken(cfg, 0.1)
     assert chosen & faulted, f"{chosen} misses the faulting station {faulted}"
+
+
+def test_numbers_correspond_to_the_rows_that_produced_them(tmp_path):
+    """The failure presence cannot see: every figure is real, and one of them
+    has been attached to the wrong row.
+
+    This is not hypothetical. A benchmark re-run moved the 0.5–0.7 confidence
+    bin from 59 % to 54 %, the prose kept saying 59 %, and the presence check
+    passed because 59 was still somewhere in the document. What identifies the
+    claim is the company its numbers keep: the row that produced it holds
+    0.5–0.7 and 54 together, and no row holds 0.5–0.7 and 59.
+    """
+    gen = tmp_path / "gen.md"
+    gen.write_text(
+        "| stated confidence | n | realised hit rate |\n"
+        "|---|---|---|\n"
+        "| 0.5-0.7 | 41 | 54% |\n"
+        "| 0.7-0.9 | 30 | 97% |\n"
+        "| 0.9-1.0 | 59 | 100% |\n")           # 59 is present, as a count
+    idx, common = N.index_generated([str(gen)])
+
+    stale = tmp_path / "stale.md"
+    stale.write_text("Confidence means something: 0.5-0.7 stated gives 59 % realised.\n")
+    assert N.check(str(stale), N.harvest([str(gen)])) == [], "presence should pass — 59 is there"
+    bad = N.correspondence(str(stale), idx, common)
+    assert [n for n, _, _ in bad] == ["59"], bad
+
+    fresh = tmp_path / "fresh.md"
+    fresh.write_text("Confidence means something: 0.5-0.7 stated gives 54 % realised.\n")
+    assert N.correspondence(str(fresh), idx, common) == []
+
+
+def test_evidence_documents_and_prose_correspond():
+    idx, common = N.index_generated()
+    assert idx, "no generated evidence documents found"
+    for doc in ("docs/proposal.md", "docs/competition_readiness.md",
+                "docs/solution_design.md"):
+        bad = N.correspondence(doc, idx, common)
+        assert not bad, (
+            f"{doc} quotes figures a run produced, but not for the claim they are attached to:\n"
+            + "\n".join(f"  {n} in {line[:80]!r} — lives in {where[:80]!r}" for n, line, where in bad))

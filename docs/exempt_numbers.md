@@ -9,6 +9,11 @@ If a number is in this table it is a **claim about the world**, not a claim abou
 about Loom must be traceable to `benchmark.md`, `baselines.md`, `ablation.md`, `coverage.md` or
 `forecaster_tuning.md`.
 
+The exceptions to that are the rows naming a commit. A document that says what a change cost has to
+quote the number from *before* the change, which by construction no current run produces. Those are
+allowed here only with the commit that measured them and the edit that reproduces them — a
+historical claim nobody can re-run is worth no more than an invented one.
+
 | number | what it is | source |
 |---|---|---|
 | 2.3 | $2.3 M — cost of one idle automotive hour | Siemens, *True Cost of Downtime 2024* |
@@ -20,9 +25,16 @@ about Loom must be traceable to `benchmark.md`, `baselines.md`, `ablation.md`, `
 | 500 | ~$500/station retrofit | low-cost sensing menu, `solution_design.md` C1 |
 | 6.3 | mean lead in minutes used in the illustrative ROI arithmetic | derived from `benchmark.md`; recompute when the benchmark changes |
 | 3.6 | $3.6 M — output of the bottleneck-avoidance formula | arithmetic on the row's own stated inputs |
+| 1.1 | $1.1 M — output of the escapes-prevented formula | arithmetic on the row's own stated inputs |
 | 2.4 | false alarms per 8 h on `shifting` **before** the alert-grouping fix | measured at commit `e8a7555`; reproducible by reverting the `_downstream_root` change in `loom/twin.py` |
 | 1.3 | false alarms per 8 h on `plant_b` **before** the false-alarm definition was corrected | measured at commit `e8a7555`; reproducible by reverting the `bottleneck_scorecard` change in `loom/evaluator.py` |
 | 93.8 | the fitted cycle of the alert on T04 that the old definition scored as a false alarm | trace from `plant_b.yaml` seed 1 at commit `e8a7555` |
 | 16949 | IATF 16949 — the automotive quality management standard | standard designation, not a measurement |
 | 1000 | the 10x / 100x / 1000x cost ladder for a defect caught downstream, at final assembly, in the field | `research.md`; standard automotive quality figure |
 | 95 | ISA-95 — the enterprise/control integration standard | standard designation |
+| 64 | 64 % of digital-twin projects never leave pilot | Gartner, cited in `research.md` |
+| 70 | >70 % of automotive manufacturers piloting or deploying a twin | `research.md`; adoption survey |
+| 58 | 58 % of twin delays trace to OT/IT integration | IoT Analytics 2025 survey, `research.md` |
+| 24 | agentic-AI adoption rising 6 % → 24 % | Deloitte, cited in `research.md` |
+| 37 | recall on `multi_cause` **before** the twin learned to abstain below the break-even bar | measured at commit `a80b3c8`; reproducible by holding regardless of posterior in `_hold_from_inspection` |
+| 16 | containment precision on `multi_cause` at that same commit | as above; the pair to the 37 % recall, quoted together to state what abstention cost and bought |

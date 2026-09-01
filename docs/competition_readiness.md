@@ -28,7 +28,7 @@ solutioning areas, and eleven the brief does not list, each to a mechanism and a
 | no live-system changes, rare maintenance windows | read-only by construction; Factory I/O run over Modbus with zero writes; retrofit = config diff | integration test through a real socket |
 | early defect surfaces late | build-record trace, drift-onset back-fill, targeted hold | hold 11 min before first end-of-line catch, 80 % precision, 99 % recall, 0 escaped |
 | different stakeholder views | operator, supervisor, quality, maintenance, manager, leadership | six live tabs on one twin |
-| extend to other lines/plants | ISA-95 YAML, libraries, `extends`; plant B (30 stations) unchanged code | 5/5 caught, 10.6 min lead, 0 false alarms |
+| extend to other lines/plants | ISA-95 YAML, libraries, `extends`; plant B (30 stations) unchanged code | `plant_b`: 20/20 caught, 11.8 min lead, 0.1 false alarms / 8 h |
 | validate predictions over time | evaluator ships in product; trust ledger; calibration; benchmark | 0.2 false alarms / 8 h; stated 0.9–1.0 confidence → 100 % hit rate |
 | reference parameters (30–50 stations, mixed maturity) | `plant_b.yaml`: 30 stations, 4 zones, 3 variants, 9 partial/dark | — |
 
@@ -103,7 +103,7 @@ Either a scenario exercises it or the claim leaves the proposal (spec item E6a).
 
 | claim | result (20 seeds) |
 |---|---|
-| warns before the line blocks | 7.9 min lead fully instrumented; 6.0 with the station dark; 7.7 with a PLC link silent; 11.8 on the 30-station plant |
+| warns before the line blocks | 7.9 min lead fully instrumented; 6.0 with the station dark; 7.7 with a PLC (`sensor_fault_b2`) link silent; 11.8 on the 30-station plant |
 | stays quiet when nothing is wrong | 0.30 alerts / 8 h; 0 holds on 160 h healthy |
 | momentary bottleneck from partial data | 96–99 % agreement with the plant's own active periods during faults |
 | catches a silent drift and contains it | hold 12.8 min before the first inspection catch; 81 % precision, 99 % recall; the blanket hold would be 90 vehicles and start later |

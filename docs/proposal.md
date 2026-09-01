@@ -24,7 +24,7 @@ bypass.
 
 | | |
 |---|---|
-| 7.9 min | warning before a wearing station blocks the line, fully instrumented |
+| 7.9 min | warning before a wearing station blocks the line, fully instrumented (`ramp_b3`) |
 | 6.0 min | same warning with the failing station dark — reconstructed from its neighbours |
 | 12.8 min | hold before end-of-line inspection sees the first weak weld; 81 % precision, 99 % recall |
 | 0.30 / 8 h | false bottleneck alerts on a healthy line over 160 simulated hours |
