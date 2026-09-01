@@ -9,6 +9,22 @@ Two providers behind one interface:
                      output. Picked automatically when the SDK is importable
                      and credentials resolve, or forced with LOOM_LLM=claude.
 
+Environment:
+
+  ANTHROPIC_API_KEY     first-party key. Read by the SDK, not by us.
+  ANTHROPIC_BASE_URL    point the SDK at a Messages-API-compatible gateway.
+  ANTHROPIC_AUTH_TOKEN  bearer credential, which is what a gateway wants
+                        instead of `x-api-key`.
+  LOOM_LLM_MODEL        model id, for gateways that namespace it
+                        (`anthropic/claude-opus-5`).
+
+The last three are what an OpenRouter key needs; nothing else in the codebase
+changes, because the gateway speaks the same Messages API. Note that this only
+holds for Anthropic models behind it -- `thinking` and `output_config` are
+Messages API features, so pointing this provider at a non-Anthropic model is
+not a supported configuration, and the template path is the offline fallback
+rather than a second model.
+
 Every call is logged to `TELEMETRY` (tokens, latency, estimated cost) so
 the manager view can show what the AI layer costs to run.
 """
@@ -20,8 +36,23 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-MODEL = "claude-opus-5"
+MODEL = os.environ.get("LOOM_LLM_MODEL", "claude-opus-5")
 PRICE_PER_M = {"claude-opus-5": (5.00, 25.00)}       # $/M input, output
+
+
+def price_of(model: str) -> tuple[float, float] | None:
+    """$/M input and output, or None when we do not know.
+
+    A gateway namespaces the model (`anthropic/claude-opus-5`), which is the
+    same model at the same list price, so the vendor prefix is stripped before
+    the lookup. Anything still unknown returns None rather than 0.0: this
+    number is what the manager view reports as the AI layer's running cost,
+    and an unpriced model silently costing $0.0000 is exactly the kind of
+    confident-looking wrong number the rest of this system exists to catch.
+    """
+    if model in PRICE_PER_M:
+        return PRICE_PER_M[model]
+    return PRICE_PER_M.get(model.rsplit("/", 1)[-1])
 
 
 @dataclass
@@ -33,6 +64,7 @@ class Call:
     output_tokens: int
     latency_s: float
     cost_usd: float
+    priced: bool = True         # False when the model is not in PRICE_PER_M
 
 
 TELEMETRY: list[Call] = []
@@ -47,6 +79,9 @@ def telemetry_summary() -> dict:
         "latency_s": round(sum(c.latency_s for c in calls), 2),
         "cost_usd": round(sum(c.cost_usd for c in calls), 4),
         "providers": sorted({c.provider for c in calls}),
+        # Models whose price we do not have, so the total above is a floor and
+        # the reader is told which calls it is missing.
+        "unpriced_models": sorted({c.model for c in calls if not c.priced}),
     }
 
 
@@ -116,14 +151,35 @@ class ClaudeProvider(Provider):
         if resp.stop_reason == "refusal":
             raise RuntimeError("Claude declined the request")
         text = "".join(b.text for b in resp.content if b.type == "text")
-        pin, pout = PRICE_PER_M.get(self.model, (0.0, 0.0))
+        price = price_of(self.model)
+        pin, pout = price or (0.0, 0.0)
         cost = resp.usage.input_tokens * pin / 1e6 + resp.usage.output_tokens * pout / 1e6
         TELEMETRY.append(Call(purpose, self.name, self.model, resp.usage.input_tokens,
-                              resp.usage.output_tokens, latency, cost))
+                              resp.usage.output_tokens, latency, cost, price is not None))
         return text
 
 
 _default: Provider | None = None
+
+
+def _credentials_visible(client) -> bool:
+    """Whether the SDK found something to authenticate with.
+
+    Constructing `Anthropic()` does not need a credential -- the client builds
+    happily and raises only when the first request is sent. That is the wrong
+    moment for us: auto-detection would choose Claude on the strength of the
+    package being importable, and every AI feature would then fail mid-demo
+    instead of falling back to the template path that exists for exactly this.
+    So the choice is made on whether a credential actually resolved: a key, a
+    bearer token, or the token cache an `ant auth login` profile populates.
+
+    Being wrong here is cheap in one direction and expensive in the other. A
+    missed credential falls back to the deterministic path and `LOOM_LLM=claude`
+    overrides it; a missed *absence* breaks the demo.
+    """
+    return bool(getattr(client, "api_key", None)
+                or getattr(client, "auth_token", None)
+                or getattr(client, "_token_cache", None))
 
 
 def get_provider(force: str | None = None) -> Provider:
@@ -136,6 +192,8 @@ def get_provider(force: str | None = None) -> Provider:
     if choice in ("claude", "auto"):
         try:
             prov = ClaudeProvider()
+            if choice == "auto" and not _credentials_visible(prov.client):
+                prov = None
         except Exception:                                  # no SDK, no credentials
             if choice == "claude":
                 raise

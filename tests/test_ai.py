@@ -166,3 +166,21 @@ def test_improve_gate_refuses_a_budget_breaking_proposal():
     for it in d["iterations"]:
         if not it["accepted"]:
             assert it["reason"], "a rejection with no stated reason"
+
+
+def test_auto_detection_needs_a_credential_not_just_the_package(monkeypatch):
+    """Installing `anthropic` is not the same as being able to call it.
+
+    The SDK constructs without a credential and raises only when the first
+    request goes out, so choosing the provider on importability alone picks
+    Claude and then fails mid-feature — with the deterministic path, which
+    exists for exactly this, sitting right there unused.
+    """
+    pytest.importorskip("anthropic")
+    for var in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "LOOM_LLM"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr(llm, "_credentials_visible", lambda client: False)
+    assert isinstance(llm.get_provider("auto"), llm.TemplateProvider)
+    # ...and asking for it explicitly still gets it, so the fallback is not a trap
+    monkeypatch.setattr(llm, "_credentials_visible", lambda client: True)
+    assert llm.get_provider("claude").name == "claude"

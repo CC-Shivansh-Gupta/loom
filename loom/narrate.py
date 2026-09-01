@@ -219,7 +219,12 @@ def _manager(user: str) -> str:
     lines += _operator_notes(p)
     ai = p.get("ai_telemetry")
     if ai:
-        lines.append(f"## AI layer cost\n- {ai['calls']} calls, {ai['input_tokens']} in / {ai['output_tokens']} out tokens, ${ai['cost_usd']:.4f}, {ai['latency_s']} s.")
+        line = (f"## AI layer cost\n- {ai['calls']} calls, {ai['input_tokens']} in / "
+                f"{ai['output_tokens']} out tokens, ${ai['cost_usd']:.4f}, {ai['latency_s']} s.")
+        if ai.get("unpriced_models"):
+            line += (f" Cost is a floor: no price on file for "
+                     f"{', '.join(ai['unpriced_models'])}.")
+        lines.append(line)
     return "\n".join(lines)
 
 
