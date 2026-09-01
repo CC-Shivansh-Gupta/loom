@@ -117,6 +117,15 @@ def pack(twin: Twin, coverage: dict[str, str] | None = None,
         "holds": [{"id": h.id, "t": _hm(h.t), "reason": h.reason, "station": h.station, "param": h.param,
                    "sure": h.sure, "uncertain": h.uncertain, "already_exited": h.exited,
                    "hypothesis": None if h.hypothesis is None else str(h.hypothesis)} for h in q.holds],
+        # What the twin did *instead* of holding, and why. A judge reading only
+        # the holds sees containment; the abstentions are where it declined to
+        # scrap product on evidence that could not name the cause.
+        "sample_requests": [{"id": s.id, "t": _hm(s.t), "reason": s.reason,
+                             "inspect_at": s.inspect_at, "vehicles": s.vehicles,
+                             "fails_seen": s.fails_seen, "top": str(s.top),
+                             "rival": None if s.rival is None else str(s.rival)}
+                            for s in q.sample_requests],
+        "precision_curve": q.precision_curve,
         "unreported_params": [f"{s.id}.{p.name}" for s in cfg.stations for p in s.params
                               if s.id not in q.reports],
     }

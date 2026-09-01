@@ -13,6 +13,17 @@ Seed 0, 3 h. Ranked hypotheses after the inspection fails accumulate:
 | 1 | B4.torque low AND P1.humidity high | 53.8x | 4/5 vs 2/167 otherwise | 2.1e-06 |
 | 2 | B4.torque low | 16.0x | 5/5 vs 10/167 otherwise | 2.5e-06 |
 
+The decision at each contribution run — what the twin believed a hold's precision
+would be, against how many inspection failures it had seen when it believed it:
+
+| fails seen | leading hypothesis | posterior | n under it | best rival | action |
+|---|---|---|---|---|---|
+| 3 | B4.torque low | 0.30 | 10 | B4.torque low AND P1.humidity high (0.50) | **sample** |
+| 4 | B4.torque low | 0.33 | 12 | B4.torque low AND P1.humidity high (0.60) | **sample** |
+| 5 | B4.torque low AND P1.humidity high | 0.67 | 6 | B4.torque low (0.33) | **hold** |
+
+The abstention is an action, not a shrug: `SAMPLE #1` at 169.9 min asks for 2 named vehicles at P3, chosen because each matches exactly one of the two candidate condition sets, so its result moves the evidence one way rather than being consistent with both.
+
 ### `weld_drift_b2.yaml` — a silent drift, contained before inspection sees it
 
 Seed 0, 2 h.
@@ -24,4 +35,4 @@ Seed 0, 2 h.
 | hold #1 opened, 76 vehicles | 38.9 min |
 | first end-of-line inspection catch | 55.6 min |
 
-Held 77 of the 90 vehicles a blanket hold would stop; 61 of them truly defective (79% precision, 98% recall); 0 escaped.
+Held 76 of the 90 vehicles a blanket hold would stop; 61 of them truly defective (80% precision, 98% recall); 0 escaped.

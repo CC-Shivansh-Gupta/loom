@@ -15,8 +15,8 @@ Priority: **P0** blocks submission · **P1** separates a good entry from a winni
 | E2 | Ablation table (what each mechanism buys) | P0 | `loom/ablate.py` | **done** → `docs/ablation.md` |
 | E3 | Coverage degradation curve | P1 | `loom/coverage.py` | **done** → `docs/coverage.md` |
 | E4 | 20-seed re-run, numbers as single source of truth | P0 | `loom/bench.py`, `loom/numbers.py` | **done** — and it found two claims that did not survive |
-| E5 | Restore the forecaster tuning sweep | P1 | `loom/sweep.py` | — |
-| E6 | Multi-cause: discriminating sample instead of a bad hold | P1 | `loom/quality.py` | — |
+| E5 | Restore the forecaster tuning sweep | P1 | `loom/sweep.py` | **done** → `docs/forecaster_tuning.md`, and it disagreed with the shipped defaults; resolved below |
+| E6 | Multi-cause: discriminating sample instead of a bad hold | P1 | `loom/quality.py`, `loom/trace.py`, `loom/evidence.py`, `web/app.html` | **done** — abstain, `SampleRequest`, precision curve; precision 16 % → 67 %, and the curve is reported |
 | E6a | Back-fill: a scenario that exercises it, or drop the claim | P1 | `configs/`, `docs/proposal.md` | **open** — claim removed from the proposal for now |
 | E7 | False-alarm rate on multi-fault scenarios (1.3–2.4 / 8 h vs a 0.2 budget) | **P0** | `loom/twin.py`, `loom/evaluator.py` | **done** — 0.1–0.2 / 8 h, healthy floor unchanged |
 | A1 | Claude wired; live run of all four AI features | P0 | env + `loom/llm.py` | — |
@@ -24,7 +24,7 @@ Priority: **P0** blocks submission · **P1** separates a good entry from a winni
 | A3 | Grounding catch — the model caught reaching for a number | P0 | `loom/aieval.py`, AI tab | **done** — red-team fixtures, 4/4 caught |
 | A4 | LLM eval suite (groundedness, abstention, persona fit) | P1 | `loom/aieval.py` | **done** → `docs/ai_eval.md` |
 | A5 | Model tiering and measured cost per insight | P1 | `loom/llm.py` | — |
-| A6 | Operator notes treated as data, not instructions | P2 | `loom/evidence.py` | — |
+| A6 | Operator notes treated as data, not instructions | P2 | `loom/evidence.py` | **done** — quoted, delimiter-stripped, `trust: untrusted_operator_text`; `tests/test_injection.py` |
 | U1 | Exec view never renders $0, and is a designed view | P0 | `loom/views.py`, `loom/bench.py`, `web/app.html` | **done** — falls back to `benchmark.json` and labels the basis; adds a 1/10th sensitivity line |
 | U2 | Camera fit; default panel shows live alerts | P0 | `web/app.html` | **done** — and it exposed a real UX confusion, see U2a |
 | U3 | Supervisor, quality and manager views as designed UI, not `<pre>` | P1 | `web/app.html`, `loom/live.py` | **done** — render from `/api/pack`, the same evidence pack the AI layer gets |
@@ -163,6 +163,58 @@ Precision is then reported as a curve against the number of inspection fails obs
 **Acceptance.** The scenario ends in a recommended sample and a rising precision curve, not a bad
 hold. The proposal reports the curve.
 
+**What shipped.** All of it, plus one thing the design did not anticipate.
+
+The twin now records a `precision_curve` entry at every contribution run — the leading hypothesis,
+its posterior, how many vehicles sit under it, the best rival, and whether it held or sampled — and
+abstains when the leader is below `HOLD_MIN_POSTERIOR` (0.5, the break-even point at which a hold
+destroys more good product than bad) or within `HOLD_SEPARATION` of its rival. The abstention emits
+a `SampleRequest` naming up to `SAMPLE_K` un-inspected vehicles, each matching exactly one of the two
+candidate condition sets so its result moves the evidence rather than being consistent with both.
+
+On `multi_cause.yaml`, seed 0, the curve is the whole argument in four lines: at 3 fails the single
+condition `B4.torque low` leads at 0.30 and it samples; at 4 fails, 0.33, it samples; at 5 fails the
+pair overtakes at 0.67 and it holds — on the pair. Over 20 seeds containment precision goes **16 %
+→ 67 %** and hold size from 11 % of a blanket hold to 3 %.
+
+**What it costs, said plainly.** Recall falls 37 % → 13 % and escapes go 6 → 8 across 20 runs. That
+is not a detection failure — the pair is still ranked first in 17 of 20 — it is the twin declining to
+contain on evidence that would scrap five good vehicles for every two bad ones. The trade is now
+`HOLD_MIN_POSTERIOR`, written as a break-even argument rather than a tuned constant, so a plant that
+would rather over-contain has exactly one number to move and can see what moving it buys.
+`docs/solution_design.md` §6b limit (4) states this rather than hiding it.
+
+**Reported.** `docs/traces.md` carries the curve and the sample request; the quality view renders a
+"Held off, sampling instead" block beside the holds, with the decision table under it, so the
+abstention is visible in the product and not only in a document. `tests/test_quality.py` asserts the
+sample-then-hold ordering and the rising posterior.
+
+**One thing the ablation nearly hid.** The above landed in commit `a80b3c8` and `docs/benchmark.md`
+was not regenerated, so for a day the repo carried a 16 %-precision row describing code that no
+longer existed. It surfaced only because a later regeneration showed a recall drop that looked like a
+regression. Regenerating the evidence documents is part of a change, not a follow-up to it.
+
+**A refinement on top of it.** Before the twin can recommend a better action it has to stop taking
+a worse one, and it was still taking one. A hold opened by an out-of-spec reading was withdrawn as soon
+as the single-condition posterior fell under `HOLD_MIN_POSTERIOR` — a *point* estimate. Inspection
+sits minutes downstream of the cause station, so the vehicles that have been judged are
+systematically older than the ones being held; early on that estimate is both low and worthless.
+Two defects in five reads 0.40 and pulls a good hold twenty minutes before it should.
+
+`QualityTwin._posterior_ucb` replaces it with the Wilson upper bound, so containment is withdrawn
+on what the evidence *rules out* rather than on what it happens to say. The same 2-of-5 bounds at
+0.77 and the hold stands; 2 of 40 bounds at 0.16 and it does not. Measured on `multi_cause.yaml`,
+30 seeds, against the point estimate:
+
+| | precision | recall | escapes |
+|---|---|---|---|
+| point estimate | 62.2 % | 12.2 % | 11 |
+| Wilson bound | **66.1 %** | **13.9 %** | 11 |
+
+Small, in the right direction, and exactly inert on `weld_drift_b2.yaml` (79.8 % / 99.3 % either
+way), which is the control: a single-cause scenario has no rival hypothesis for an early sample to
+wrongly favour.
+
 ---
 
 ## A1–A3 · Make the AI real and visible
@@ -277,17 +329,44 @@ retrofits off ten minutes of history produces a table of zeroes in a confident o
 
 ---
 
+## E5a · The sweep disagreed with the shipped defaults (opened by E5)
+
+`loom/sweep.py`, restored and run, picks `window = 10` where the twin ships `window = 20` — 9.3 min
+of mean lead against 6.4, both at zero false alarms on the scenarios the sweep saw. The defaults
+only move through `improve.py`'s gate, so the disagreement was recorded rather than applied, then
+tested.
+
+It is wrong, and the way it is wrong is the interesting part. Neither the sweep's three scenarios
+nor the broadened six-scenario harness separates the two settings on false alarms; both report the
+same rate, because a false alarm is a low-rate quantity and twelve healthy hours cannot tell 0.4
+per 8 h from 0.8 per 8 h. Measured on 240 healthy hours per setting, they separate immediately:
+
+| `window` | alarms in 240 healthy h | per 8 h |
+|---|---|---|
+| 20 (shipped) | 9 | **0.30** |
+| 10 (sweep's pick) | 29 | **0.97** |
+
+A shorter window fits fewer cycles, so its slope is noisier, so it crosses the significance test
+more often on a line where nothing is wrong. The lead it wins on a real ramp and the alarms it
+invents on a quiet line are one effect measured twice, and 2.9 min does not buy a tripled
+false-alarm rate against a 0.2-per-8-h budget.
+
+**The finding is about the gate, not the window: a gate that samples the cost of a change less
+precisely than its benefit will always drift toward the change.** Lead time is measured per fault,
+so a few runs pin it down; false alarms are counted per healthy hour, so the same few runs leave
+them wide open, and any search optimising the pair walks into the imprecision. `DEFAULT_SCENARIOS`
+now runs 48 healthy hours over six seeds and adds the moving constraint and the 30-station plant,
+with the reasoning in a comment at the definition. Written up in `docs/forecaster_tuning.md`.
+
+---
+
 ## What is left
 
 | item | why it is still open |
 |---|---|
 | **A1 · Claude wired** | needs an `ANTHROPIC_API_KEY`. Everything is built behind the provider boundary, so it is one environment variable; `aieval` then rescores model output with no change to any file |
 | **A5 · model tiering / measured cost** | blocked on A1 |
-| **A6 · operator notes as data** | small; a test that plants an instruction-shaped note and asserts the report ignores it |
-| **E5 · restore the tuning sweep** | `scratch/sweep.py` is still out of the repo, so `forecaster_tuning.md` cannot be regenerated |
-| **E6 · multi-cause discriminating sample** | the designed fix for 16 % precision; the scenario currently ends in a bad hold rather than a request to sample |
 | **E6a · the back-fill claim** | needs a sparse-reading scenario, or the mechanism goes |
-| **Maintenance view** | still text; the only persona view that is |
 | **Deck** | **done** — `docs/deck.html`, 11 slides, every figure from a generated evidence document |
 | **Video** | not started. Story mode is its spine: ten scripted scenes, re-recordable after any code change |
 
@@ -302,3 +381,39 @@ retrofits off ten minutes of history produces a table of zeroes in a confident o
 6. AI — the persona reports, the what-if ranking, the gate refusing a proposal, and the grounding
    check catching an ungrounded number.
 7. Another plant, 30 stations, unchanged code.
+
+---
+
+## Where to pick up
+
+Everything below is repo state, not memory — a fresh session can start here.
+
+**Run it.**
+
+| | |
+|---|---|
+| tests | `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -q` — the flag is not optional, a ROS `launch_testing` plugin on this machine breaks collection without it |
+| control room | `python3 -m loom.server`, then `http://localhost:8000`. Check `pgrep -af loom.server` and kill stale ones first; a leftover process holding port 8000 serves old HTML and looks exactly like a render bug |
+| regenerate evidence | `python3 -m loom.bench --seeds 20 --out docs/benchmark.md`, and `-m loom.{baseline,ablate,coverage,trace,sweep,aieval} --out docs/<file>.md`. **`--out` is required** — without it they only print |
+| grounding check | `python3 -m loom.numbers` — fails if any figure in a generated document was not produced by a run. It checks *presence*, not correspondence, so a stale-but-still-present number survives it; `docs/exempt_numbers.md` carries the cited-not-measured figures |
+
+**Open, in the order worth doing them.**
+
+1. **A1 · wire Claude.** `pip install anthropic` and an `ANTHROPIC_API_KEY`. `ClaudeProvider` is already
+   written and already selected by env; `TemplateProvider` stays as the offline control arm. Then
+   `python3 -m loom.aieval --out docs/ai_eval.md` rescores real model output with no file changed.
+   Everything else in the AI axis is done and demonstrable offline, so this is upside, not a blocker.
+2. **A5 · model tiering and cost per insight.** Blocked on A1 and cheap once it lands.
+3. **E6a · back-fill.** Needs a config that samples parameters sparsely — `weld_drift_b2` reports a
+   reading per vehicle, which is why the ablation measures the mechanism as inert. Otherwise drop it.
+4. **Video.** `docs/video_script.md` is the shot list; story mode in the control room is the spine,
+   so it can be re-recorded after any code change. Hero shot is scenes 6–7, the dark station.
+
+**Things learned the hard way, so they are not re-learned.**
+
+- Do not commit while subagents are still editing. A `git add -A` mid-flight swept another agent's
+  in-progress work into a commit whose message did not describe it.
+- A claim is worth what its seed count is worth. The 20-seed re-run destroyed two claims that four
+  seeds had supported, and that is what opened E7 — a real alert-flooding bug.
+- The tuning gate measures benefit per fault and cost per healthy hour, so it under-samples cost by
+  construction and drifts toward whatever change it is offered. See E5a.

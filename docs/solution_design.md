@@ -57,8 +57,16 @@ humidity is high; neither alone. No drift signal. As the inspection fails accumu
 table ranks `B4.torque low AND P1.humidity high` first — lift 53.8x, 4 of the 5 vehicles under it
 defective against 2 of 167 otherwise, p=2.1e-06 — above `B4.torque low` alone (16.0x, p=2.5e-06),
 with humidity alone never clearing the bars. The hold names the un-inspected vehicles that match the
-pair. The trace is generated: `docs/traces.md`. Across 20 seeds the true pair is ranked first in 17;
-the containment that follows it is weak, and §6b says so.
+pair. The trace is generated: `docs/traces.md`. Across 20 seeds the true pair is ranked first in 17.
+
+Ranking the cause is not the same as acting on it, and the interesting behaviour is what happens in
+between. At 3 and 4 inspection failures the single condition `B4.torque low` still leads, at a
+posterior of 0.30 and 0.33 — below the break-even point where a hold destroys more good product than
+bad. The twin does not hold on it. It issues a `SampleRequest`: inspect these named vehicles next,
+each chosen because it matches exactly one of the two candidate condition sets, so its result moves
+the evidence rather than being consistent with both. At 5 failures the pair overtakes at 0.67 and
+the hold opens on the pair. The abstention is an action with a reason, and both the trace and the
+quality view show it beside the holds — see §6b for what it costs.
 
 ### C3 · Modifying live production systems is risky; retrofits only in maintenance windows
 
@@ -86,7 +94,7 @@ line stop. Onset uncertainty is handled by widening the window and tagging the m
 no cycle-time symptom; weak welds surface only at the F5 end-of-line inspection. Measured on a 2-hour
 shift (seed 0, `docs/traces.md`): CUSUM warning on `B2.weld_current` at 38.9 min with the onset
 estimated at 32.9 min (true 30), the hold opened the same minute on the first out-of-spec reading —
-**16.7 minutes before the first inspection catch at 55.6 min** — 77 vehicles held, 79 % precision,
+**16.7 minutes before the first inspection catch at 55.6 min** — 76 vehicles held, 80 % precision,
 98 % recall, zero escaped; the no-genealogy blanket hold would be 90 vehicles and would not have
 started until inspection caught the first one. Over 20 seeds: 12.8 min ahead, 81 % precision, 99 %
 recall. Research figures for the pitch: a defect caught
@@ -303,7 +311,7 @@ screen, and the measured distributions are in §6b and `docs/benchmark.md`.
 | A different 30-station plant with 9 checklist/dark stations | 20/20 caught, 11.8 min lead, 0.1 false alarms / 8 h |
 | Momentary bottleneck from partial data vs plant truth | 96–99 % agreement during faults |
 | Silent weld drift | hold 12.8 min before the first end-of-line catch, precision 81 %, recall 99 % |
-| Two-condition intermittent defect | true pair ranked first in 17/20 runs |
+| Two-condition intermittent defect | true pair ranked first in 17/20 runs; containment precision 67 %, recall 13 %, holding 3 % of what a blanket hold would stop |
 | Confidence means something | stated 0.9–1.0 → 100 % hit rate; 0.7–0.9 → 97 %; 0.5–0.7 → 59 % |
 
 Known limits, stated rather than hidden: (0) `shifting` still **misses 3 of 40 faults**, and the
@@ -311,6 +319,16 @@ healthy-line floor of 0.30 per 8 h sits slightly above the 0.2 budget rather tha
 inspection fails, so its hold necessarily trails the first catch; (2) two adjacent finish-only
 (checklist) stations cannot be told apart — the twin abstains rather than guess; (3) one false alarm
 per five 2-hour fault runs on the demo line sits at the budget, not below it.
+
+(4) **`multi_cause` recall is 13 %, and that number is a choice, not a failure to detect.** The twin
+ranks the true pair in 17 of 20 runs; what it will not do is contain on a posterior below the
+break-even bar. Holding anyway would read as 37 % recall at 16 % precision — five vehicles scrapped
+for every two that were ever going to fail — which is why the earlier build was tuned away from. Eight
+defects escaped across 20 runs against six before, and that is the honest price: the twin trades
+recall it cannot justify for scrap it will not create, and asks for the five inspections that would
+settle it. Where a plant would rather over-contain, `HOLD_MIN_POSTERIOR` is the single number to
+move, and it is written as a break-even argument rather than a tuned constant so that the trade is
+visible to whoever moves it.
 
 ## 7. Risks and mitigations
 

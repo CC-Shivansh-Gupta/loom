@@ -69,3 +69,30 @@ mean warning.
 **These disagree.** The sweep's pick is recorded as it came out rather than edited to match the
 shipped values; the defaults change only through `improve.py`'s gate, so a disagreement here is
 a finding to act on, not a number to overwrite.
+
+### Resolved: the shipped window is right, and the gate was the thing at fault
+
+Acted on. The disagreement is 2.9 min of mean lead, which is worth having if it is free, so the
+question was only what it costs. Both settings report 0.0 false alarms on the three scenarios the
+sweep ran, and both report 0.5 per 8 h on the broadened six-scenario harness — neither harness
+separates them, because a false alarm is a low-rate quantity and twelve healthy hours cannot tell
+0.4 per 8 h from 0.8 per 8 h.
+
+Measured on healthy line-time alone, at 30 seeds x 8 h = **240 healthy hours per setting**:
+
+| `window` | alarms in 240 healthy h | per 8 h |
+|---|---|---|
+| 20 (shipped) | 9 | **0.30** |
+| 10 (sweep's pick) | 29 | **0.97** |
+
+The shipped default stands: 2.9 min of lead does not buy a tripled false-alarm rate against a
+0.2-per-8-h budget. A shorter window fits fewer cycles, so its slope estimate is noisier, so it
+crosses the significance test more often on a line where nothing is wrong — the lead it wins on a
+real ramp and the alarms it invents on a quiet line are the same effect measured twice.
+
+The finding worth keeping is about the gate, not the window. **A gate that samples the cost of a
+change less precisely than its benefit will always drift toward the change.** Lead time is
+measured per fault, so a handful of runs pins it down; false alarms are counted per healthy hour,
+so the same handful of runs leaves them wide open, and any search that optimises the pair walks
+straight into the imprecision. `harness.DEFAULT_SCENARIOS` was widened to 48 healthy hours across
+six seeds for that reason, and the comment there says so.

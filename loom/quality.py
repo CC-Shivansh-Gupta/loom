@@ -535,13 +535,36 @@ class QualityTwin:
         self._ev_cache[key] = h
         return h
 
+    @staticmethod
+    def _posterior_ucb(a: int, n: int, z: float = 1.96) -> float:
+        """Wilson upper bound on P(defect | condition).
+
+        Withdrawing containment is itself a decision with a price, so it is
+        taken on what the data *rules out*, not on a point estimate. That
+        matters here for a structural reason: inspection happens minutes
+        downstream of the cause station, so the vehicles that have been
+        judged are systematically older than the ones being held, and early
+        on the point estimate is both low and worthless. 2 of 5 has a point
+        estimate of 0.40 and an upper bound of 0.77 -- the first refutes a
+        good hold twenty minutes before it should, the second does not.
+        """
+        if n <= 0:
+            return 1.0
+        ph = a / n
+        z2 = z * z
+        centre = ph + z2 / (2 * n)
+        half = z * math.sqrt(ph * (1 - ph) / n + z2 / (4 * n * n))
+        return (centre + half) / (1 + z2 / n)
+
     def _drift_basis_holds(self, station: str, direction: str, key: tuple[str, str]) -> bool:
         """An out-of-spec reading opens a hold unless inspection evidence
-        has since shown that this condition on its own does not predict the
+        has since *ruled out* this condition on its own predicting the
         defect -- the multi-cause case, where the parameter is only causal
         in combination with another."""
         h = self._condition_evidence((Condition(station, key[1], self._band(direction)),))
-        return h is None or h.p_defect_given >= self.HOLD_MIN_POSTERIOR
+        if h is None:
+            return True
+        return self._posterior_ucb(h.a, h.a + h.c) >= self.HOLD_MIN_POSTERIOR
 
     @staticmethod
     def _same(h1: Hypothesis, h2: Hypothesis) -> bool:

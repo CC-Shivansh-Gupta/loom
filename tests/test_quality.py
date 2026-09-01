@@ -1,5 +1,5 @@
 from loom.evaluator import containment_scorecard
-from loom.quality import fisher_right
+from loom.quality import QualityTwin, fisher_right
 from loom.run import build
 
 H = 3600.0
@@ -62,3 +62,45 @@ def test_multi_cause_pair_is_found():
     assert insp and {(c.station, c.param) for c in insp[0].hypothesis.conditions} == names
     (c,) = containment_scorecard(plant, twin)
     assert c.escaped == 0
+
+
+def test_hold_survives_an_early_unlucky_sample():
+    """A hold is withdrawn on what the evidence *rules out*, not on a point
+    estimate. Inspection sits minutes downstream of the cause station, so the
+    judged vehicles are systematically older than the held ones and the early
+    point estimate is both low and worthless: 2 of 5 reads 0.40 and would
+    refute a good hold, while its upper bound is 0.77 and does not."""
+    ucb = QualityTwin._posterior_ucb
+    assert ucb(2, 5) > QualityTwin.HOLD_MIN_POSTERIOR      # too early to refute
+    assert ucb(0, 3) > QualityTwin.HOLD_MIN_POSTERIOR      # three good ones prove nothing
+    assert ucb(2, 40) < QualityTwin.HOLD_MIN_POSTERIOR     # 5% over 40 does
+    assert ucb(0, 0) == 1.0                                # no evidence never refutes
+    # and it is a bound, never below the point estimate it wraps
+    for a, n in ((1, 4), (7, 9), (20, 40)):
+        assert ucb(a, n) >= a / n
+
+
+def test_multi_cause_samples_before_it_holds():
+    """The scenario must not end in a bad hold. While the leading hypothesis is
+    a single condition with a posterior under the break-even bar, the twin asks
+    for a discriminating sample; it holds only once the pair overtakes it."""
+    cfg, plant, sensors, twin = build("configs/multi_cause.yaml")
+    plant.run(3 * H)
+    q = twin.quality
+    curve = q.precision_curve
+    assert curve, "no contribution run recorded"
+    holds = [r for r in curve if r["action"] == "hold"]
+    samples = [r for r in curve if r["action"] == "sample"]
+    assert samples, "the twin never abstained, so it never faced the multi-cause case"
+    assert holds, "the twin never resolved the pair"
+    # every abstention precedes every hold, and the posterior rises across it
+    assert max(r["fails"] for r in samples) < max(r["fails"] for r in holds)
+    assert holds[-1]["posterior"] > samples[0]["posterior"]
+    # what it holds on is the pair; what it declined to hold on was not
+    assert len(holds[-1]["conditions"]) == 2
+    assert holds[-1]["posterior"] >= QualityTwin.HOLD_MIN_POSTERIOR
+    # and the abstention names vehicles to inspect rather than doing nothing
+    assert q.sample_requests
+    sr = q.sample_requests[0]
+    assert sr.vehicles and len(sr.vehicles) <= QualityTwin.SAMPLE_K
+    assert all(v in sr.supports for v in sr.vehicles)

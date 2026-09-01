@@ -1,7 +1,7 @@
 {
  "seeds": 20,
  "mean_lead_min": 7.47,
- "mean_hold_saved": 60,
+ "mean_hold_saved": 54,
  "mean_escapes_prevented": 7,
  "scenarios": {
   "configs/healthy.yaml": {

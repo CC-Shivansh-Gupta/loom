@@ -26,8 +26,8 @@ Hold timing is relative to the first end-of-line catch: positive = the twin held
 
 | scenario | true cause pair/single found | precision (all holds) | precision (traced holds) | recall | escaped (total) | hold / blanket | hold vs first inspection catch (min) |
 |---|---|---|---|---|---|---|---|
-| `configs/weld_drift_b2.yaml` | 20/20 | 81% (p10 77%, p90 84%) | 0% | 99% (p10 98%, p90 100%) | 1 | 0.85 (p10 0.82, p90 0.87) | 12.8 (p10 10.6, p90 16.7) |
-| `configs/multi_cause.yaml` | 17/20 | 16% (p10 0%, p90 27%) | 80% (p10 50%, p90 100%) | 37% (p10 0%, p90 60%) | 6 | 0.11 (p10 0.08, p90 0.14) | 0.3 (p10 -45.3, p90 42.0) |
+| `configs/weld_drift_b2.yaml` | 20/20 | 81% (p10 77%, p90 84%) | - | 99% (p10 98%, p90 100%) | 1 | 0.85 (p10 0.82, p90 0.87) | 12.8 (p10 10.6, p90 16.7) |
+| `configs/multi_cause.yaml` | 17/20 | 67% (p10 0%, p90 100%) | 70% (p10 0%, p90 100%) | 13% (p10 0%, p90 43%) | 8 | 0.03 (p10 0.01, p90 0.06) | -38.2 (p10 -78.1, p90 -12.9) |
 
 ## Confidence calibration (all alerts)
 

@@ -46,6 +46,22 @@ def multi_cause() -> list[str]:
                    f"| {h.p_value:.2g} |")
     if not q.hypotheses:
         out.append("| - | no hypothesis cleared the significance and lift bars | - | - | - |")
+    out += ["", "The decision at each contribution run — what the twin believed a hold's precision",
+            "would be, against how many inspection failures it had seen when it believed it:", "",
+            "| fails seen | leading hypothesis | posterior | n under it | best rival | action |",
+            "|---|---|---|---|---|---|"]
+    for r in q.precision_curve:
+        rival = " AND ".join(r["rival"]) if r["rival"] else "—"
+        rp = "" if r["rival_posterior"] is None else f" ({r['rival_posterior']:.2f})"
+        out.append(f"| {r['fails']} | {' AND '.join(r['conditions'])} | {r['posterior']:.2f} "
+                   f"| {r['n_under']} | {rival}{rp} | **{r['action']}** |")
+    if not q.precision_curve:
+        out.append("| - | no contribution run reached the minimum failure count | - | - | - | - |")
+    for sr in q.sample_requests[:1]:
+        out += ["", f"The abstention is an action, not a shrug: `SAMPLE #{sr.id}` at "
+                    f"{sr.t / 60:.1f} min asks for {len(sr.vehicles)} named vehicles at {sr.inspect_at}, "
+                    f"chosen because each matches exactly one of the two candidate condition sets, so "
+                    f"its result moves the evidence one way rather than being consistent with both."]
     return out
 
 

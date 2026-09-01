@@ -339,7 +339,8 @@ function vQuality(p){
   const ys=Object.entries(fpy).filter(([,v])=>v.n);
   h+=`<div class="stats">${ys.map(([k,v])=>`<div class="stat ${v.pct<95?"warn":"good"}"><b>${v.pct}%</b><span>${esc(k)} first-pass</span></div>`).join("")||`<div class="stat muted2"><b>—</b><span>no inspection yet</span></div>`}
     <div class="stat ${(q.holds||[]).length?"warn":""}"><b>${(q.holds||[]).length}</b><span>holds</span></div>
-    <div class="stat ${(q.drift_alerts||[]).length?"warn":""}"><b>${(q.drift_alerts||[]).length}</b><span>drifts</span></div></div>`;
+    <div class="stat ${(q.drift_alerts||[]).length?"warn":""}"><b>${(q.drift_alerts||[]).length}</b><span>drifts</span></div>
+    ${(q.sample_requests||[]).length?`<div class="stat"><b>${q.sample_requests.length}</b><span>held off, sampling</span></div>`:""}</div>`;
   if((q.drift_alerts||[]).length){
     h+=`<h4>Drift at source</h4>`+q.drift_alerts.map(d=>`<div class="lp drift"><b>${esc(d.station)}.${esc(d.param)}</b><span>${esc(d.t)}</span>
       <div>${esc(d.direction)}, mean ${d.mean_now}, onset ~${esc(d.onset)}. ${d.min_to_limit==null?"No crossing projected.":(d.min_to_limit===0?"Already out of spec.":`Spec limit in ~${d.min_to_limit} min.`)}</div></div>`).join("");
@@ -348,12 +349,25 @@ function vQuality(p){
     h+=`<h4>Holds</h4>`+q.holds.map(x=>`<div class="lp hold"><b>Hold #${x.id}</b><span>${esc(x.t)} · ${esc(x.reason)}</span>
       <div>${x.sure.length} sure, ${x.uncertain.length} uncertain, ${x.already_exited.length} already left the line. Uncertain = built inside the onset margin, or the deciding parameter is not reported there — inspect those first.</div></div>`).join("");
   }
+  // The abstentions are the half of the memo a holds-only view hides: where the
+  // twin declined to scrap product because the evidence could not yet name the
+  // cause, and what it asked for instead.
+  if((q.sample_requests||[]).length){
+    h+=`<h4>Held off, sampling instead <span class="muted">a hold it would not justify</span></h4>`
+      +q.sample_requests.map(x=>`<div class="lp drift"><b>Sample #${x.id}</b><span>${esc(x.t)} · after ${x.fails_seen} fails</span>
+      <div>Inspect ${x.vehicles.length} vehicle${x.vehicles.length===1?"":"s"} at ${esc(x.inspect_at)} next — ${x.vehicles.map(v=>"#"+v).join(", ")}. ${x.reason==="unseparated"?"Two causes explain the failures about equally well; these results separate them.":"The leading cause does not yet clear the break-even bar for a hold; holding now would scrap more good product than bad."}</div>
+      <div class="muted">Leading: ${esc(x.top)}${x.rival?`<br>Rival: ${esc(x.rival)}`:""}</div></div>`).join("");
+  }
+  if((q.precision_curve||[]).length>1){
+    h+=`<h4>How the decision moved <span class="muted">believed precision vs failures seen</span></h4><table class="tbl"><tr><th>fails</th><th>leading cause</th><th>posterior</th><th>n</th><th>action</th></tr>`
+      +q.precision_curve.map(r=>`<tr><td>${r.fails}</td><td>${r.conditions.map(esc).join(" AND ")}</td><td>${r.posterior.toFixed(2)}</td><td>${r.n_under}</td><td>${r.action==="hold"?"<b>hold</b>":"sample"}</td></tr>`).join("")+`</table>`;
+  }
   if((q.hypotheses||[]).length){
     h+=`<h4>Ranked hypotheses <span class="muted">evidence, not verdicts</span></h4><table class="tbl"><tr><th>condition</th><th>lift</th><th>defective under</th><th>vs otherwise</th><th>p</th></tr>`
       +q.hypotheses.map(x=>`<tr><td>${x.conditions.map(esc).join(" AND ")}</td><td>${x.lift}x</td><td>${x.defective_under[0]}/${x.defective_under[1]}</td><td>${x.defective_otherwise[0]}/${x.defective_otherwise[1]}</td><td>${x.p_value}</td></tr>`).join("")+`</table>`;
   }
   if((q.unreported_params||[]).length)h+=`<h4>Not reported to the twin</h4><div class="lp grouped"><div>${q.unreported_params.map(esc).join(", ")} — these cannot be used to decide a hold.</div></div>`;
-  if(!(q.drift_alerts||[]).length&&!(q.holds||[]).length&&!(q.hypotheses||[]).length)h+=`<div class="lp quiet">Nothing pending.</div>`;
+  if(!(q.drift_alerts||[]).length&&!(q.holds||[]).length&&!(q.hypotheses||[]).length&&!(q.sample_requests||[]).length)h+=`<div class="lp quiet">Nothing pending.</div>`;
   return h;
 }
 

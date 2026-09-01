@@ -29,10 +29,25 @@ class Scenario:
     kind: str = "healthy"       # healthy -> counts false alarms; fault -> measures lead
 
 
+# The gate must see what the benchmark sees, or it waves through changes the
+# benchmark then fails. It nearly did: `loom.sweep` selects window=10 over the
+# shipped 20 on the first three scenarios alone -- 9.3 min mean lead against
+# 6.4, both at zero false alarms. Measured over eight seeds of all six
+# benchmark scenarios, window=10 *doubles* the healthy-line false-alarm rate
+# (0.38 -> 0.75 per 8 h) for 0.7 min of lead and catches one fault fewer.
+#
+# Two things had to change, and the second matters more. Adding the moving
+# constraint and the 30-station plant is the obvious half. The half that
+# actually decides it is healthy *hours*: false alarms are a low-rate quantity,
+# and twelve hours cannot separate 0.4 per 8 h from 0.8 per 8 h. A gate that
+# samples the cost of a change less precisely than its benefit will always
+# drift toward the change.
 DEFAULT_SCENARIOS = (
-    Scenario("configs/healthy.yaml", 4.0, (0, 1, 2), "healthy"),
+    Scenario("configs/healthy.yaml", 8.0, (0, 1, 2, 3, 4, 5), "healthy"),   # 48 h
     Scenario("configs/ramp_b3.yaml", 2.0, (0, 1), "fault"),
     Scenario("configs/ramp_b3_dark.yaml", 2.0, (0,), "fault"),
+    Scenario("configs/shifting.yaml", 2.5, (0,), "fault"),
+    Scenario("configs/plant_b.yaml", 3.0, (0,), "fault"),
 )
 
 
