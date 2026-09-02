@@ -95,9 +95,9 @@ textarea.cfg{width:100%;height:52vh;font-family:var(--mono);font-size:11.5px;lin
 .voin{font-family:var(--mono);font-size:11px;color:var(--muted);border:1px solid #2A3338;border-radius:2px;padding:2px 6px}
 .voic{font-family:var(--mono);font-size:12px;color:#5FD8A4}
 .muted{color:var(--muted);font-size:11px}
-.tbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;margin:6px 0}
+.tbl{width:100%;table-layout:fixed;border-collapse:collapse;font-family:var(--mono);font-size:11px;margin:6px 0}
 .tbl th{text-align:left;color:var(--muted);font-weight:400;border-bottom:1px solid #2A3338;padding:4px 6px}
-.tbl td{padding:4px 6px;border-bottom:1px solid #1C2428;vertical-align:top}
+.tbl td{padding:4px 6px;border-bottom:1px solid #1C2428;vertical-align:top;overflow-wrap:anywhere}
 .tbl tr.ok td{color:#5FD8A4} .tbl tr.err td{color:#F2A08F}
 .events{font-family:var(--mono);font-size:11.5px;display:grid;gap:4px} .events div{padding:4px 8px;border-left:2px solid var(--line)} .events .raised{border-color:var(--alert)} .events .hold{border-color:var(--hold)} .events .drift{border-color:var(--blocked)} .events .cleared{border-color:var(--busy)} .events .inject{border-color:var(--accent)}
 @media (prefers-reduced-motion:reduce){.toast div{transition:none}}
