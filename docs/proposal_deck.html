@@ -1,0 +1,1590 @@
+<title>Loom Business Proposal</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..900;1,9..144,400..900&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOOM — visual system
+   ---------------------------------------------------------------------------
+   Identity: an instrument's printed record. Warm bone paper and graphite ink,
+   a high-contrast editorial serif against a mono data face, and one hi-vis
+   signal yellow borrowed off the factory floor — the only colour permitted to
+   be loud, and never used for a claim.
+
+   Colour carries meaning, not decoration:
+     teal   = measured        violet = inferred        red = a number that is bad
+     signal = structure and emphasis, never a data value
+
+   Rhythm: eight distinct sheet compositions (cover · contents · ledger ·
+   divider · stat · figure · table · split) so no two consecutive pages share
+   a grid. Every colour is a token so both themes and all SVGs resolve as a set.
+═══════════════════════════════════════════════════════════════════════════ */
+
+:root{
+  /* surfaces */
+  --paper:#E6E2D7; --sheet:#FAF8F3; --sunk:#F0EDE3; --chip:#EAE6DA;
+  /* ink */
+  --ink:#101619; --ink-2:#3E4950; --ink-3:#6C767D; --faint:#9AA2A7;
+  --rule:#CFC9BB; --rule-2:#E2DDD1;
+  /* semantics */
+  --measured:#0A6B82; --inferred:#6234C0;
+  --alert:#BC3A1F; --ok:#1E7A55; --warn:#8E6110;
+  /* signal — structure only */
+  --signal:#D9F24B; --signal-2:#B7CE2E; --signal-ink:#0B0F12;
+  --mark:var(--signal);
+  /* dark band sheets */
+  --band:#0B0F12; --band-2:#151C21; --band-ink:#F4F2EC; --band-ink-2:#98A3AA;
+  --band-rule:#242D34; --band-sunk:#121A1F;
+  --grid:rgba(255,255,255,.045);
+  --shadow:0 1px 2px rgba(16,22,25,.05), 0 8px 28px -18px rgba(16,22,25,.35);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#05080A; --sheet:#0D1418; --sunk:#141D22; --chip:#161F25;
+    --ink:#E9EDEC; --ink-2:#B4BFC5; --ink-3:#849097; --faint:#616D74;
+    --rule:#25313A; --rule-2:#1A242B;
+    --measured:#4FC3DE; --inferred:#AE93F2;
+    --alert:#E8836D; --ok:#5FBE90; --warn:#D0A24E;
+    --signal:#D9F24B; --signal-2:#9FB62A; --signal-ink:#0B0F12;
+    --mark:rgba(217,242,75,.20);
+    --band:#040709; --band-2:#0C1317; --band-ink:#E9EDEC; --band-ink-2:#7C888F;
+    --band-rule:#1B242A; --band-sunk:#0A1014;
+    --grid:rgba(255,255,255,.035);
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 10px 30px -20px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#05080A; --sheet:#0D1418; --sunk:#141D22; --chip:#161F25;
+  --ink:#E9EDEC; --ink-2:#B4BFC5; --ink-3:#849097; --faint:#616D74;
+  --rule:#25313A; --rule-2:#1A242B;
+  --measured:#4FC3DE; --inferred:#AE93F2;
+  --alert:#E8836D; --ok:#5FBE90; --warn:#D0A24E;
+  --signal:#D9F24B; --signal-2:#9FB62A; --signal-ink:#0B0F12;
+  --mark:rgba(217,242,75,.20);
+  --band:#040709; --band-2:#0C1317; --band-ink:#E9EDEC; --band-ink-2:#7C888F;
+  --band-rule:#1B242A; --band-sunk:#0A1014;
+  --grid:rgba(255,255,255,.035);
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 10px 30px -20px rgba(0,0,0,.9);
+}
+
+/* On any dark ground the semantic colours resolve to their light-on-dark
+   values, so a provenance tag reads the same on a band sheet as on paper. */
+.band,.kpis{
+  --measured:#4FC3DE; --inferred:#AE93F2;
+  --alert:#E8836D; --ok:#5FBE90; --warn:#D0A24E;
+}
+
+*{box-sizing:border-box}
+html{scroll-snap-type:y proximity;scroll-behavior:smooth;background:var(--paper)}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+
+/* --- type ---------------------------------------------------------------- */
+h1,h2,h3,h4{margin:0;text-wrap:balance}
+h1,h2.action,.divnum,.disp{
+  font-family:Fraunces,"Iowan Old Style",Georgia,serif;
+  font-variation-settings:"SOFT" 0,"WONK" 0;
+  font-optical-sizing:auto;
+}
+p{margin:0}
+b,strong{font-weight:600}
+em{font-style:italic}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+.num,.n{font-variant-numeric:tabular-nums}
+
+/* the one loud device: a hi-vis marker stroke, for structure and emphasis */
+.mark{background:var(--mark);box-decoration-break:clone;-webkit-box-decoration-break:clone;padding:0 .18em;margin:0 -.06em}
+
+/* --- the sheet ----------------------------------------------------------- */
+.sheet{
+  scroll-snap-align:start;background:var(--sheet);color:var(--ink);
+  border-bottom:1px solid var(--rule);
+  padding:30px max(24px,4.6vw) 22px;
+  min-height:min(100vh,780px);
+  display:flex;flex-direction:column;gap:18px;position:relative;isolation:isolate;
+}
+.sheet > .body{flex:1;display:flex;flex-direction:column;gap:16px;min-width:0}
+
+/* instrument ticks: a registration mark in the outer corners of every sheet */
+.sheet::before,.sheet::after{
+  content:"";position:absolute;width:9px;height:9px;pointer-events:none;opacity:.85;
+  border-color:var(--rule);
+}
+.sheet::before{top:14px;left:max(11px,2.2vw);border-left:1px solid;border-top:1px solid}
+.sheet::after{bottom:12px;right:max(11px,2.2vw);border-right:1px solid;border-bottom:1px solid}
+
+/* --- running head -------------------------------------------------------- */
+.masthead{
+  display:flex;justify-content:space-between;align-items:center;gap:16px;
+  border-bottom:1px solid var(--rule);padding-bottom:7px;
+  font-family:"IBM Plex Mono",monospace;font-size:.645rem;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--faint);
+}
+.masthead > span:first-child{display:flex;align-items:center;gap:9px}
+.masthead > span:first-child::before{
+  content:"";width:7px;height:7px;background:var(--signal-2);flex:none;
+  clip-path:polygon(0 0,100% 0,100% 100%,0 100%);
+}
+.masthead .sec{color:var(--measured);font-weight:600;letter-spacing:.13em}
+.pg{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink-3);letter-spacing:.08em}
+
+/* --- headline system ----------------------------------------------------- */
+h2.action{
+  font-size:clamp(1.75rem,3.35vw,2.75rem);font-weight:600;line-height:1.1;
+  letter-spacing:-.014em;max-width:26ch;
+}
+h2.action .q{color:var(--measured);font-style:italic}
+.deck{
+  font-size:clamp(.95rem,1.2vw,1.06rem);color:var(--ink-2);max-width:72ch;line-height:1.55;
+}
+.deck b{color:var(--ink);font-weight:600}
+
+/* exhibit label — a small caps rule that names the evidence */
+.exlabel{
+  font-family:"IBM Plex Mono",monospace;font-size:.625rem;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--ink-3);display:flex;gap:11px;align-items:center;
+}
+.exlabel::before{content:"";width:16px;height:2px;background:var(--signal-2);flex:none}
+.exlabel::after{content:"";flex:1;height:1px;background:var(--rule-2)}
+
+/* --- provenance rail ------------------------------------------------------ */
+.src{
+  margin-top:auto;padding-top:9px;border-top:1px solid var(--rule-2);
+  display:flex;flex-wrap:wrap;gap:5px 8px;align-items:center;
+  font-family:"IBM Plex Mono",monospace;font-size:.635rem;color:var(--faint);line-height:1.5;
+}
+.src .lab{
+  letter-spacing:.15em;text-transform:uppercase;color:var(--ink-3);font-weight:600;
+  padding-right:9px;margin-right:2px;border-right:1px solid var(--rule);
+}
+.src code{
+  background:var(--chip);border:1px solid var(--rule-2);border-radius:2px;
+  padding:1px 6px;color:var(--ink-2);font-size:.95em;
+}
+.src .cite{font-family:"IBM Plex Sans",sans-serif;font-style:italic;font-size:.73rem}
+
+/* ═══ COMPOSITION 1 — band sheets (cover, dividers, ledger, ask) ═══════════ */
+.band{
+  background:var(--band);color:var(--band-ink);border-bottom-color:var(--band-rule);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:56px 56px,56px 56px;
+}
+.band::before,.band::after{border-color:var(--band-rule)}
+.band .masthead{border-bottom-color:var(--band-rule);color:var(--band-ink-2)}
+.band .masthead > span:first-child::before{background:var(--signal)}
+.band .masthead .sec{color:var(--signal)}
+.band .pg{color:var(--band-ink-2)}
+.band .deck{color:var(--band-ink-2)}
+.band .deck b{color:var(--band-ink)}
+.band .src{border-top-color:var(--band-rule);color:var(--band-ink-2)}
+.band .src .lab{color:var(--signal);border-right-color:var(--band-rule)}
+.band code{background:var(--band-sunk);border-color:var(--band-rule);color:var(--band-ink-2)}
+.band .exlabel{color:var(--band-ink-2)}
+.band .exlabel::after{background:var(--band-rule)}
+.band h2.action{color:var(--band-ink)}
+
+/* --- cover --------------------------------------------------------------- */
+.cover .body{justify-content:center;gap:0}
+.wordmark{
+  font-size:clamp(4.2rem,15vw,11.5rem);font-weight:700;line-height:.82;
+  letter-spacing:-.05em;color:var(--band-ink);
+}
+.wordmark::after{
+  content:"";display:block;width:min(360px,42vw);height:6px;background:var(--signal);
+  margin-top:.16em;
+}
+.covertag{
+  font-size:clamp(1.15rem,2.7vw,2rem);color:var(--band-ink);max-width:20ch;
+  font-family:Fraunces,Georgia,serif;font-variation-settings:"SOFT" 0,"WONK" 0;
+  font-weight:400;font-style:italic;line-height:1.18;letter-spacing:-.015em;
+}
+.kicker{
+  font-family:"IBM Plex Mono",monospace;font-size:.68rem;letter-spacing:.26em;
+  text-transform:uppercase;color:var(--signal);
+}
+.covergrid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:clamp(24px,4vw,64px);align-items:end}
+@media (max-width:820px){.covergrid{grid-template-columns:1fr;gap:26px;align-items:start}}
+
+/* --- divider ------------------------------------------------------------- */
+.divider .body{justify-content:center;gap:0;position:relative}
+.divnum{
+  font-size:clamp(9rem,30vw,24rem);font-weight:700;line-height:.72;
+  letter-spacing:-.07em;color:transparent;
+  -webkit-text-stroke:2px #2C3740;
+  position:absolute;right:-.055em;top:50%;transform:translateY(-52%);
+  z-index:0;user-select:none;
+}
+.divider .dvbody{position:relative;z-index:1;display:flex;flex-direction:column;gap:14px}
+.divider .dvrule{width:74px;height:6px;background:var(--signal)}
+.divider h2.action{font-size:clamp(2.1rem,5.4vw,4rem);font-weight:600;max-width:18ch}
+.divider .deck{max-width:54ch}
+
+/* --- ledger (dark sheet with oversized findings) ------------------------- */
+.ledger .findings{border-top:1px solid var(--band-rule)}
+.ledger .finding{border-bottom-color:var(--band-rule)}
+.ledger .finding > b{color:var(--measured)}
+.ledger .finding.i > b{color:var(--inferred)}
+.ledger .finding p{color:var(--band-ink-2)}
+.ledger .finding p b{color:var(--band-ink)}
+.ledger .col{border-top-color:var(--band-rule)}
+.ledger .col h4{color:var(--band-ink)}
+.ledger .col p{color:var(--band-ink-2)}
+.ledger .col.m{border-top-color:var(--measured)}
+.ledger .col.v{border-top-color:var(--inferred)}
+
+/* ═══ COMPOSITION 2 — stat sheets: a dark measurement strip on light paper ═ */
+.kpis{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1px;
+  background:var(--band-rule);border:1px solid var(--band);border-radius:3px;overflow:hidden;
+  box-shadow:var(--shadow);
+}
+.kpi{background:var(--band);padding:15px 16px 14px;display:flex;flex-direction:column;gap:5px;position:relative}
+.kpi::before{content:"";position:absolute;top:0;left:0;width:100%;height:2px;background:var(--measured)}
+.kpi.i::before{background:var(--inferred)}
+.kpi b{
+  font-family:Fraunces,Georgia,serif;font-variation-settings:"SOFT" 0,"WONK" 0;
+  font-weight:600;font-size:clamp(1.5rem,2.8vw,2.15rem);line-height:1;
+  letter-spacing:-.032em;font-variant-numeric:tabular-nums;color:var(--band-ink);
+}
+.kpi.i b{color:var(--inferred)}
+.kpi span{font-family:"IBM Plex Mono",monospace;font-size:.615rem;color:var(--band-ink-2);line-height:1.45;letter-spacing:.02em}
+
+/* ═══ COMPOSITION 3 — figure sheets: the exhibit in a mounted panel ════════ */
+.fig{
+  overflow-x:auto;background:var(--sunk);border:1px solid var(--rule-2);
+  border-radius:3px;padding:16px 18px;box-shadow:inset 0 1px 0 rgba(255,255,255,.5);
+}
+.band .fig{background:var(--band-sunk);border-color:var(--band-rule);box-shadow:none}
+svg{display:block;max-width:100%;height:auto}
+.figlead h2.action{font-size:clamp(1.5rem,2.5vw,2.05rem);max-width:44ch}
+
+/* ═══ COMPOSITION 4 — table sheets: the table runs the full measure ═══════ */
+.tw{
+  overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--sheet);
+  box-shadow:var(--shadow);
+}
+table{border-collapse:collapse;width:100%;font-size:.83rem;min-width:540px}
+th,td{text-align:left;padding:8px 13px;border-bottom:1px solid var(--rule-2);vertical-align:top}
+thead th{
+  font-family:"IBM Plex Mono",monospace;font-size:.595rem;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--band-ink-2);font-weight:500;
+  background:var(--band);white-space:nowrap;border-bottom:1px solid var(--band-rule);padding-top:10px;padding-bottom:10px;
+}
+tbody tr:nth-child(even) td{background:color-mix(in srgb,var(--sunk) 55%,transparent)}
+tbody tr:last-child td{border-bottom:none}
+td.n{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.us td{background:var(--sunk);font-weight:600;border-top:1px solid var(--rule)}
+tr.us td:first-child{box-shadow:inset 4px 0 0 var(--signal-2)}
+.dim{color:var(--ink-3)}
+.bad{color:var(--alert)} .ok{color:var(--ok)} .warn{color:var(--warn)}
+.meas{color:var(--measured)} .inf{color:var(--inferred)}
+.tabular h2.action{font-size:clamp(1.45rem,2.4vw,1.95rem);max-width:52ch}
+.tabular .body{gap:14px}
+
+/* ═══ COMPOSITION 5 — split sheets: argument left, evidence right ═════════ */
+.split .body{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:clamp(20px,3.4vw,48px)}
+.split .lede{display:flex;flex-direction:column;gap:14px;position:relative;padding-right:clamp(14px,2vw,26px);border-right:1px solid var(--rule-2)}
+.split .rite{display:flex;flex-direction:column;gap:14px;min-width:0}
+.split h2.action{font-size:clamp(1.5rem,2.5vw,2.15rem);max-width:20ch}
+.split .cols{grid-template-columns:1fr}
+@media (max-width:860px){
+  .split .body{grid-template-columns:1fr}
+  .split .lede{border-right:none;padding-right:0;border-bottom:1px solid var(--rule-2);padding-bottom:16px}
+}
+
+/* --- shared blocks ------------------------------------------------------- */
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:clamp(14px,1.8vw,22px)}
+.col{display:flex;flex-direction:column;gap:7px;padding-top:10px;border-top:3px solid var(--rule)}
+.col.m{border-top-color:var(--measured)} .col.v{border-top-color:var(--inferred)}
+.col h4{font-size:.875rem;font-weight:600;letter-spacing:-.005em;line-height:1.3}
+.col p{font-size:.835rem;color:var(--ink-2)}
+
+.findings{display:flex;flex-direction:column;border-top:1px solid var(--rule)}
+.finding{
+  display:grid;grid-template-columns:150px 1fr;gap:6px 22px;
+  padding:12px 0;border-bottom:1px solid var(--rule-2);align-items:baseline;
+}
+.finding > b{
+  font-family:Fraunces,Georgia,serif;font-variation-settings:"SOFT" 0,"WONK" 0;
+  font-size:clamp(1.35rem,2.2vw,1.75rem);font-weight:600;letter-spacing:-.035em;
+  color:var(--measured);font-variant-numeric:tabular-nums;line-height:1.05;
+}
+.finding.i > b{color:var(--inferred)}
+.finding p{font-size:.865rem;color:var(--ink-2)}
+.finding p b{font-family:inherit;font-size:inherit;color:var(--ink);letter-spacing:0;font-weight:600}
+
+ul.tight{margin:0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:9px;color:var(--ink-2);font-size:.865rem}
+ul.tight li{position:relative;padding-left:1.3em}
+ul.tight li::before{
+  content:"";position:absolute;left:0;top:.55em;width:7px;height:2px;background:var(--signal-2);
+}
+ul.tight strong{color:var(--ink);font-weight:600}
+
+.callout{
+  border-left:3px solid var(--signal-2);background:var(--sunk);padding:12px 16px;
+  font-size:.855rem;color:var(--ink-2);border-radius:0 3px 3px 0;
+}
+.callout b{color:var(--ink)}
+.band .callout{background:var(--band-sunk);border-left-color:var(--signal);color:var(--band-ink-2)}
+.band .callout b{color:var(--band-ink)}
+
+.legend{display:flex;flex-wrap:wrap;gap:16px;font-family:"IBM Plex Mono",monospace;font-size:.66rem;color:var(--ink-3);letter-spacing:.04em}
+.legend i{font-style:normal;font-size:.9em}
+
+/* --- contents ------------------------------------------------------------ */
+.toc{display:flex;flex-direction:column;border-top:1px solid var(--rule)}
+.toci{
+  display:grid;grid-template-columns:34px 1fr auto;gap:16px;align-items:baseline;
+  padding:9px 0;border-bottom:1px solid var(--rule-2);font-size:.9rem;
+}
+.toci .k{font-family:"IBM Plex Mono",monospace;font-size:.7rem;color:var(--faint);font-weight:600;letter-spacing:.06em}
+.toci .t{color:var(--ink);font-weight:600}
+.toci .t em{font-style:normal;display:block;font-size:.775rem;color:var(--ink-3);margin-top:2px;font-weight:400}
+.toci .p{font-family:"IBM Plex Mono",monospace;font-size:.72rem;color:var(--faint);font-variant-numeric:tabular-nums}
+.toci.brief .k{color:var(--signal-ink);background:var(--signal);text-align:center;border-radius:2px}
+.tocgrid{display:grid;grid-template-columns:minmax(0,.72fr) minmax(0,1.28fr);gap:clamp(20px,3.6vw,52px);align-items:start}
+@media (max-width:860px){.tocgrid{grid-template-columns:1fr;gap:20px}}
+
+/* --- reading progress ---------------------------------------------------- */
+.prog{position:fixed;top:0;left:0;height:3px;background:var(--signal);z-index:20;width:0;transition:width .12s linear}
+.rail{
+  position:fixed;right:16px;bottom:14px;z-index:19;
+  font-family:"IBM Plex Mono",monospace;font-size:.68rem;font-weight:600;color:var(--ink-2);
+  background:var(--sheet);border:1px solid var(--rule);border-radius:2px;padding:5px 10px;
+  font-variant-numeric:tabular-nums;letter-spacing:.08em;box-shadow:var(--shadow);
+}
+:focus-visible{outline:2px solid var(--measured);outline-offset:2px}
+
+/* --- responsive ---------------------------------------------------------- */
+@media (max-width:640px){
+  .sheet{min-height:0;padding:24px 18px 20px}
+  h2.action{max-width:none}
+  .sheet::before,.sheet::after{display:none}
+  .finding{grid-template-columns:1fr;gap:2px}
+}
+
+/* ═══ PRINT — 16:9 sheets, one page each ═════════════════════════════════ */
+@media print{
+  @page{size:338mm 190mm;margin:0}
+  /* A 16:9 sheet is shorter than a browser window, so the whole type scale
+     steps down one notch and every figure is capped to the page. */
+  html{font-size:13px}
+  :root{
+    --paper:#FFFFFF; --sheet:#FFFFFF; --sunk:#F3F1EA; --chip:#EFECE3;
+    --ink:#101619; --ink-2:#39444B; --ink-3:#5F6970; --faint:#8B9298;
+    --rule:#C6C0B2; --rule-2:#DED9CD;
+    --measured:#0A6B82; --inferred:#5A2FB6; --alert:#B23418;
+    --band:#0B0F12; --grid:rgba(255,255,255,.05);
+  }
+  html,body{background:#fff}
+  body{font-size:12.4px;line-height:1.48}
+  .prog,.rail{display:none!important}
+  .sheet{
+    min-height:190mm;height:190mm;page-break-after:always;break-after:page;
+    border-bottom:none;padding:8.5mm 11mm 6.5mm;gap:11px;box-shadow:none;overflow:hidden;
+  }
+  .sheet:last-of-type{page-break-after:auto}
+  .sheet > .body{gap:10px}
+  .masthead{padding-bottom:5px}
+  h2.action{line-height:1.08}
+  .deck{line-height:1.48}
+  .cols{gap:13px}
+  .col{padding-top:7px;border-top-width:2px}
+  .finding{padding:8px 0}
+  .toci{padding:6px 0}
+  .callout{padding:9px 13px}
+  .kpi{padding:11px 12px 10px}
+  th,td{padding:5px 9px}
+  .fig{padding:9px 11px;max-height:82mm}
+  .fig svg{max-height:78mm}
+  .figlead .fig{max-height:80mm}
+  .figlead .fig svg{max-height:76mm}
+  .deck{max-width:86ch}
+  .src{padding-top:6px}
+  .tw,.kpis,.callout,.fig{box-shadow:none}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+
+<div class="prog" id="prog"></div>
+<div class="rail" id="rail">01 / 28</div>
+
+<!-- ═══ 01 · COVER ═══════════════════════════════════════════════════════ -->
+<section class="sheet band cover">
+  <div class="masthead">
+    <span>Accenture Innovation Challenge 2026 · Round 2 · Track 4 <span class="sec">DigitalTwin.ai</span></span>
+    <span class="pg">01</span>
+  </div>
+  <div class="body">
+    <div style="display:flex;flex-direction:column;gap:clamp(20px,3.4vw,38px)">
+      <p class="kicker">Detailed Business Proposal</p>
+      <div class="covergrid">
+        <div style="display:flex;flex-direction:column;gap:clamp(16px,2.4vw,28px)">
+          <h1 class="wordmark">Loom</h1>
+          <p class="covertag">A digital twin for the assembly line you actually have.</p>
+        </div>
+        <p class="deck" style="max-width:46ch;font-size:clamp(.95rem,1.15vw,1.05rem)">
+          Most vehicle assembly lines are partly blind — legacy stations on manual checklists beside fully
+          instrumented cells — and every twin on the market assumes they are not. Loom predicts a bottleneck
+          before it forms and contains a defect before inspection sees it, <b>from whatever sensors the line
+          already has</b>, and keeps a public score of its own accuracy.
+        </p>
+      </div>
+      <div class="legend" style="color:var(--band-ink-2);border-top:1px solid var(--band-rule);padding-top:14px">
+        <span><i class="meas">●</i> measured</span>
+        <span><i class="inf">◐</i> inferred</span>
+        <span><i>○</i> simulated</span>
+        <span style="color:var(--band-ink-2)">— every value the twin holds carries one of these</span>
+      </div>
+    </div>
+  </div>
+  <div class="src">
+    <span class="lab">Team SRsync</span>
+    <span class="cite">Rujula Ganesh Rahate · Shivansh Gupta — Indian Institute of Technology Bombay · September 2026</span>
+  </div>
+</section>
+
+<!-- ═══ 02 · CONTENTS ════════════════════════════════════════════════════ -->
+<section class="sheet contents">
+  <div class="masthead"><span>Contents</span><span class="pg">02</span></div>
+  <div class="body">
+    <div class="tocgrid">
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <h2 class="action" style="max-width:18ch">Round&nbsp;2 asks a business proposal for six things. This document is organised as those six.</h2>
+        <p class="deck" style="max-width:44ch">
+          The six items the brief names are marked <span class="mono" style="font-size:.8em;background:var(--mark);padding:0 .3em">■</span>. Two sections
+          are ours: the market gap that justifies building this at all, and the evidence that the mechanism works —
+          because a proposal whose numbers cannot be traced is worth no more to a panel than one with no numbers.
+        </p>
+        <div class="callout">
+          <b>How to read the numbers.</b> Every figure about Loom carries a source chip at the foot of its page
+          naming the file a run produced. <code class="mono">python -m loom.numbers</code> checks this document
+          mechanically: a figure that no run supports fails the build. It is the same grounding rule we impose
+          on our own AI layer, turned on ourselves.
+        </div>
+      </div>
+      <div class="toc">
+        <div class="toci brief"><span class="k">01</span><span class="t">Problem framing<em>What the loss actually is, and why every existing twin misses it</em></span><span class="p">04–07</span></div>
+        <div class="toci"><span class="k">02</span><span class="t">Market and the gap<em>Added — the empty quadrant, priced</em></span><span class="p">08–10</span></div>
+        <div class="toci brief"><span class="k">03</span><span class="t">Solution design<em>Architecture, dark-station inference, containment, the AI layer</em></span><span class="p">11–16</span></div>
+        <div class="toci"><span class="k">04</span><span class="t">Evidence<em>Added — against alternatives, per mechanism, in absolute terms</em></span><span class="p">17–21</span></div>
+        <div class="toci brief"><span class="k">05</span><span class="t">Target users<em>Six roles, six horizons, one twin</em></span><span class="p">22</span></div>
+        <div class="toci brief"><span class="k">06</span><span class="t">Business case and impact<em>Computed from measured performance, assumptions printed</em></span><span class="p">23–24</span></div>
+        <div class="toci brief"><span class="k">07</span><span class="t">Phased roadmap<em>Shadow → advisory → reversible automation → second plant</em></span><span class="p">25</span></div>
+        <div class="toci brief"><span class="k">08</span><span class="t">Key risks and mitigations<em>Including what we do not claim</em></span><span class="p">26–27</span></div>
+        <div class="toci"><span class="k">—</span><span class="t">The ask<em>One line, one shadow period, four weeks</em></span><span class="p">28</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="src"><span class="lab">Method</span><code>loom/numbers.py</code><span class="cite">presence and correspondence checks, run in the test suite</span></div>
+</section>
+
+<!-- ═══ 03 · EXECUTIVE SUMMARY ═══════════════════════════════════════════ -->
+<section class="sheet band ledger">
+  <div class="masthead"><span><span class="sec">Executive summary</span></span><span class="pg">03</span></div>
+  <div class="body">
+    <h2 class="action" style="max-width:34ch">A partly blind line can still be predicted — and we measured how well, against ground truth the twin never saw.</h2>
+    <div class="findings">
+      <div class="finding"><b>7.4 min</b><p><b>Warning before the line blocks.</b> A wearing station is named minutes before its queue reaches the next cell — 20 faults out of 20 caught, mean ETA error 0.8 min.</p></div>
+      <div class="finding i"><b>5.2 min</b><p><b>The same warning with the failing station dark.</b> No sensor on the station at all; its cycle is reconstructed from when its neighbours move, to 0.3 s of error. A threshold alarm never warns here at all.</p></div>
+      <div class="finding"><b>0.10 / 8 h</b><p><b>False alerts on a healthy line</b> over 160 simulated hours — against 141.6 for the threshold alarm every OEE tool already ships, and 47.8 for the best-validated method in the literature.</p></div>
+      <div class="finding"><b>12.8 min</b><p><b>A silent drift contained before end-of-line inspection sees the first car.</b> 81 % precision, 99 % recall, and the hold names the vehicles rather than stopping the station.</p></div>
+      <div class="finding i"><b>0 writes</b><p><b>Read-only by construction</b>, proven against a third-party PLC simulator over a real Modbus socket. Onboarding a second 30-station plant was a configuration file, not a code change.</p></div>
+    </div>
+    <div class="cols">
+      <div class="col m"><h4>The wedge</h4><p>Everything that predicts assumes it can see the line. Everything that tolerates a blind line only reports what already happened. That quadrant is empty, and it is where the brief's plant lives.</p></div>
+      <div class="col v"><h4>The discipline</h4><p>Statistics and simulation produce every number. The model writes the briefing and proposes what to try, through a gate it cannot bypass — and we publish what it invented anyway.</p></div>
+      <div class="col"><h4>The ask</h4><p>One line, one shadow period, four weeks. We bring the tap, the twin and the scorekeeper; the plant brings the sensors it already has.</p></div>
+    </div>
+  </div>
+  <div class="src">
+    <span class="lab">Source</span><code>benchmark.md</code><code>benchmark.json</code><code>baselines.md</code>
+    <span class="cite">20 seeds per scenario, against ground truth the twin never saw</span>
+  </div>
+</section>
+
+<!-- ═══ 04 · DIVIDER — PROBLEM ════════════════════════════════════════════════ -->
+<section class="sheet band divider">
+  <div class="masthead"><span>Section 01</span><span class="pg">04</span></div>
+  <div class="body">
+    <div class="divnum" aria-hidden="true">01</div>
+    <div class="dvbody">
+      <div class="dvrule"></div>
+      <h2 class="action">Problem framing</h2>
+      <p class="deck">What the loss actually is, why it is hard to see, and the one sentence in the brief that decides the whole architecture.</p>
+    </div>
+  </div>
+  <div class="src"><span class="lab">Pages</span><span class="cite">05 · the cost — 06 · the mechanism — 07 · the constraint everyone designs around</span></div>
+</section>
+
+<!-- ═══ 05 · THE COST ════════════════════════════════════════════════════ -->
+<section class="sheet stat">
+  <div class="masthead"><span>01 · Problem framing</span><span class="pg">05</span></div>
+  <div class="body">
+    <p class="exlabel">Exhibit 01 — the loss, and the industry's stalled answer</p>
+    <h2 class="action">An idle automotive hour costs $2.3 million, and the industry's fix keeps stalling in pilot.</h2>
+    <div class="kpis">
+      <div class="kpi"><b>$2.3 M</b><span>cost of one idle<br>automotive hour</span></div>
+      <div class="kpi"><b>$1.4 T</b><span>drained per year by unplanned<br>downtime, Fortune Global 500</span></div>
+      <div class="kpi i"><b>&gt;70 %</b><span>of automotive makers piloting<br>or deploying a twin</span></div>
+      <div class="kpi i"><b>64 %</b><span>of twin projects that<br>never leave pilot</span></div>
+      <div class="kpi i"><b>58 %</b><span>of twin delays traced to<br>OT/IT integration</span></div>
+    </div>
+    <p class="deck">
+      Read the last three together. The automotive buyer has <b>already tried a digital twin</b> — which
+      means the objection is not "why a twin", it is "why yours, when the last one never left the pilot
+      line". Downtime cost per hour has roughly doubled since 2019, so the prize is growing while the
+      conversion rate is not.
+    </p>
+    <div class="cols">
+      <div class="col m"><h4>Why they stall</h4><p>The dominant cause is integration, not analytics. A twin that needs every station to report is a twin that needs a retrofit programme before it produces its first insight — and retrofits wait for a maintenance window that comes a handful of times a year.</p></div>
+      <div class="col v"><h4>What that implies</h4><p>The binding constraint is not model quality. It is how much instrumentation a tool demands before it says anything useful. Lower that, and the pilot converts.</p></div>
+      <div class="col"><h4>What we build against</h4><p>A twin that is useful on day one at the coverage the plant has today, and that tells the plant exactly which sensor to buy next — as a ranked, priced list, not a platform requirement.</p></div>
+    </div>
+  </div>
+  <div class="src">
+    <span class="lab">Source</span><span class="cite">Siemens, <em>True Cost of Downtime 2024</em>; Gartner 2024; IoT Analytics 2025 survey — collated in</span><code>docs/research.md</code>
+    <span class="cite">· cited, not measured: declared in</span><code>exempt_numbers.md</code>
+  </div>
+</section>
+
+<!-- ═══ 06 · THE MECHANISM ═══════════════════════════════════════════════ -->
+<section class="sheet figlead">
+  <div class="masthead"><span>01 · Problem framing</span><span class="pg">06</span></div>
+  <div class="body">
+    <p class="exlabel">Exhibit 02 — two failure modes, one line</p>
+    <h2 class="action">A local slip has line-wide effects, and a defect introduced early surfaces late.</h2>
+    <div class="fig">
+      <svg viewBox="0 0 880 250" role="img" aria-label="An assembly line of six stations. Station 3 runs over takt and starves stations downstream; station 5 has no sensor and its state can only be inferred; a marginal weld at station 2 is only caught at end-of-line inspection.">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="var(--faint)"/>
+          </marker>
+          <marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="var(--alert)"/>
+          </marker>
+        </defs>
+        <!-- conveyor -->
+        <line x1="40" y1="112" x2="840" y2="112" stroke="var(--rule)" stroke-width="2"/>
+        <!-- stations -->
+        <g font-family="IBM Plex Mono, monospace" font-size="12">
+          <g>
+            <rect x="46" y="86" width="86" height="52" rx="3" fill="var(--sunk)" stroke="var(--rule)"/>
+            <text x="89" y="108" text-anchor="middle" fill="var(--ink)" font-size="13">S1</text>
+            <text x="89" y="125" text-anchor="middle" fill="var(--measured)" font-size="11">● measured</text>
+          </g>
+          <g>
+            <rect x="178" y="86" width="86" height="52" rx="3" fill="var(--sunk)" stroke="var(--warn)" stroke-width="1.5"/>
+            <text x="221" y="108" text-anchor="middle" fill="var(--ink)" font-size="13">S2</text>
+            <text x="221" y="125" text-anchor="middle" fill="var(--measured)" font-size="11">● measured</text>
+          </g>
+          <g>
+            <rect x="310" y="86" width="86" height="52" rx="3" fill="var(--sunk)" stroke="var(--alert)" stroke-width="1.5"/>
+            <text x="353" y="108" text-anchor="middle" fill="var(--ink)" font-size="13">S3</text>
+            <text x="353" y="125" text-anchor="middle" fill="var(--alert)" font-size="11">over takt</text>
+          </g>
+          <g>
+            <rect x="442" y="86" width="86" height="52" rx="3" fill="var(--sunk)" stroke="var(--rule)"/>
+            <text x="485" y="108" text-anchor="middle" fill="var(--ink)" font-size="13">S4</text>
+            <text x="485" y="125" text-anchor="middle" fill="var(--faint)" font-size="11">starved</text>
+          </g>
+          <g>
+            <rect x="574" y="86" width="86" height="52" rx="3" fill="none" stroke="var(--inferred)" stroke-width="1.5" stroke-dasharray="4 3"/>
+            <text x="617" y="108" text-anchor="middle" fill="var(--ink)" font-size="13">S5</text>
+            <text x="617" y="125" text-anchor="middle" fill="var(--inferred)" font-size="11">◐ no sensor</text>
+          </g>
+          <g>
+            <rect x="706" y="86" width="86" height="52" rx="3" fill="var(--sunk)" stroke="var(--rule)"/>
+            <text x="749" y="108" text-anchor="middle" fill="var(--ink)" font-size="13">S6</text>
+            <text x="749" y="125" text-anchor="middle" fill="var(--faint)" font-size="11">inspection</text>
+          </g>
+        </g>
+        <g stroke="var(--faint)" stroke-width="1.4" marker-end="url(#ar)">
+          <line x1="134" y1="112" x2="174" y2="112"/><line x1="266" y1="112" x2="306" y2="112"/>
+          <line x1="398" y1="112" x2="438" y2="112"/><line x1="530" y1="112" x2="570" y2="112"/>
+          <line x1="662" y1="112" x2="702" y2="112"/>
+        </g>
+        <!-- bottleneck propagation -->
+        <path d="M353 152 L353 178 L749 178" fill="none" stroke="var(--alert)" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#arA)"/>
+        <text x="360" y="196" fill="var(--alert)" font-family="IBM Plex Sans, sans-serif" font-size="12.5">
+          Bottleneck propagation — every station after S3 is starved, and nobody sees it until a queue has built up stations away
+        </text>
+        <!-- late-surfacing defect -->
+        <path d="M221 72 L221 48 L749 48 L749 78" fill="none" stroke="var(--warn)" stroke-width="1.4" stroke-dasharray="5 4"/>
+        <text x="232" y="38" fill="var(--warn)" font-family="IBM Plex Sans, sans-serif" font-size="12.5">
+          A marginal weld at S2 is invisible at S2 — and every car built the same way in between is already down the line when S6 catches the first one
+        </text>
+        <text x="617" y="222" text-anchor="middle" fill="var(--inferred)" font-family="IBM Plex Sans, sans-serif" font-size="12.5">S5 reports nothing: its state can only be inferred</text>
+      </svg>
+    </div>
+    <p class="deck">
+      Both failure modes share a shape: <b>the place the problem shows up is not the place it started, and the
+      delay between them is where the money goes.</b> And the decision at the end of it — hold the batch or
+      ship it — falls to one person, working from incomplete information, under line-rate time pressure.
+    </p>
+  </div>
+  <div class="src"><span class="lab">Source</span><span class="cite">Track 4 brief, "Real-World Complexities to Consider" — items 1, 2 and 4</span></div>
+</section>
+
+<!-- ═══ 07 · THE CONSTRAINT ══════════════════════════════════════════════ -->
+<section class="sheet split">
+  <div class="masthead"><span>01 · Problem framing</span><span class="pg">07</span></div>
+  <div class="body">
+    <div class="lede">
+    <h2 class="action">Everything that predicts assumes it can see the line. The brief says you cannot — so we made that the architecture, not an edge case.</h2>
+    <p class="deck">
+      The sentence that decides this build is <b>"uneven sensor coverage"</b>. Most twins treat missing data as
+      degradation to be tolerated. We treat it as the operating condition, and pay for it structurally:
+      there is exactly one code path from the plant into the twin, and it is a per-station sensor profile
+      that can withhold anything a real station would withhold.
+    </p>
+    </div>
+    <div class="rite">
+    <div class="cols">
+      <div class="col m">
+        <h4>A wall, not a filter</h4>
+        <p>The twin cannot read the plant object. It sees only what the sensor layer passes — so a claim that
+        the twin "handles" a dark station cannot be an accident of shared memory. If we cheat, the benchmark
+        catches us, because the evaluator is the only component that sees both sides.</p>
+      </div>
+      <div class="col v">
+        <h4>Provenance on every value</h4>
+        <p>Every number the twin holds is tagged <span class="meas">● measured</span>,
+        <span class="inf">◐ inferred</span> or <span>○ simulated</span>, and every view carries the tag through
+        to the screen. A supervisor is never asked to trust an estimate without being told it is one.</p>
+      </div>
+      <div class="col">
+        <h4>Abstention is an action</h4>
+        <p>Two adjacent finish-only stations cannot be told apart from timestamps. The twin says so and asks
+        for a specific sample rather than guessing — the request names the vehicles whose result would
+        actually discriminate between the surviving hypotheses.</p>
+      </div>
+    </div>
+    <div class="callout">
+      <b>The consequence that sells it.</b> Because coverage is a parameter rather than a prerequisite, the
+      twin can also answer <i>which sensor to buy next</i> — it ranks candidate stations by the warning time
+      the measurement would have bought, priced. The plant gets a purchase order with a number attached
+      instead of a platform requirement.
+    </div>
+    </div>
+  </div>
+  <div class="src"><span class="lab">Design</span><code>loom/sensors.py</code><code>loom/twin.py</code><code>loom/evaluator.py</code><span class="cite">· brief mapping in</span><code>solution_design.md</code><span class="cite">§1</span></div>
+</section>
+
+<!-- ═══ 08 · DIVIDER — MARKET ═════════════════════════════════════════════════ -->
+<section class="sheet band divider">
+  <div class="masthead"><span>Section 02</span><span class="pg">08</span></div>
+  <div class="body">
+    <div class="divnum" aria-hidden="true">02</div>
+    <div class="dvbody">
+      <div class="dvrule"></div>
+      <h2 class="action">Market and the gap</h2>
+      <p class="deck">Who already sells into this plant, what each of them requires before it works, and the quadrant none of them occupies.</p>
+    </div>
+  </div>
+  <div class="src"><span class="lab">Pages</span><span class="cite">09 · the positioning map — 10 · the landscape, the cost wedge and who signs</span></div>
+</section>
+
+<!-- ═══ 09 · POSITIONING ═════════════════════════════════════════════════ -->
+<section class="sheet figlead">
+  <div class="masthead"><span>02 · Market and the gap</span><span class="pg">09</span></div>
+  <div class="body">
+    <p class="exlabel">Exhibit 03 — two axes decide this purchase</p>
+    <h2 class="action">The quadrant that predicts on a partly blind line is empty, and it is where the brief's plant lives.</h2>
+    <div class="fig">
+      <svg viewBox="0 0 880 400" role="img" aria-label="A positioning map. The horizontal axis is sensor coverage required, from partial to total. The vertical axis is whether a tool reports what already happened or predicts what will happen. Offline simulation, real-time OEE, manual capture, industrial metaverse platforms, substrates and MES systems occupy every quadrant except the upper left, which is predicts on partial coverage — where Loom sits.">
+        <!-- quadrant fills -->
+        <rect x="70" y="34" width="360" height="150" fill="var(--sunk)"/>
+        <!-- axes -->
+        <line x1="70" y1="334" x2="850" y2="334" stroke="var(--rule)" stroke-width="1.5"/>
+        <line x1="70" y1="34" x2="70" y2="334" stroke="var(--rule)" stroke-width="1.5"/>
+        <line x1="430" y1="34" x2="430" y2="334" stroke="var(--rule-2)" stroke-width="1" stroke-dasharray="4 4"/>
+        <line x1="70" y1="184" x2="850" y2="184" stroke="var(--rule-2)" stroke-width="1" stroke-dasharray="4 4"/>
+        <g font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--faint)" letter-spacing="1.2">
+          <text x="70" y="360" text-anchor="start">PARTIAL COVERAGE — THE LINE YOU HAVE</text>
+          <text x="850" y="360" text-anchor="end">TOTAL COVERAGE — A SENSOR EVERYWHERE</text>
+          <text x="58" y="44" text-anchor="end" transform="rotate(-90 58 44)" style="text-anchor:start">PREDICTS</text>
+          <text x="58" y="330" text-anchor="end" transform="rotate(-90 58 330)" style="text-anchor:start">REPORTS</text>
+        </g>
+        <text x="82" y="54" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--measured)" letter-spacing="1.2">EMPTY — AND IT IS THE BRIEF'S PLANT</text>
+        <!-- competitors -->
+        <g font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="var(--ink-2)">
+          <circle cx="700" cy="86" r="6" fill="var(--faint)"/><text x="714" y="90">Industrial metaverse — Siemens on NVIDIA Omniverse</text>
+          <circle cx="640" cy="128" r="6" fill="var(--faint)"/><text x="654" y="132">Offline simulation — Plant Simulation, AnyLogic, FlexSim</text>
+          <circle cx="596" cy="166" r="6" fill="var(--faint)"/><text x="610" y="170">Augury Process Health — process lines, dense historians</text>
+          <circle cx="716" cy="222" r="6" fill="var(--faint)"/><text x="730" y="226" text-anchor="end" style="text-anchor:end">Real-time OEE — Vorne, MachineMetrics</text>
+          <circle cx="560" cy="262" r="6" fill="var(--faint)"/><text x="574" y="266">Substrates — Cognite, ThingWorx, Azure DT, TwinMaker</text>
+          <circle cx="470" cy="300" r="6" fill="var(--faint)"/><text x="484" y="304">Systems of record — Opcenter, FactoryTalk / Plex</text>
+          <circle cx="230" cy="286" r="6" fill="var(--faint)"/><text x="244" y="290">Manual capture — Tulip</text>
+          <circle cx="330" cy="238" r="6" fill="var(--faint)"/><text x="344" y="242">Academic detection — active-period, turning-point</text>
+        </g>
+        <!-- loom -->
+        <circle cx="196" cy="102" r="11" fill="var(--measured)"/>
+        <circle cx="196" cy="102" r="19" fill="none" stroke="var(--measured)" stroke-width="1.2" opacity=".45"/>
+        <text x="222" y="99" font-family="Archivo, sans-serif" font-size="17" font-weight="700" fill="var(--ink)">Loom</text>
+        <text x="222" y="116" font-family="IBM Plex Sans, sans-serif" font-size="12" fill="var(--ink-2)">live · config-built · honest about what it cannot see</text>
+      </svg>
+    </div>
+    <p class="deck">
+      The academic bottleneck literature makes the same finding from the other direction: a 2023 systematic
+      review lists <b>prediction</b> and <b>incomplete data</b> as the two open problems. They are the two
+      axes of this chart, and nobody has closed both.
+    </p>
+  </div>
+  <div class="src"><span class="lab">Source</span><code>docs/research.md</code><span class="cite">— vendor positions from published product documentation and reviewer commentary; axis placement is our assessment</span></div>
+</section>
+
+<!-- ═══ 10 · LANDSCAPE ═══════════════════════════════════════════════════ -->
+<section class="sheet tabular">
+  <div class="masthead"><span>02 · Market and the gap</span><span class="pg">10</span></div>
+  <div class="body">
+    <p class="exlabel">Exhibit 04 — the landscape, and what it costs to be in each tier</p>
+    <h2 class="action">Each tier is strong at something and disqualified by one requirement the brief's plant cannot meet.</h2>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Segment</th><th>Examples</th><th>Strength</th><th>Why it does not fit</th><th>Cost shape</th></tr></thead>
+        <tbody>
+          <tr><td>Offline simulation</td><td class="dim">Plant Simulation, Simul8, AnyLogic, FlexSim, Simio</td><td>What-if design</td><td>Expert-built, not live</td><td class="n dim">Seats + a simulation engineer</td></tr>
+          <tr><td>Real-time OEE</td><td class="dim">Vorne, MachineMetrics, Fabrico</td><td>Live takt vs actual</td><td>Sensor at every point; detects, never predicts</td><td class="n dim">Per monitored point</td></tr>
+          <tr><td>Manual capture</td><td class="dim">Tulip</td><td>Operator taps at manual stations</td><td>No flow model of the line</td><td class="n dim">Per seat</td></tr>
+          <tr><td>Industrial metaverse</td><td class="dim">Siemens Digital Twin Composer / NVIDIA Omniverse</td><td>Physics-accurate, agentic</td><td>Fully modelled, fully instrumented, GPUs on-prem</td><td class="n dim">Capital project</td></tr>
+          <tr><td>Process AI</td><td class="dim">Augury Process Health (ex-Seebo)</td><td>Multi-causal quality root cause</td><td>Continuous/batch process, dense historian; no discrete flow model</td><td class="n dim">Platform + data programme</td></tr>
+          <tr><td>Substrates</td><td class="dim">Sight Machine, Braincube, Cognite, ThingWorx, Azure DT, TwinMaker</td><td>Storage, modelling primitives</td><td>You bring the model, the analytics and the integrator</td><td class="n dim">Platform + SI engagement</td></tr>
+          <tr><td>Systems of record</td><td class="dim">Siemens Opcenter, Rockwell FactoryTalk / Plex</td><td>Execution and traceability</td><td>Changing them is the live-production risk the brief warns about</td><td class="n dim">Enterprise licence</td></tr>
+          <tr class="us"><td>Loom</td><td class="dim">—</td><td>Predicts on the coverage the line has</td><td>Serial and near-serial discrete assembly; not a process plant</td><td class="n">$60,000/line/yr + ~$500/station</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="cols">
+      <div class="col m"><h4>Who signs</h4><p>Plant manager or head of manufacturing engineering, from <b>OT operating budget rather than capital</b> — which is exactly why a read-only tap clears where a retrofit waits for a window. Also on the paper: IT/OT security, and in Europe a works council, because anything that times operators is a consultation item. Loom times <i>stations</i>, and we say so first.</p></div>
+      <div class="col v"><h4>Why now</h4><p>Downtime cost per automotive hour has roughly doubled since 2019. Siemens on Omniverse has raised both the ceiling and the price of entry, which <b>widens</b> the brownfield middle rather than narrowing it. And 64 % of twin projects are still in pilot: the market has proved it wants a twin and proved it cannot afford the greenfield one.</p></div>
+      <div class="col"><h4>Why not build it in-house</h4><p>A Tier-1 could build the simulator in a quarter. What they will not build is the evaluator, the published false-alarm budget and the calibration discipline — those only pay off if you are willing to publish your own error rate, and an internal tool is never asked to.</p></div>
+    </div>
+  </div>
+  <div class="src"><span class="lab">Source</span><code>docs/research.md</code><span class="cite">· pricing is our own assumption, declared in</span><code>exempt_numbers.md</code></div>
+</section>
+
+<!-- ═══ 11 · DIVIDER — SOLUTION ═══════════════════════════════════════════════ -->
+<section class="sheet band divider">
+  <div class="masthead"><span>Section 03</span><span class="pg">11</span></div>
+  <div class="body">
+    <div class="divnum" aria-hidden="true">03</div>
+    <div class="dvbody">
+      <div class="dvrule"></div>
+      <h2 class="action">Solution design</h2>
+      <p class="deck">Four layers and a wall; how a station with no sensor is still measured; how a hold is opened before inspection sees anything; and where the language model is allowed to touch the system.</p>
+    </div>
+  </div>
+  <div class="src"><span class="lab">Pages</span><span class="cite">12 · architecture — 13 · the dark station — 14 · containment — 15 · where AI belongs — 16 · AI, measured live</span></div>
+</section>
+
+<!-- ═══ 12 · ARCHITECTURE ════════════════════════════════════════════════ -->
+<section class="sheet figlead">
+  <div class="masthead"><span>03 · Solution design</span><span class="pg">12</span></div>
+  <div class="body">
+    <p class="exlabel">Exhibit 05 — the architecture, and the wall</p>
+    <h2 class="action">Four layers, and a wall the twin cannot cheat through — because the evaluator is the only thing that sees both sides.</h2>
+    <div class="fig">
+      <svg viewBox="0 0 880 296" role="img" aria-label="Architecture. The plant emits events. A sensor layer with a per-station profile is the only path into the twin. The twin holds flow and quality models and a forecaster. Views render six persona surfaces and the AI layer. An evaluator sits outside, reading both the plant's ground truth and the twin's beliefs, and scores them.">
+        <g font-family="IBM Plex Sans, sans-serif">
+          <!-- plant -->
+          <rect x="24" y="66" width="150" height="130" rx="4" fill="var(--sunk)" stroke="var(--rule)"/>
+          <text x="99" y="92" text-anchor="middle" font-size="14" font-weight="600" fill="var(--ink)">Plant</text>
+          <text x="99" y="112" text-anchor="middle" font-size="11.5" fill="var(--ink-3)">ground truth</text>
+          <text x="99" y="132" text-anchor="middle" font-size="11.5" fill="var(--ink-3)">stations, buffers,</text>
+          <text x="99" y="147" text-anchor="middle" font-size="11.5" fill="var(--ink-3)">rework, shifts</text>
+          <text x="99" y="170" text-anchor="middle" font-size="11" fill="var(--faint)" font-family="IBM Plex Mono, monospace">or a real line</text>
+
+          <!-- sensors: the wall -->
+          <rect x="212" y="46" width="128" height="170" rx="4" fill="none" stroke="var(--alert)" stroke-width="1.6"/>
+          <text x="276" y="72" text-anchor="middle" font-size="13.5" font-weight="600" fill="var(--ink)">Sensor layer</text>
+          <text x="276" y="92" text-anchor="middle" font-size="11.5" fill="var(--ink-3)">per-station profile</text>
+          <text x="276" y="114" text-anchor="middle" font-size="11" fill="var(--measured)" font-family="IBM Plex Mono, monospace">plc_full</text>
+          <text x="276" y="131" text-anchor="middle" font-size="11" fill="var(--measured)" font-family="IBM Plex Mono, monospace">finish_only</text>
+          <text x="276" y="148" text-anchor="middle" font-size="11" fill="var(--inferred)" font-family="IBM Plex Mono, monospace">checklist</text>
+          <text x="276" y="165" text-anchor="middle" font-size="11" fill="var(--inferred)" font-family="IBM Plex Mono, monospace">dark</text>
+          <text x="276" y="196" text-anchor="middle" font-size="10.5" fill="var(--alert)" font-family="IBM Plex Mono, monospace" letter-spacing="0.4">THE ONLY PATH IN</text>
+
+          <!-- twin -->
+          <rect x="378" y="66" width="164" height="130" rx="4" fill="var(--sunk)" stroke="var(--rule)"/>
+          <text x="460" y="92" text-anchor="middle" font-size="14" font-weight="600" fill="var(--ink)">Twin</text>
+          <text x="460" y="113" text-anchor="middle" font-size="11.5" fill="var(--ink-3)">flow reconstruction</text>
+          <text x="460" y="130" text-anchor="middle" font-size="11.5" fill="var(--ink-3)">forecaster + guards</text>
+          <text x="460" y="147" text-anchor="middle" font-size="11.5" fill="var(--ink-3)">EWMA / CUSUM quality</text>
+          <text x="460" y="164" text-anchor="middle" font-size="11.5" fill="var(--ink-3)">contribution analysis</text>
+          <text x="460" y="184" text-anchor="middle" font-size="11" fill="var(--inferred)" font-family="IBM Plex Mono, monospace">● ◐ ○ on every value</text>
+
+          <!-- views -->
+          <rect x="580" y="66" width="150" height="130" rx="4" fill="var(--sunk)" stroke="var(--rule)"/>
+          <text x="655" y="92" text-anchor="middle" font-size="14" font-weight="600" fill="var(--ink)">Views</text>
+          <text x="655" y="113" text-anchor="middle" font-size="11.5" fill="var(--ink-3)">six personas</text>
+          <text x="655" y="130" text-anchor="middle" font-size="11.5" fill="var(--ink-3)">3D control room</text>
+          <text x="655" y="147" text-anchor="middle" font-size="11.5" fill="var(--ink-3)">AI briefings</text>
+          <text x="655" y="164" text-anchor="middle" font-size="11.5" fill="var(--ink-3)">retrofit roadmap</text>
+          <text x="655" y="184" text-anchor="middle" font-size="11" fill="var(--faint)" font-family="IBM Plex Mono, monospace">one evidence pack</text>
+
+          <!-- flow arrows -->
+          <g stroke="var(--faint)" stroke-width="1.5" marker-end="url(#ar)" fill="none">
+            <line x1="176" y1="131" x2="208" y2="131"/>
+            <line x1="342" y1="131" x2="374" y2="131"/>
+            <line x1="544" y1="131" x2="576" y2="131"/>
+          </g>
+
+          <!-- evaluator -->
+          <rect x="24" y="234" width="706" height="46" rx="4" fill="none" stroke="var(--measured)" stroke-width="1.6" stroke-dasharray="6 4"/>
+          <text x="44" y="262" font-size="13" font-weight="600" fill="var(--measured)">Evaluator</text>
+          <text x="132" y="262" font-size="10" fill="var(--ink-2)">reads the plant's truth and the twin's beliefs, scores lead time, false alarms and calibration — and ships in the product</text>
+          <g stroke="var(--measured)" stroke-width="1.2" stroke-dasharray="3 3">
+            <line x1="99" y1="200" x2="99" y2="230"/>
+            <line x1="460" y1="200" x2="460" y2="230"/>
+          </g>
+
+          <!-- side note -->
+          <text x="762" y="120" font-size="11.5" fill="var(--ink-3)">A new line is</text>
+          <text x="762" y="136" font-size="11.5" fill="var(--ink-3)">a YAML file:</text>
+          <text x="762" y="154" font-size="11" fill="var(--inferred)" font-family="IBM Plex Mono, monospace">ISA-95 shaped</text>
+          <text x="762" y="170" font-size="11" fill="var(--inferred)" font-family="IBM Plex Mono, monospace">extends:</text>
+        </g>
+      </svg>
+    </div>
+    <div class="cols">
+      <div class="col m"><h4>Integration</h4><p>A read-only tap — OPC UA, Modbus, historian, MES or an operator app. Zero writes to the plant, proven against Factory I/O over a real Modbus socket. No PLC change, so no maintenance window.</p></div>
+      <div class="col v"><h4>Beyond a serial line</h4><p>Parallel stations, rework loops that re-enter inspection out of order, and shift calendars with breaks and crew-specific cycle multipliers. Rework is where a quality problem becomes a flow problem — and the forecaster names the inspection station.</p></div>
+      <div class="col"><h4>Scaling</h4><p>A second 30-station plant with four zones and three variants runs on unchanged code. Onboarding is a configuration diff, and an assistant drafts the first version of the file from one sentence of description.</p></div>
+    </div>
+  </div>
+  <div class="src"><span class="lab">Design</span><code>loom/plant.py</code><code>sensors.py</code><code>twin.py</code><code>views.py</code><code>evaluator.py</code><span class="cite">· integration proof in</span><code>tests/test_factoryio.py</code></div>
+</section>
+
+<!-- ═══ 13 · DARK STATION ════════════════════════════════════════════════ -->
+<section class="sheet figlead">
+  <div class="masthead"><span>03 · Solution design</span><span class="pg">13</span></div>
+  <div class="body">
+    <p class="exlabel">Exhibit 06 — the core mechanism</p>
+    <h2 class="action">When a station has no sensor, its neighbour's start time <span class="q">is</span> the measurement.</h2>
+    <div class="fig">
+      <svg viewBox="0 0 880 210" role="img" aria-label="A timeline. The dark station S5 reports nothing. Downstream station S6 is idle, then measurably starts a vehicle. That instant is when S5 released it, so the dark station's cycle time is recovered exactly — and precisely when it is the bottleneck.">
+        <g font-family="IBM Plex Sans, sans-serif">
+          <!-- S5 lane -->
+          <text x="24" y="46" font-size="12.5" font-weight="600" fill="var(--ink)">S5</text>
+          <text x="24" y="62" font-size="9.5" fill="var(--inferred)" font-family="IBM Plex Mono, monospace">◐ dark</text>
+          <rect x="86" y="30" width="760" height="34" rx="3" fill="none" stroke="var(--inferred)" stroke-dasharray="4 3"/>
+          <text x="466" y="52" text-anchor="middle" font-size="12" fill="var(--inferred)">reports nothing — no PLC tag, no scanner, no timestamp</text>
+
+          <!-- S6 lane -->
+          <text x="24" y="130" font-size="12.5" font-weight="600" fill="var(--ink)">S6</text>
+          <text x="24" y="146" font-size="9.5" fill="var(--measured)" font-family="IBM Plex Mono, monospace">● measured</text>
+          <rect x="86" y="112" width="252" height="34" rx="3" fill="var(--sunk)" stroke="var(--rule)"/>
+          <text x="212" y="134" text-anchor="middle" font-size="12" fill="var(--ink-3)">idle — starved, nothing to work on</text>
+          <rect x="338" y="112" width="508" height="34" rx="3" fill="var(--sunk)" stroke="var(--measured)" stroke-width="1.4"/>
+          <text x="592" y="134" text-anchor="middle" font-size="12" fill="var(--ink-2)">working on the next vehicle — its start timestamp is measured</text>
+
+          <!-- the inference -->
+          <line x1="338" y1="64" x2="338" y2="112" stroke="var(--measured)" stroke-width="1.6"/>
+          <circle cx="338" cy="64" r="4.5" fill="var(--measured)"/>
+          <circle cx="338" cy="112" r="4.5" fill="var(--measured)"/>
+          <text x="352" y="86" font-size="12.5" fill="var(--measured)" font-weight="600">S6 starts after sitting idle</text>
+          <text x="352" y="103" font-size="12" fill="var(--ink-2)">⟶ that instant is when S5 released the vehicle. S5's cycle is recovered exactly.</text>
+
+          <text x="86" y="180" font-size="12.5" fill="var(--ink-2)">The sample is exact <b>precisely when the dark station is the constraint</b> — when it is fast, S6 is never starved and no sample is produced, which is</text>
+          <text x="86" y="197" font-size="12.5" fill="var(--ink-2)">the only case where the sample does not matter. Reconstruction error holds at <tspan font-family="IBM Plex Mono, monospace" fill="var(--measured)">0.20 s</tspan> even with half the line dark.</text>
+        </g>
+      </svg>
+    </div>
+    <p class="deck">
+      A trend fit on those samples is not enough on its own: run it naively and the false alarms make the
+      system unusable. Three guards turn it into an alarm a floor will keep listening to — a
+      <b>standard-error test</b> so a noisy station cannot trip it, a <b>persistence rule</b> so a single
+      slow cycle is not an alert, and a <b>forward buffer simulation</b> that converts a trend into an ETA
+      the supervisor can act on: <i>"B2 blocks in ~7 min, confidence 70 %, 100 % inferred."</i>
+    </p>
+    <div class="callout">
+      <b>What the guards cost and buy, measured.</b> Removing the persistence rule raises lead time to
+      8.8 min — and takes false alarms from 0.0 to <span class="bad">1.2 per 8 h</span>. Removing the
+      standard-error test loses a fault entirely (4/5) <i>and</i> raises false alarms. That trade is the
+      whole design, and page 19 measures every mechanism the same way.
+    </div>
+  </div>
+  <div class="src"><span class="lab">Source</span><code>ablation.md</code><code>coverage.md</code><span class="cite">· mechanism in</span><code>loom/twin.py</code><span class="cite">(R1–R5 reconstruction rules)</span></div>
+</section>
+
+<!-- ═══ 14 · CONTAINMENT ═════════════════════════════════════════════════ -->
+<section class="sheet figlead">
+  <div class="masthead"><span>03 · Solution design</span><span class="pg">14</span></div>
+  <div class="body">
+    <p class="exlabel">Exhibit 07 — containment on a single run, <code class="mono">weld_drift_b2.yaml</code> seed 0</p>
+    <h2 class="action">The hold opens before inspection sees anything, and it names the vehicles instead of stopping the station.</h2>
+    <div class="fig">
+      <svg viewBox="0 0 880 236" role="img" aria-label="A timeline in line-minutes. The estimated drift onset is at 32.9 minutes; a CUSUM warning on B2 weld current fires at 38.9 minutes and opens a hold of 76 vehicles; the first end-of-line inspection catch is at 55.6 minutes. End-of-line inspection alone lets 62 vehicles escape; a blanket hold stops 90 vehicles starting at 53 minutes; Loom holds 77 starting at 42 minutes with none escaping.">
+        <g font-family="IBM Plex Sans, sans-serif">
+          <line x1="70" y1="70" x2="840" y2="70" stroke="var(--rule)" stroke-width="1.5"/>
+          <g font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--faint)">
+            <text x="70" y="90">30 min</text><text x="840" y="90" text-anchor="end">60 min · line time</text>
+          </g>
+          <!-- events -->
+          <g>
+            <line x1="150" y1="52" x2="150" y2="70" stroke="var(--warn)" stroke-width="1.6"/>
+            <circle cx="150" cy="70" r="4.5" fill="var(--warn)"/>
+            <text x="150" y="42" text-anchor="middle" font-size="11.5" fill="var(--warn)">32.9 — estimated drift onset</text>
+          </g>
+          <g>
+            <line x1="304" y1="52" x2="304" y2="70" stroke="var(--measured)" stroke-width="1.6"/>
+            <circle cx="304" cy="70" r="5.5" fill="var(--measured)"/>
+            <text x="304" y="42" text-anchor="middle" font-size="11.5" fill="var(--measured)" font-weight="600">38.9 — CUSUM warning, hold opens</text>
+          </g>
+          <g>
+            <line x1="732" y1="52" x2="732" y2="70" stroke="var(--alert)" stroke-width="1.6"/>
+            <circle cx="732" cy="70" r="4.5" fill="var(--alert)"/>
+            <text x="732" y="42" text-anchor="middle" font-size="11.5" fill="var(--alert)">55.6 — first inspection catch</text>
+          </g>
+          <!-- the gap -->
+          <path d="M304 100 L732 100" stroke="var(--measured)" stroke-width="1.2" stroke-dasharray="4 3"/>
+          <path d="M304 96 L304 104 M732 96 L732 104" stroke="var(--measured)" stroke-width="1.2"/>
+          <text x="518" y="120" text-anchor="middle" font-size="13" fill="var(--measured)" font-weight="600">the whole product: 12.8 min of head start, over 20 seeds</text>
+
+          <!-- comparison bars -->
+          <g font-size="12">
+            <text x="70" y="158" fill="var(--ink-2)">No twin — end-of-line inspection only</text>
+            <rect x="418" y="146" width="0" height="16" fill="var(--faint)"/>
+            <text x="430" y="159" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="var(--alert)">0 held · 62 escaped · first action 53 min</text>
+
+            <text x="70" y="186" fill="var(--ink-2)">Blanket hold on the station</text>
+            <rect x="418" y="174" width="180" height="16" fill="var(--faint)" opacity=".55"/>
+            <text x="608" y="187" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="var(--ink-3)">90 held · 0 escaped · first action 53 min</text>
+
+            <text x="70" y="214" fill="var(--ink)" font-weight="600">Loom — targeted hold</text>
+            <rect x="418" y="202" width="154" height="16" fill="var(--measured)"/>
+            <text x="582" y="215" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="var(--measured)">77 held · 0 escaped · first action 42 min</text>
+          </g>
+        </g>
+      </svg>
+    </div>
+    <p class="deck">
+      The blanket hold and Loom both prevent every escape — the difference is <b>thirteen fewer vehicles
+      quarantined and eleven minutes earlier</b>. Over 20 seeds the hold runs at 81 % precision and 99 %
+      recall, and splits into <i>sure</i>, <i>uncertain</i> and <i>already exited</i> so the quality engineer
+      knows which cars need a decision and which need a phone call.
+    </p>
+  </div>
+  <div class="src"><span class="lab">Source</span><code>traces.md</code><span class="cite">(single run)</span><code>baselines.md</code><span class="cite">(comparators)</span><code>benchmark.md</code><span class="cite">(20-seed distribution)</span></div>
+</section>
+
+<!-- ═══ 15 · WHERE AI BELONGS ════════════════════════════════════════════ -->
+<section class="sheet tabular">
+  <div class="masthead"><span>03 · Solution design</span><span class="pg">15</span></div>
+  <div class="body">
+    <p class="exlabel">Exhibit 08 — the division of labour, and the guard on each side of it</p>
+    <h2 class="action">Statistics produce every number. The model turns numbers into decisions, through a gate it cannot bypass.</h2>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Use</th><th>Mechanism</th><th>The guard that makes it safe</th></tr></thead>
+        <tbody>
+          <tr><td>Persona briefings</td><td>One evidence pack, three audiences — supervisor handover, quality memo, manager summary</td><td>Every figure must occur in the pack; the pack is content-hashed before the model sees it; the grounding result is stored with the report</td></tr>
+          <tr><td>What-if</td><td>The model proposes from a menu; the <b>simulator</b> measures each option and returns throughput and blocking</td><td>Hypothesis generator, never judge. <span class="mono dim">floater at B3 → 56 veh/h, 0 blocking · rebalance → 54 · buffer → 50</span></td></tr>
+          <tr><td>Self-improvement</td><td>Propose a parameter change → backtest over seeds → accept or refuse</td><td>The gate decides, not the model. Two proposals that <i>raised</i> lead time were refused for breaking the false-alarm budget; one was accepted</td></tr>
+          <tr><td>Onboarding</td><td>One sentence of description → a valid plant file with its assumptions stated</td><td>The loader validates; a file that does not parse never runs</td></tr>
+          <tr><td>Operator notes</td><td>Free text from the floor enters the evidence pack as data</td><td>Quoted, delimiter-stripped and tagged <span class="mono dim">trust: untrusted_operator_text</span> — a note saying "ignore previous instructions" is content, not an instruction</td></tr>
+          <tr class="us"><td>Predicting, scoring, deciding a hold, changing a live threshold</td><td colspan="2" class="bad"><b>Never.</b> No language model sits anywhere on the prediction path. Remove the model entirely and every number in this document is unchanged.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="cols">
+      <div class="col m"><h4>Why the rule is the product</h4><p>The market is moving from copilots to agents "entering the decision loop", and every source that celebrates it raises the same objection: traceability. Ours is mechanical — hashed evidence, a stored grounding verdict per report, and an audit table carrying every human action with actor and line time.</p></div>
+      <div class="col v"><h4>Cost is a first-class metric</h4><p>Tokens, latency and dollars per call are recorded per report and surfaced on the manager view. The provider is a boundary, not an assumption: any Messages-API-compatible endpoint works, and the offline template path needs no credentials at all.</p></div>
+    </div>
+  </div>
+  <div class="src"><span class="lab">Design</span><code>loom/ai.py</code><code>llm.py</code><code>evidence.py</code><code>improve.py</code><span class="cite">· prompt-injection test in</span><code>tests/test_injection.py</code></div>
+</section>
+
+<!-- ═══ 16 · AI MEASURED ═════════════════════════════════════════════════ -->
+<section class="sheet stat">
+  <div class="masthead"><span>03 · Solution design</span><span class="pg">16</span></div>
+  <div class="body">
+    <p class="exlabel">Exhibit 09 — the AI layer scored against a model we do not control</p>
+    <h2 class="action">The model invented two numbers. The check caught both, before either reached an operator.</h2>
+    <div class="kpis">
+      <div class="kpi"><b>87 %</b><span>groundedness — 13/15<br>reports, live model output</span></div>
+      <div class="kpi"><b>100 %</b><span>abstention — given an empty<br>pack, it says so</span></div>
+      <div class="kpi"><b>100 %</b><span>persona fit — three briefs,<br>three audiences</span></div>
+      <div class="kpi i"><b>4/4</b><span>planted fabrications<br>caught by the check</span></div>
+      <div class="kpi i"><b>0</b><span>clean reports<br>wrongly flagged</span></div>
+    </div>
+    <p class="deck">
+      This is not our renderers marking their own homework. Every report scored above was written by
+      <span class="mono">minimax/minimax-m3:free</span> through a third-party gateway — <b>a model we do not
+      own, did not tune and cannot patch</b> — and the two it got wrong are listed in the evidence file by
+      name and by the figures it invented.
+    </p>
+    <div class="cols">
+      <div class="col m">
+        <h4>A score below 100 % is the system working</h4>
+        <p>The claim Loom makes is not that a model never invents a number. It is that <b>an invented number
+        never reaches an operator.</b> Both ungrounded reports were caught by the same check that runs in
+        production, before display, without being told which ones to look at.</p>
+      </div>
+      <div class="col v">
+        <h4>One run is not a measurement</h4>
+        <p>A sampled model moves. Two consecutive identical runs scored 80 % and 87 % with <i>different</i>
+        reports failing. What does not move is the direction of the guarantee — whatever the model invented
+        on any given run, the check caught it. We report the range and say why.</p>
+      </div>
+      <div class="col">
+        <h4>The red team has teeth</h4>
+        <p>Four fixtures carrying an invented throughput, lead time, dollar figure and precision claim.
+        All four rejected; the clean control passed. That column is what shows the check works regardless
+        of who wrote the text.</p>
+      </div>
+    </div>
+  </div>
+  <div class="src">
+    <span class="lab">Source</span><code>ai_eval_live.md</code><span class="cite">— generated by</span><code>python -m loom.aieval</code><span class="cite">over 5 evidence packs · offline control arm in</span><code>ai_eval.md</code>
+  </div>
+</section>
+
+<!-- ═══ 17 · DIVIDER — EVIDENCE ═══════════════════════════════════════════════ -->
+<section class="sheet band divider">
+  <div class="masthead"><span>Section 04</span><span class="pg">17</span></div>
+  <div class="body">
+    <div class="divnum" aria-hidden="true">04</div>
+    <div class="dvbody">
+      <div class="dvrule"></div>
+      <h2 class="action">Evidence</h2>
+      <p class="deck">Three kinds, in ascending order of how hard they are to argue with: against the alternatives, per mechanism, and in absolute terms — all against ground truth the twin never saw, over seeds, with the failures stated.</p>
+    </div>
+  </div>
+  <div class="src"><span class="lab">Pages</span><span class="cite">18 · against the alternatives — 19 · what each mechanism buys — 20 · absolute performance — 21 · graceful degradation</span></div>
+</section>
+
+<!-- ═══ 18 · BASELINES ═══════════════════════════════════════════════════ -->
+<section class="sheet tabular">
+  <div class="masthead"><span>04 · Evidence</span><span class="pg">18</span></div>
+  <div class="body">
+    <p class="exlabel">Exhibit 10 — every comparator sees the same sensor-filtered event stream the twin saw</p>
+    <h2 class="action">Lead time is only meaningful next to the alarm rate that bought it — so read the first column first.</h2>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Method</th><th>What it stands for</th><th>Alarms / 8 h,<br>healthy line</th><th>Lead on an<br>instrumented ramp</th><th>Lead with the<br>station dark</th><th>Escapes on<br>the drift</th></tr></thead>
+        <tbody>
+          <tr><td>No twin</td><td class="dim">The plant today</td><td class="n">0</td><td class="n bad">0 — you find out when it blocks</td><td class="n bad">0</td><td class="n bad">62</td></tr>
+          <tr><td>Threshold alarm</td><td class="dim">The alarm every PLC and OEE tool already ships (cycle &gt; takt × 1.05)</td><td class="n bad">141.6</td><td class="n">13.5 min</td><td class="n bad">never warns</td><td class="dim">—</td></tr>
+          <tr><td>Active-period detection</td><td class="dim">The best-validated method in the literature, same persistence rule</td><td class="n bad">47.8</td><td class="n">6.1 min</td><td class="n">6.5 min</td><td class="dim">—</td></tr>
+          <tr class="us"><td>Loom</td><td class="dim">The forecaster</td><td class="n ok">0.0</td><td class="n">6.6 min</td><td class="n">5.2 min</td><td class="n ok">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="cols">
+      <div class="col m">
+        <h4>The threshold alarm "wins" on lead, and that is the point</h4>
+        <p>13.5 minutes against our 6.6 — bought with <b>an alarm every three minutes</b> on a healthy line.
+        A rule that fires 141.6 times a shift is ignored by the floor within a week, and then its lead time
+        is zero. This is why we publish the alarm rate beside every lead figure and never alone.</p>
+      </div>
+      <div class="col v">
+        <h4>The dark station is where the comparison ends</h4>
+        <p>A threshold rule has nothing to threshold when the station reports nothing, so it never warns —
+        not late, <i>never</i>. That single cell is the commercial argument: on the line the brief describes,
+        the incumbent tool is not worse than Loom, it is silent.</p>
+      </div>
+      <div class="col">
+        <h4>Fairness is enforced by a test</h4>
+        <p>A comparator fed data the real alternative would not have makes the whole table worthless, so
+        the suite asserts it: if the threshold baseline ever manages to see a dark station, the test fails.</p>
+      </div>
+    </div>
+  </div>
+  <div class="src"><span class="lab">Source</span><code>baselines.md</code><span class="cite">— generated by</span><code>python -m loom.baseline</code><span class="cite">· fairness assertion in</span><code>tests/test_evidence.py</code></div>
+</section>
+
+<!-- ═══ 19 · ABLATION ════════════════════════════════════════════════════ -->
+<section class="sheet tabular">
+  <div class="masthead"><span>04 · Evidence</span><span class="pg">19</span></div>
+  <div class="body">
+    <p class="exlabel">Exhibit 11 — one mechanism disabled per row, everything else held fixed, same seeds</p>
+    <h2 class="action">Every mechanism earns its row — and the one that did not, we rebuilt the scenario to test honestly.</h2>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Mechanism removed</th><th>False alarms<br>/ 8 h</th><th>Ramp caught<br>(lead)</th><th>Ramp <b>dark</b><br>caught (lead)</th><th>Drift recall<br>(sampled)</th><th>Precision<br>(sampled)</th><th>Held before<br>detection</th><th>2-condition<br>cause found</th></tr></thead>
+        <tbody>
+          <tr class="us"><td>— full system —</td><td class="n ok">0.0</td><td class="n">5/5 (6.6 min)</td><td class="n">5/5 (5.2 min)</td><td class="n">60 %</td><td class="n">65 %</td><td class="n">14</td><td class="n">5/5</td></tr>
+          <tr><td>No persistence rule</td><td class="n bad">1.2</td><td class="n">5/5 (8.8 min)</td><td class="n">5/5 (7.9 min)</td><td class="n dim">60 %</td><td class="n dim">65 %</td><td class="n dim">14</td><td class="n dim">5/5</td></tr>
+          <tr><td>No standard-error test</td><td class="n bad">0.4</td><td class="n bad">4/5 (4.0 min)</td><td class="n bad">4/5 (3.4 min)</td><td class="n dim">60 %</td><td class="n dim">65 %</td><td class="n dim">14</td><td class="n dim">5/5</td></tr>
+          <tr><td>No inferred samples</td><td class="n dim">0.0</td><td class="n dim">5/5 (6.6 min)</td><td class="n bad">0/5 — missed entirely</td><td class="n dim">60 %</td><td class="n dim">65 %</td><td class="n dim">14</td><td class="n dim">5/5</td></tr>
+          <tr><td>No pair search</td><td class="n dim">0.0</td><td class="n dim">5/5 (6.6 min)</td><td class="n dim">5/5 (5.2 min)</td><td class="n dim">60 %</td><td class="n dim">65 %</td><td class="n dim">14</td><td class="n bad">0/5 — never found</td></tr>
+          <tr><td>No drift back-fill</td><td class="n dim">0.0</td><td class="n dim">5/5 (6.6 min)</td><td class="n dim">5/5 (5.2 min)</td><td class="n bad">56 %</td><td class="n ok">79 %</td><td class="n bad">3</td><td class="n dim">5/5</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <b>Read the last row carefully — it is the row that cost us most to get right.</b> Measured against a
+      drift where the station logs every vehicle, the back-fill recovered <i>nothing</i>, and the first version
+      of this table concluded the mechanism was dead weight. That was a property of the scenario, not the
+      mechanism: when every vehicle has its own reading, membership never depends on the onset window. We
+      built the scenario that actually exercises it — the weld current logged one body in five — and the row
+      came alive without flattering us. Back-fill is the only way to contain a vehicle that carries no
+      reading of its own: it places <b>14 vehicles against 3</b>, and buys 4 points of recall <b>for 14 points
+      of precision</b>. It belongs in the system for the sampled case, and it is not free recall.
+    </div>
+    <p class="deck">
+      Measuring it also found a bug worth more than the row. The back-fill originally started at the CUSUM
+      onset — when the parameter began <i>moving</i> — which on sampled data lands about fourteen minutes
+      before the drift begins, because each step stands for five vehicles. A hold is for out-of-spec product,
+      so it now starts where the readings' own least-squares line crosses the spec limit. Nine points of
+      precision at no cost in recall, and invisible on the fully-reported scenario.
+    </p>
+  </div>
+  <div class="src"><span class="lab">Source</span><code>ablation.md</code><span class="cite">— generated by</span><code>python -m loom.ablate</code><span class="cite">· each knob is a real property of the twin, not a separate code path</span></div>
+</section>
+
+<!-- ═══ 20 · ABSOLUTE ════════════════════════════════════════════════════ -->
+<section class="sheet tabular">
+  <div class="masthead"><span>04 · Evidence</span><span class="pg">20</span></div>
+  <div class="body">
+    <p class="exlabel">Exhibit 12 — 20 seeds per scenario, against ground truth the twin never saw</p>
+    <h2 class="action">Twenty seeds, and the confidence number means what it says.</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
+      <div class="tw">
+        <table style="min-width:0">
+          <thead><tr><th>Scenario</th><th>Caught</th><th>Lead (min)</th><th>False alarms / 8 h</th></tr></thead>
+          <tbody>
+            <tr><td>Instrumented ramp</td><td class="n">20/20</td><td class="n">7.4</td><td class="n">0.2</td></tr>
+            <tr><td>Failing station <b>dark</b></td><td class="n">20/20</td><td class="n">5.2</td><td class="n">0.2</td></tr>
+            <tr><td>PLC link silent mid-fault</td><td class="n">20/20</td><td class="n">7.4</td><td class="n">0.2</td></tr>
+            <tr><td>Moving constraint</td><td class="n">37/40</td><td class="n">5.3</td><td class="n">0.2</td></tr>
+            <tr><td>Second plant, 30 stations</td><td class="n">20/20</td><td class="n">12.0</td><td class="n">0.1</td></tr>
+            <tr class="us"><td>Healthy line, 160 h</td><td class="n dim">no faults</td><td class="n dim">—</td><td class="n ok">0.10 · 0 holds</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="tw">
+        <table style="min-width:0">
+          <thead><tr><th>Stated confidence</th><th>n</th><th>Realised hit rate</th></tr></thead>
+          <tbody>
+            <tr><td class="n">0.9 – 1.0</td><td class="n dim">25</td><td class="n ok">100 %</td></tr>
+            <tr><td class="n">0.7 – 0.9</td><td class="n dim">30</td><td class="n ok">100 %</td></tr>
+            <tr><td class="n">0.5 – 0.7</td><td class="n dim">67</td><td class="n">85 %</td></tr>
+            <tr><td class="n">0.0 – 0.5</td><td class="n dim">5</td><td class="n">100 %</td></tr>
+          </tbody>
+        </table>
+        <div style="padding:10px 12px;border-top:1px solid var(--rule);font-size:.82rem;color:var(--ink-2)">
+          A confidence figure a supervisor cannot rely on is worse than no figure at all. The calibration
+          table is regenerated by the same run that produces the benchmark, and the evaluator that produces
+          it <b>ships in the product</b> — the plant builds its own version of this table from its own line.
+        </div>
+      </div>
+    </div>
+    <p class="deck">
+      <b>The 20-seed re-run is the argument for having a benchmark at all.</b> At 5 seeds the system looked
+      perfect. At 20 it exposed a real alert-flooding bug: alerts were grouped under a downstream root only
+      while that root held an <i>active</i> alert, but a root alert clears the moment its station stops testing
+      over takt and the queue it built does not drain at the same instant — so every station still physically
+      blocked raised an alert naming itself. Grouping now keys on the physical test rather than on alert
+      state. Lead time and catch rate unchanged; the flooding gone.
+    </p>
+  </div>
+  <div class="src"><span class="lab">Source</span><code>benchmark.md</code><code>benchmark.json</code><span class="cite">— generated by</span><code>python -m loom.bench --seeds 20</code></div>
+</section>
+
+<!-- ═══ 21 · DEGRADATION ═════════════════════════════════════════════════ -->
+<section class="sheet figlead">
+  <div class="masthead"><span>04 · Evidence</span><span class="pg">21</span></div>
+  <div class="body">
+    <p class="exlabel">Exhibit 13 — the brief's central question, answered as a curve</p>
+    <h2 class="action">It degrades rather than breaks — and when it stops, it stops for a reason we can price.</h2>
+    <div class="fig">
+      <svg viewBox="0 0 880 250" role="img" aria-label="Two series against the share of stations darkened, the failing station darkened first. Mean lead time falls from 6.9 minutes at zero percent dark to 5.0, 5.0 and 4.6 minutes at 10, 20 and 30 percent, then to zero at 40 and 50 percent where the forecast stops firing. Inferred cycle reconstruction error stays flat between 0.20 and 0.23 seconds across the whole range.">
+        <g font-family="IBM Plex Sans, sans-serif">
+          <!-- axes -->
+          <line x1="72" y1="196" x2="800" y2="196" stroke="var(--rule)" stroke-width="1.5"/>
+          <line x1="72" y1="26" x2="72" y2="196" stroke="var(--rule)" stroke-width="1.5"/>
+          <g font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--faint)">
+            <text x="66" y="200" text-anchor="end">0</text>
+            <text x="66" y="118" text-anchor="end">4</text>
+            <text x="66" y="40" text-anchor="end">8 min</text>
+            <text x="72" y="220" text-anchor="middle">0 %</text>
+            <text x="194" y="220" text-anchor="middle">10 %</text>
+            <text x="315" y="220" text-anchor="middle">20 %</text>
+            <text x="436" y="220" text-anchor="middle">30 %</text>
+            <text x="558" y="220" text-anchor="middle">40 %</text>
+            <text x="679" y="220" text-anchor="middle">50 %</text>
+            <text x="436" y="242" text-anchor="middle" letter-spacing="1.2" fill="var(--faint)">SHARE OF STATIONS DARK — THE FAILING STATION FIRST</text>
+          </g>
+          <g stroke="var(--rule-2)" stroke-width="1">
+            <line x1="72" y1="118" x2="800" y2="118"/><line x1="72" y1="40" x2="800" y2="40"/>
+          </g>
+          <!-- lead series -->
+          <polyline points="72,62 194,99 315,99 436,107" fill="none" stroke="var(--measured)" stroke-width="2.4"/>
+          <polyline points="436,107 558,196 679,196" fill="none" stroke="var(--measured)" stroke-width="2.4" stroke-dasharray="5 4" opacity=".55"/>
+          <g fill="var(--measured)">
+            <circle cx="72" cy="62" r="4.5"/><circle cx="194" cy="99" r="4.5"/>
+            <circle cx="315" cy="99" r="4.5"/><circle cx="436" cy="107" r="4.5"/>
+            <circle cx="558" cy="196" r="4.5" opacity=".55"/><circle cx="679" cy="196" r="4.5" opacity=".55"/>
+          </g>
+          <text x="466" y="128" font-size="12.5" fill="var(--measured)" font-weight="600">mean warning time — survives to 30 % dark</text>
+          <!-- MAE series -->
+          <polyline points="194,178 315,180 436,179 558,180 679,180" fill="none" stroke="var(--inferred)" stroke-width="2.4"/>
+          <g fill="var(--inferred)">
+            <circle cx="194" cy="178" r="4"/><circle cx="315" cy="180" r="4"/><circle cx="436" cy="179" r="4"/>
+            <circle cx="558" cy="180" r="4"/><circle cx="679" cy="180" r="4"/>
+          </g>
+          <text x="700" y="172" font-size="12.5" fill="var(--inferred)" font-weight="600" text-anchor="end">reconstruction error — flat at 0.20 s throughout</text>
+          <!-- the point -->
+          <rect x="500" y="34" width="298" height="72" rx="3" fill="var(--sunk)" stroke="var(--rule)"/>
+          <text x="516" y="54" font-size="12" fill="var(--ink)" font-weight="600">Note which column does not move.</text>
+          <text x="516" y="72" font-size="11.5" fill="var(--ink-2)">The twin still knows what the dark stations are doing.</text>
+          <text x="516" y="88" font-size="11.5" fill="var(--ink-2)">It runs out of the <tspan font-style="italic">measured</tspan> samples the trend fit needs</text>
+          <text x="516" y="100" font-size="11.5" fill="var(--ink-2)">to be confident enough to raise an alert.</text>
+        </g>
+      </svg>
+    </div>
+    <p class="deck" style="font-size:.86rem;color:var(--ink-3)">
+      Mean lead (min) by share of stations dark: 6.9 with the line fully lit, 5.0 at 10 %, 5.0 at 20 %,
+      4.6 at 30 %, then no alert at 40 % and 50 %. Inferred cycle MAE (s) over the same range holds at
+      0.23, 0.20, 0.21, 0.20, 0.20.
+    </p>
+    <p class="deck">
+      Two failures, separable, and it matters which is which. <b>The fix is not a better inference model — it
+      is one more timestamp source, which is a purchase order.</b> That is precisely what the value-of-
+      information ranking exists to produce. On the 30-station plant the curve goes to zero in a single step,
+      because the faulting station is the only instrumented one in a run of seven checklist stations and
+      darkening it leaves it bounded by finish-only neighbours — the documented abstention case. So it raises
+      nothing rather than guessing, and the ranking should be asking for a $30 photo-eye on either side.
+      That is the boundary of the method, stated as a measurement rather than as a caveat.
+    </p>
+  </div>
+  <div class="src"><span class="lab">Source</span><code>coverage.md</code><span class="cite">— generated by</span><code>python -m loom.coverage</code><span class="cite">· stations darkened deterministically, the faulting one first</span></div>
+</section>
+
+<!-- ═══ 22 · USERS ═══════════════════════════════════════════════════════ -->
+<section class="sheet tabular">
+  <div class="masthead"><span><span class="sec">05 · Target users</span></span><span class="pg">22</span></div>
+  <div class="body">
+    <p class="exlabel">Exhibit 14 — six roles, six time horizons, one twin</p>
+    <h2 class="action">The same evidence pack renders six surfaces, so a briefing and the screen a supervisor is looking at cannot disagree.</h2>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Role</th><th>Horizon</th><th>The question they arrive with</th><th>What the view gives them</th></tr></thead>
+        <tbody>
+          <tr><td><b>Operator</b></td><td class="n dim">Now</td><td>Is my station the problem?</td><td>This station's cycle history and parameters against spec limits, with provenance on every value</td></tr>
+          <tr><td><b>Floor supervisor</b></td><td class="n dim">This shift</td><td>Where do I put the floater?</td><td>Andon grid coloured by state, current constraint and forecast alerts as separate sections, ranked what-if options</td></tr>
+          <tr><td><b>Quality engineer</b></td><td class="n dim">Today</td><td>Hold or ship?</td><td>The hold split into sure / uncertain / already exited, with ranked hypotheses and the evidence behind each</td></tr>
+          <tr><td><b>Maintenance</b></td><td class="n dim">This week</td><td>What wears out next?</td><td>Drift trends by station, sensor health, and which link went silent when</td></tr>
+          <tr><td><b>Plant manager</b></td><td class="n dim">This month</td><td>Should I trust it, and what do I buy?</td><td>The trust ledger, the coverage map, and the retrofit roadmap — next station to instrument, kit cost, and the extra warning it was measured to buy</td></tr>
+          <tr class="us"><td><b>Leadership</b></td><td class="n dim">This quarter</td><td>Does the rollout pay?</td><td>Value computed from this line's own measured performance, every assumption printed, and a sensitivity line at a tenth of the assumption</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="cols">
+      <div class="col m"><h4>Why one pack matters</h4><p>All six render from a single <code class="mono">/api/pack</code> response — the same evidence pack the AI layer is handed. A persona view is a projection, never a separate calculation, so two roles cannot be shown different numbers for the same line.</p></div>
+      <div class="col v"><h4>The default view answers "what is wrong right now"</h4><p>Current constraint and forecast alerts are shown separately because they answer different questions: once a block forms and the line settles, there is no future event left to predict, so the alert clears while the constraint remains. Merging them was a real UX confusion we found and fixed.</p></div>
+      <div class="col"><h4>Adoption is the risk, not accuracy</h4><p>Confirm and dismiss are first-class actions with a note, they recalibrate the model, and they land in the audit table with actor and line time. A supervisor who dismisses an alert is training the system, not fighting it.</p></div>
+    </div>
+  </div>
+  <div class="src"><span class="lab">Design</span><code>loom/views.py</code><code>live.py</code><code>web/app.html</code><span class="cite">· all six live in the prototype control room</span></div>
+</section>
+
+<!-- ═══ 23 · DIVIDER — BUSINESS ═══════════════════════════════════════════════ -->
+<section class="sheet band divider">
+  <div class="masthead"><span>Sections 06 – 08</span><span class="pg">23</span></div>
+  <div class="body">
+    <div class="divnum" aria-hidden="true">06</div>
+    <div class="dvbody">
+      <div class="dvrule"></div>
+      <h2 class="action">Business case, roadmap and risk</h2>
+      <p class="deck">What it is worth on measured performance rather than on a market multiple, how it lands in sixteen weeks without a maintenance window, and what we are not claiming.</p>
+    </div>
+  </div>
+  <div class="src"><span class="lab">Pages</span><span class="cite">24 · the business case — 25 · the phased roadmap — 26 · risks and mitigations — 27 · what we do not claim</span></div>
+</section>
+
+<!-- ═══ 24 · BUSINESS CASE ═══════════════════════════════════════════════ -->
+<section class="sheet tabular">
+  <div class="masthead"><span>06 · Business case and impact</span><span class="pg">24</span></div>
+  <div class="body">
+    <p class="exlabel">Exhibit 15 — one line, one year, every input stated</p>
+    <h2 class="action">The value is computed from measured performance, not asserted — and the same file feeds the proposal and the running product.</h2>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Value line</th><th>Formula</th><th>Inputs — measured</th><th>Inputs — assumed</th><th>Per line, per year</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>Bottlenecks avoided</b></td>
+            <td class="dim">lead × share acted on × events/wk × weeks × $/min</td>
+            <td class="n meas">7.12 min mean lead</td>
+            <td class="n dim">50 % acted on · 3/wk · $8,000/min</td>
+            <td class="n">$4,101,120</td>
+          </tr>
+          <tr>
+            <td><b>Targeted holds</b></td>
+            <td class="dim">(blanket − targeted) × $/vehicle × events</td>
+            <td class="n meas">47 vehicles saved</td>
+            <td class="n dim">$250/vehicle · 12 events</td>
+            <td class="n">$141,000</td>
+          </tr>
+          <tr>
+            <td><b>Escapes prevented</b></td>
+            <td class="dim">escapes prevented × field cost × events</td>
+            <td class="n meas">9 escapes prevented</td>
+            <td class="n dim">$5,000/defect · 12 events</td>
+            <td class="n">$540,000</td>
+          </tr>
+          <tr class="us"><td colspan="4"><b>Gross annual value, one line</b></td><td class="n ok">$4,782,120</td></tr>
+          <tr><td><b>Cost</b></td><td class="dim">licence + retrofit, only for stations the twin asks for</td><td class="dim">—</td><td class="n dim">$60,000/yr · ~$500/station</td><td class="n">$60,000 + kit</td></tr>
+          <tr><td class="dim"><b>Sensitivity</b> — at one tenth of the downtime assumption</td><td class="dim">the sceptic's first objection, answered on the slide</td><td class="dim">—</td><td class="n dim">$800/min</td><td class="n">$1,091,112</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="cols">
+      <div class="col m">
+        <h4>The claim is not the number</h4>
+        <p>$8,000/min is about a fifth of the plant-wide Siemens figure, and it is an assumption a plant
+        should replace with its own. <b>The claim is that after two weeks of shadow running, the plant has
+        its own number</b> — computed from its own line, by the evaluator that ships in the product.</p>
+      </div>
+      <div class="col v">
+        <h4>Payback</h4>
+        <p>Even at a tenth of the downtime assumption — the most hostile reading a CFO can offer without
+        rejecting the premise — payback lands inside a quarter. The exec view never renders $0: with no
+        fault yet observed on a line it falls back to the benchmark and labels the basis.</p>
+      </div>
+      <div class="col">
+        <h4>One source of truth for money</h4>
+        <p>These inputs are read from <code class="mono">benchmark.json</code> — the same file the product's
+        exec view reads. The proposal and the screen cannot quote different money, which is a failure mode
+        we have watched other decks die of.</p>
+      </div>
+    </div>
+  </div>
+  <div class="src">
+    <span class="lab">Source</span><code>benchmark.json</code><span class="cite">(measured inputs)</span><code>exempt_numbers.md</code><span class="cite">(economic assumptions, each with its justification)</span><code>loom/views.py</code><span class="cite">(the same arithmetic, live)</span>
+  </div>
+</section>
+
+<!-- ═══ 25 · ROADMAP ═════════════════════════════════════════════════════ -->
+<section class="sheet figlead">
+  <div class="masthead"><span>07 · Phased roadmap</span><span class="pg">25</span></div>
+  <div class="body">
+    <p class="exlabel">Exhibit 16 — trust is earned in stages, and every stage is reversible</p>
+    <h2 class="action">Sixteen weeks from read-only tap to reversible automation, without a single maintenance window.</h2>
+    <div class="fig">
+      <svg viewBox="0 0 880 258" role="img" aria-label="A phased roadmap. Weeks zero to four, shadow mode: a read-only tap with alerts hidden while the evaluator builds the plant's own trust ledger. Weeks four to ten, advisory: alerts and holds shown with evidence, confirm and dismiss recalibrate, first retrofits. Weeks ten to sixteen, reversible automation: flag for inspection and open a hold run automatically; physical actions stay human. Quarter two, a second line and second plant. Quarter three onward, product hardening.">
+        <g font-family="IBM Plex Sans, sans-serif">
+          <g font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--faint)">
+            <text x="86" y="24">WEEK 0</text><text x="278" y="24">WEEK 4</text><text x="470" y="24">WEEK 10</text>
+            <text x="662" y="24">WEEK 16</text><text x="846" y="24" text-anchor="end">Q2 · Q3+</text>
+          </g>
+          <line x1="86" y1="34" x2="846" y2="34" stroke="var(--rule)"/>
+          <g stroke="var(--rule-2)"><line x1="278" y1="34" x2="278" y2="238"/><line x1="470" y1="34" x2="470" y2="238"/><line x1="662" y1="34" x2="662" y2="238"/></g>
+
+          <rect x="86" y="48" width="192" height="38" rx="3" fill="var(--sunk)" stroke="var(--measured)" stroke-width="1.5"/>
+          <text x="98" y="66" font-size="12.5" font-weight="600" fill="var(--ink)">1 · Shadow</text>
+          <text x="98" y="80" font-size="11" fill="var(--ink-2)">read-only tap, alerts hidden</text>
+
+          <rect x="278" y="96" width="192" height="38" rx="3" fill="var(--sunk)" stroke="var(--measured)" stroke-width="1.5"/>
+          <text x="290" y="114" font-size="12.5" font-weight="600" fill="var(--ink)">2 · Advisory</text>
+          <text x="290" y="128" font-size="11" fill="var(--ink-2)">alerts + holds, with evidence</text>
+
+          <rect x="470" y="144" width="192" height="38" rx="3" fill="var(--sunk)" stroke="var(--inferred)" stroke-width="1.5"/>
+          <text x="482" y="162" font-size="12.5" font-weight="600" fill="var(--ink)">3 · Reversible automation</text>
+          <text x="482" y="176" font-size="11" fill="var(--ink-2)">flag and hold run themselves</text>
+
+          <rect x="662" y="192" width="92" height="38" rx="3" fill="var(--sunk)" stroke="var(--rule)"/>
+          <text x="674" y="210" font-size="12.5" font-weight="600" fill="var(--ink)">4 · Scale</text>
+          <text x="674" y="224" font-size="11" fill="var(--ink-2)">2nd line, 2nd plant</text>
+
+          <rect x="762" y="192" width="84" height="38" rx="3" fill="var(--sunk)" stroke="var(--rule)"/>
+          <text x="774" y="210" font-size="12.5" font-weight="600" fill="var(--ink)">5 · Product</text>
+          <text x="774" y="224" font-size="11" fill="var(--ink-2)">harden</text>
+
+          <text x="86" y="108" font-size="11.5" fill="var(--ink-3)">The plant builds its own</text>
+          <text x="86" y="123" font-size="11.5" fill="var(--ink-3)">trust ledger before it is</text>
+          <text x="86" y="138" font-size="11.5" fill="var(--ink-3)">asked to believe anything.</text>
+
+          <text x="278" y="156" font-size="11.5" fill="var(--ink-3)">Confirm / dismiss</text>
+          <text x="278" y="171" font-size="11.5" fill="var(--ink-3)">recalibrates. First</text>
+          <text x="278" y="186" font-size="11.5" fill="var(--ink-3)">VOI-ranked retrofits.</text>
+
+          <text x="470" y="204" font-size="11.5" fill="var(--ink-3)">Anything touching the</text>
+          <text x="470" y="219" font-size="11.5" fill="var(--ink-3)">physical line stays human.</text>
+        </g>
+      </svg>
+    </div>
+    <div class="cols">
+      <div class="col m"><h4>Why shadow first is commercial, not cautious</h4><p>Four weeks of read-only running produces the plant's own accuracy figures on its own line. That is what converts the pilot — the buyer stops evaluating our benchmark and starts reading theirs.</p></div>
+      <div class="col v"><h4>Q2 — the second line</h4><p>A new line is a plant file. The 30-station second plant in the benchmark runs on unchanged code, which is the scalability claim tested rather than asserted.</p></div>
+      <div class="col"><h4>Q3+ — product hardening</h4><p>Historian-backed store, SSO and audit, IATF 16949 retention, on-prem or VPC model hosting, and a fleet view across lines.</p></div>
+    </div>
+  </div>
+  <div class="src"><span class="lab">Source</span><code>proposal.md</code><span class="cite">§Roadmap · second-plant result in</span><code>benchmark.md</code></div>
+</section>
+
+<!-- ═══ 26 · RISKS ═══════════════════════════════════════════════════════ -->
+<section class="sheet tabular">
+  <div class="masthead"><span>08 · Key risks and mitigations</span><span class="pg">26</span></div>
+  <div class="body">
+    <p class="exlabel">Exhibit 17 — every mitigation is a mechanism in the code, not an intention</p>
+    <h2 class="action">The risks that kill this product are trust risks, so every mitigation had to be something a sceptic can check.</h2>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Risk</th><th>Why it is serious</th><th>Mitigation — and where it lives</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>It only works because the plant is simulated</b></td>
+            <td>The most damaging objection available, and the fairest</td>
+            <td>An architectural wall the twin cannot read through; a healthy-line floor over 160 h; a run against a third-party PLC simulator we did not write; and shadow mode on real data as phase 1</td>
+          </tr>
+          <tr>
+            <td><b>Alert fatigue</b></td>
+            <td>Kills the product in a week, and silently — the tool is still running, nobody is reading it</td>
+            <td>A <i>published</i> false-alarm budget, three statistical guards, root-cause grouping, confirm/dismiss feedback and a calibration table regenerated every run</td>
+          </tr>
+          <tr>
+            <td><b>Wrong inference at a dark station</b></td>
+            <td>An estimate presented as a measurement is worse than no estimate</td>
+            <td>Provenance tag on every value, intervals rather than points, and explicit abstention with a discriminating sample request when two stations are inseparable</td>
+          </tr>
+          <tr>
+            <td><b>Defects with no upstream signal</b></td>
+            <td>The hold trails the first inspection catch; we cannot predict what nothing measured</td>
+            <td>Stated openly as a limit; the value-of-information ranking names what to measure to close it, priced</td>
+          </tr>
+          <tr>
+            <td><b>OT security and change control</b></td>
+            <td>The objection that stops deployment regardless of merit</td>
+            <td>Read-only by construction, zero writes proven over a real Modbus socket, on-prem deployment, full audit table with actor and line time</td>
+          </tr>
+          <tr>
+            <td><b>Ungrounded AI output</b></td>
+            <td>One invented number in a briefing costs more trust than ten correct ones earn</td>
+            <td>Content-hashed evidence packs, a mechanical grounding check with a stored verdict per report, operator text treated as untrusted data, and no model anywhere on the prediction path</td>
+          </tr>
+          <tr>
+            <td><b>Works-council and labour objection</b></td>
+            <td>In Europe, anything that times operators is a consultation item</td>
+            <td>Loom times <b>stations</b>, not people. We raise it first rather than being asked</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="src"><span class="lab">Source</span><code>proposal.md</code><span class="cite">§Risks ·</span><code>data_and_audit.md</code><span class="cite">· injection handling in</span><code>tests/test_injection.py</code></div>
+</section>
+
+<!-- ═══ 27 · WHAT WE DO NOT CLAIM ════════════════════════════════════════ -->
+<section class="sheet split">
+  <div class="masthead"><span>08 · Key risks and mitigations</span><span class="pg">27</span></div>
+  <div class="body">
+    <div class="lede">
+    <h2 class="action">What we do not claim — because a limits page you write yourself is worth more than one a judge finds.</h2>
+    <div class="callout">
+      <b>Why this page exists at all.</b> Every number in this document was produced by a run we can re-execute,
+      and three of them contradicted something we had previously written. We changed the writing. A panel
+      cannot verify our benchmark in the room — what it can verify is whether we are the kind of team that
+      reports the seed count that made us look worse.
+    </div>
+    </div>
+    <div class="rite">
+    <ul class="tight" style="font-size:.9rem">
+      <li><strong>The false-alarm budget was broken, and we published the repair.</strong> At 20 seeds the moving-constraint scenario produced 2.4 false alarms per 8 h and the second plant 1.3, against a budget of 0.2. One cause was a real bug in alert grouping; the other was a bad measurement — the evaluator was counting a correct re-raise on a station whose fault was <i>still running</i> as a false alarm. Both are fixed. The tell that the definition change did not launder the headline is that the <b>healthy-line floor did not move</b> across it.</li>
+      <li><strong>The moving-constraint scenario still misses 3 faults in 40.</strong> It is in the table on page 20 at 37/40, not rounded away.</li>
+      <li><strong>Rework breaks FIFO</strong>, so flow inference at a dark station downstream of a rework loop is exact only between rework points.</li>
+      <li><strong>Two adjacent finish-only stations cannot be told apart</strong> from timestamps. The twin abstains rather than guessing — and page 21 shows that this is exactly where the coverage curve falls off a cliff on the 30-station plant.</li>
+      <li><strong>The Factory I/O integration ran against a stand-in controller.</strong> The Modbus socket, the read-only property and the dark-station reconstruction are real; the conveyor geometry of the real scene is not yet verified.</li>
+      <li><strong>Process parameters are proven on the simulated plant only.</strong> Weld current, torque and humidity behave as we modelled them because we modelled them. Flow reconstruction has a third-party check; quality does not yet.</li>
+      <li><strong>The AI layer's live evaluation ran on a free third-party model</strong>, not on a frontier model, and a sampled model's score moves between runs. We report the range rather than the best run, and cost per insight is not yet a figure worth quoting because the honest cost on a free tier is zero.</li>
+    </ul>
+    </div>
+  </div>
+  <div class="src"><span class="lab">Source</span><code>proposal.md</code><span class="cite">§What we do not claim ·</span><code>ablation.md</code><code>coverage.md</code><code>benchmark.md</code></div>
+</section>
+
+<!-- ═══ 28 · THE ASK ═════════════════════════════════════════════════════ -->
+<section class="sheet band cover">
+  <div class="masthead"><span>The ask</span><span class="pg">28</span></div>
+  <div class="body">
+    <div style="display:flex;flex-direction:column;gap:clamp(20px,3.2vw,34px)">
+      <p class="kicker">What we are asking for</p>
+      <div class="covergrid">
+        <div style="display:flex;flex-direction:column;gap:18px">
+          <h2 class="action" style="font-size:clamp(2rem,5vw,3.6rem);max-width:15ch;font-weight:600">One line, one shadow period, four weeks.</h2>
+          <div style="width:74px;height:6px;background:var(--signal)"></div>
+        </div>
+        <p class="deck" style="max-width:48ch;font-size:clamp(.98rem,1.2vw,1.08rem)">
+          We bring the tap, the twin and the scorekeeper. The plant brings the sensors it already has.
+          At the end of four weeks the plant is not reading our benchmark — <b>it is reading its own</b>,
+          produced by the evaluator that ships inside the product.
+        </p>
+      </div>
+      <div class="cols">
+        <div class="col" style="border-top-color:var(--signal)">
+          <h4 style="color:var(--band-ink)">The prototype is running now</h4>
+          <p style="color:var(--band-ink-2)">A live 3D control room: the plant's truth in front, the twin's belief behind. Fault injection, a YAML line editor, six persona tabs, an AI tab with all four AI features live, a scorecard, and a ten-scene scripted story mode.</p>
+        </div>
+        <div class="col v">
+          <h4 style="color:var(--band-ink)">And it is checkable</h4>
+          <p style="color:var(--band-ink-2)">85 tests. Every evidence document regenerated by a command in this deck's source chips. <code class="mono">python -m loom.numbers</code> asserts that this page and every other one quotes only figures a run produced.</p>
+        </div>
+        <div class="col" style="border-top-color:var(--band-rule)">
+          <h4 style="color:var(--band-ink)">What we would do with the round</h4>
+          <p style="color:var(--band-ink-2)">A pilot line with a real historian tap, the quality models validated against real process data rather than our own simulation, and cost per insight measured on a priced model.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="src">
+    <span class="lab">Team SRsync</span>
+    <span class="cite">Rujula Ganesh Rahate · Shivansh Gupta — IIT Bombay · Accenture Innovation Challenge 2026, Round 2, Track 4 DigitalTwin.ai</span>
+  </div>
+</section>
+
+<script>
+// Running foot: page counter, reading progress and keyboard paging, so the
+// deck can be walked in a room without a mouse.
+(function () {
+  var sheets = Array.prototype.slice.call(document.querySelectorAll('.sheet'));
+  var rail = document.getElementById('rail');
+  var prog = document.getElementById('prog');
+  var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+  var total = pad(sheets.length);
+  var current = 0;
+
+  var nearest = function () {
+    var best = 0, bestD = Infinity;
+    for (var i = 0; i < sheets.length; i++) {
+      var d = Math.abs(sheets[i].getBoundingClientRect().top);
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    return best;
+  };
+  var tick = function () {
+    current = nearest();
+    rail.textContent = pad(current + 1) + ' / ' + total;
+    var max = document.documentElement.scrollHeight - innerHeight;
+    prog.style.width = (max > 0 ? (scrollY / max) * 100 : 0) + '%';
+  };
+  var queued = false;
+  addEventListener('scroll', function () {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(function () { queued = false; tick(); });
+  }, { passive: true });
+
+  var go = function (d) {
+    var n = Math.min(sheets.length - 1, Math.max(0, nearest() + d));
+    sheets[n].scrollIntoView({ block: 'start' });
+  };
+  addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'PageDown' || k === ' ') { e.preventDefault(); go(1); }
+    else if (k === 'ArrowLeft' || k === 'PageUp') { e.preventDefault(); go(-1); }
+    else if (k === 'Home') { e.preventDefault(); sheets[0].scrollIntoView(); }
+    else if (k === 'End') { e.preventDefault(); sheets[sheets.length - 1].scrollIntoView(); }
+  });
+  tick();
+})();
+</script>

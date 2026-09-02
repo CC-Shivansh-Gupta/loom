@@ -8,3 +8,4 @@ web/loom.db*
 web/*.replay*.yaml
 configs/.live.yaml
 configs/.replay*.yaml
+docs/grill_sheet.md
